@@ -47,6 +47,47 @@ services:
         stdin_open: true
 ```
 
+## 前后端分离部署
+
+本项目已支持前后端分离架构，可以使用以下方式部署：
+
+### 启动数据库和缓存服务
+
+```bash
+# 启动PostgreSQL和Redis服务
+docker-compose up -d postgres redis
+```
+
+### 启动后端服务
+
+```bash
+# 进入后端目录
+cd server
+
+# 安装依赖
+npm install
+
+# 开发环境运行
+npm run dev
+```
+
+### 启动前端应用
+
+```bash
+# 在项目根目录安装依赖
+pnpm install
+
+# 开发环境运行
+pnpm run dev
+```
+
+或者使用完整的Docker容器化部署：
+
+```bash
+# 启动所有服务（前端、后端、数据库、缓存）
+docker-compose up -d
+```
+
 ## NPM 部署
 
 ```bash

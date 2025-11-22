@@ -3,30 +3,35 @@
     <n-message-provider>
       <n-dialog-provider>
         <n-spin :show="isLoading" description="正在加载游戏数据...">
-          <n-layout>
+          <n-layout v-if="isAuthenticated && !isLoggingOut">
             <n-layout-header bordered>
               <div class="header-content">
                 <n-page-header>
                   <template #title>我的放置仙途</template>
                   <template #extra>
-                    <n-button quaternary circle @click="playerStore.toggle">
-                      <template #icon>
-                        <n-icon>
-                          <Sunny v-if="playerStore.isDarkMode" />
-                          <Moon v-else />
-                        </n-icon>
-                      </template>
-                    </n-button>
+                    <n-space>
+                      <n-button @click="logout">退出游戏</n-button>
+                      <n-button quaternary circle @click="playerStore.toggle">
+                        <template #icon>
+                          <n-icon>
+                            <Sunny v-if="playerStore.isDarkMode" />
+                            <Moon v-else />
+                          </n-icon>
+                        </template>
+                      </n-button>
+                    </n-space>
                   </template>
                 </n-page-header>
-                <n-scrollbar x-scrollable trigger="none">
-                  <n-menu
-                    mode="horizontal"
-                    :options="menuOptions"
-                    :value="getCurrentMenuKey()"
-                    @update:value="handleMenuClick"
-                  />
-                </n-scrollbar>
+                <div class="menu-container">
+                  <n-scrollbar x-scrollable>
+                    <n-menu
+                      mode="horizontal"
+                      :options="menuOptions"
+                      :value="getCurrentMenuKey()"
+                      @update:value="handleMenuClick"
+                    />
+                  </n-scrollbar>
+                </div>
               </div>
             </n-layout-header>
             <n-layout-content>
@@ -154,6 +159,9 @@
               </div>
             </n-layout-content>
           </n-layout>
+          <div v-else>
+            <router-view />
+          </div>
         </n-spin>
       </n-dialog-provider>
     </n-message-provider>
@@ -163,7 +171,7 @@
 <script setup>
   import { useRouter, useRoute } from 'vue-router'
   import { usePlayerStore } from './stores/player'
-  import { h, ref } from 'vue'
+  import { h, ref, computed } from 'vue'
   import { NIcon, darkTheme } from 'naive-ui'
   import {
     BookOutlined,
@@ -174,12 +182,11 @@
     MedicineBoxOutlined,
     GiftOutlined,
     HomeOutlined,
-    SmileOutlined,
-    AppstoreOutlined,
-    BugOutlined
+    SmileOutlined
   } from '@ant-design/icons-vue'
   import { Moon, Sunny, Flash } from '@vicons/ionicons5'
   import { getRealmName } from './plugins/realm'
+  import { getAuthToken, clearAuthToken } from './stores/db'
 
   const router = useRouter()
   const route = useRoute()
@@ -188,6 +195,12 @@
   const menuOptions = ref([])
   const isNewPlayer = ref(false)
   const isLoading = ref(true) // 添加加载状态
+  const isLoggingOut = ref(false) // 添加登出状态
+
+  // Check if user is authenticated
+  const isAuthenticated = computed(() => {
+    return !!getAuthToken()
+  })
 
   // 初始化数据加载
   playerStore.initializePlayer().then(() => {
@@ -200,9 +213,6 @@
     () => playerStore.isNewPlayer,
     bool => {
       isNewPlayer.value = bool
-      if (!bool && route.path === '/') {
-        router.push('/cultivation')
-      }
     }
   )
 
@@ -252,24 +262,15 @@
         icon: renderIcon(Flash)
       },
       {
-        label: '成就',
-        key: 'achievements',
+        label: '排行榜',
+        key: 'leaderboard',
         icon: renderIcon(TrophyOutlined)
       },
       {
         label: '设置',
         key: 'settings',
         icon: renderIcon(SettingOutlined)
-      },
-      ...(playerStore.isGMMode
-        ? [
-            {
-              label: 'GM调试',
-              key: 'gm',
-              icon: renderIcon(SmileOutlined)
-            }
-          ]
-        : [])
+      }
     ]
   }
   // 自动获取灵力
@@ -304,6 +305,18 @@
   const handleMenuClick = key => {
     router.push(`/${key}`)
   }
+
+  // 退出游戏
+  const logout = () => {
+    // 设置登出状态
+    isLoggingOut.value = true
+    // 清除认证令牌
+    clearAuthToken()
+    // 重置玩家状态
+    playerStore.$reset()
+    // 自动刷新页面而不是跳转
+    window.location.reload()
+  }
 </script>
 
 <style>
@@ -336,6 +349,20 @@
     max-width: 1200px;
     margin: 0 auto;
     padding: 0 16px;
+  }
+
+  .menu-container {
+    width: 100%;
+    overflow: hidden;
+  }
+
+  .menu-container .n-scrollbar {
+    overflow: hidden;
+  }
+
+  .menu-container .n-scrollbar > .n-scrollbar-container {
+    overflow-x: auto !important;
+    overflow-y: hidden;
   }
 
   .content-wrapper {

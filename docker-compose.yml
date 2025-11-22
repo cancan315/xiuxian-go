@@ -2,9 +2,75 @@ version: '3.9'
 services:
     vue-idle-xiuxian:
         image: kowming/vue-idle-xiuxian:latest
-        container_name: xiuxian
+        container_name: xiuxian-frontend
         restart: unless-stopped
         ports:
             - 8183:8080
         tty: true
         stdin_open: true
+        depends_on:
+            - postgres
+            - redis
+
+    # PostgreSQL数据库
+    postgres:
+        image: postgres:15-alpine
+        container_name: xiuxian-postgres
+        restart: unless-stopped
+        environment:
+            POSTGRES_DB: xiuxian_db
+            POSTGRES_USER: xiuxian_user
+            POSTGRES_PASSWORD: xiuxian_password
+        ports:
+            - "5432:5432"
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+            - ./server/init.sql:/docker-entrypoint-initdb.d/init.sql
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U xiuxian_user -d xiuxian_db"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+
+    # Redis缓存
+    redis:
+        image: redis:7-alpine
+        container_name: xiuxian-redis
+        restart: unless-stopped
+        ports:
+            - "6379:6379"
+        volumes:
+            - redis_data:/data
+        command: redis-server --appendonly yes
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+
+    # 后端服务
+    backend:
+        build:
+            context: .
+            dockerfile: Dockerfile.server
+        container_name: xiuxian-backend
+        restart: unless-stopped
+        ports:
+            - "3000:3000"
+        environment:
+            - DB_HOST=postgres
+            - DB_PORT=5432
+            - DB_NAME=xiuxian_db
+            - DB_USER=xiuxian_user
+            - DB_PASSWORD=xiuxian_password
+            - REDIS_URL=redis://redis:6379
+        volumes:
+            - ./server:/app
+        depends_on:
+            - postgres
+            - redis
+        command: npm run dev
+
+volumes:
+    postgres_data:
+    redis_data:

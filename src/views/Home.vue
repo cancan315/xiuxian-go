@@ -21,12 +21,14 @@
   const message = useMessage()
 
   // 领取新手礼包
-  const receiveNewPlayerGift = () => {
+  const receiveNewPlayerGift = async () => {
     playerStore.spiritStones += 20000
     playerStore.isNewPlayer = false
-    router.push('/cultivation')
+    await playerStore.saveData()
     message.success('获得20000灵石')
     message.success('新手礼包领取成功')
+    // 自动刷新页面
+    window.location.reload()
   }
 </script>
 

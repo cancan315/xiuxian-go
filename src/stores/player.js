@@ -1,15 +1,15 @@
 import { defineStore } from 'pinia'
-import { GameDB } from './db'
+import { GameDB, getAuthToken } from './db'
+import APIService from '../services/api'
 import { pillRecipes, tryCreatePill, calculatePillEffect } from '../plugins/pills'
 import { encryptData, decryptData, validateData } from '../plugins/crypto'
 import { getRealmName, getRealmLength } from '../plugins/realm'
+import router from '../router'
 
 export const usePlayerStore = defineStore('player', {
   state: () => ({
     // 是否新玩家
     isNewPlayer: true,
-    // GM模式开关
-    isGMMode: false,
     // 主题设置
     isDarkMode: localStorage.getItem('darkMode') === 'true',
     // 灵宠系统
@@ -167,7 +167,7 @@ export const usePlayerStore = defineStore('player', {
     unlockedRealms: ['练气一层'], // 已解锁境界
     unlockedLocations: ['新手村'], // 已解锁地点
     unlockedSkills: [], // 已解锁功法
-    completedAchievements: [] // 已完成成就
+    isNewPlayer: true // 是否为新玩家
   }),
   getters: {
     // 获取灵宠的属性加成
@@ -258,14 +258,54 @@ export const usePlayerStore = defineStore('player', {
     // 初始化玩家数据
     async initializePlayer() {
       try {
-        const savedData = await GameDB.getData('playerData')
-        if (savedData) {
-          const decryptedData = decryptData(savedData)
-          if (decryptedData && validateData(decryptedData)) {
-            Object.assign(this.$state, decryptedData)
-          } else {
-            console.error('存档数据验证失败，使用初始数据')
+        const token = getAuthToken()
+        if (token) {
+          const response = await APIService.getPlayerData(token)
+          if (response && response.user) {
+            // Map user data to player store state
+            Object.assign(this.$state, {
+              ...this.$state,
+              ...response.user,
+              // Map playerName from backend to name in frontend
+              name: response.user.playerName || this.$state.name || '无名修士',
+              // Map spiritStones from backend
+              spiritStones: response.user.spiritStones !== undefined ? response.user.spiritStones : this.$state.spiritStones,
+              // Convert JSON strings back to objects if needed
+              baseAttributes: typeof response.user.baseAttributes === 'string' 
+                ? JSON.parse(response.user.baseAttributes) 
+                : response.user.baseAttributes,
+              combatAttributes: typeof response.user.combatAttributes === 'string' 
+                ? JSON.parse(response.user.combatAttributes) 
+                : response.user.combatAttributes,
+              combatResistance: typeof response.user.combatResistance === 'string' 
+                ? JSON.parse(response.user.combatResistance) 
+                : response.user.combatResistance,
+              specialAttributes: typeof response.user.specialAttributes === 'string' 
+                ? JSON.parse(response.user.specialAttributes) 
+                : response.user.specialAttributes,
+              autoSellQualities: typeof response.user.autoSellQualities === 'string' 
+                ? JSON.parse(response.user.autoSellQualities) 
+                : response.user.autoSellQualities,
+              autoReleaseRarities: typeof response.user.autoReleaseRarities === 'string' 
+                ? JSON.parse(response.user.autoReleaseRarities) 
+                : response.user.autoReleaseRarities,
+              unlockedRealms: typeof response.user.unlockedRealms === 'string' 
+                ? JSON.parse(response.user.unlockedRealms) 
+                : response.user.unlockedRealms,
+              unlockedLocations: typeof response.user.unlockedLocations === 'string' 
+                ? JSON.parse(response.user.unlockedLocations) 
+                : response.user.unlockedLocations,
+              unlockedSkills: typeof response.user.unlockedSkills === 'string' 
+                ? JSON.parse(response.user.unlockedSkills) 
+                : response.user.unlockedSkills,
+              isNewPlayer: response.user.isNewPlayer !== undefined 
+                ? response.user.isNewPlayer 
+                : this.$state.isNewPlayer
+            })
           }
+        } else {
+          // Redirect to login if no token
+          router.push('/login')
         }
       } catch (error) {
         console.error('加载存档失败:', error)
@@ -283,17 +323,28 @@ export const usePlayerStore = defineStore('player', {
       this.updateHtmlDarkMode(this.isDarkMode)
       this.saveData()
     },
-    // 保存数据到IndexedDB
+    // 保存数据到后端
     async saveData() {
-      const encryptedData = encryptData(this.$state)
-      if (encryptedData) {
+      const token = getAuthToken()
+      if (token) {
         try {
-          await GameDB.setData('playerData', encryptedData)
+          // Prepare data for saving
+          const playerData = {
+            user: { 
+              ...this.$state,
+              // Map name from frontend to playerName for backend
+              playerName: this.$state.name
+            },
+            items: [], // Will be implemented later
+            herbs: [], // Will be implemented later
+            pills: [], // Will be implemented later
+            artifacts: [] // Will be implemented later
+          }
+          
+          await APIService.savePlayerData(token, playerData)
         } catch (error) {
           console.error('数据保存失败:', error)
         }
-      } else {
-        console.error('数据加密失败')
       }
     },
     // 导出存档数据

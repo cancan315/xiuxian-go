@@ -1,0 +1,42 @@
+version: '3.9'
+
+services:
+  # PostgreSQL数据库
+  postgres:
+    image: registry.cn-hongkong.aliyuncs.com/velero/postgres:15-alpine
+    container_name: xiuxian-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: xiuxian_db
+      POSTGRES_USER: xiuxian_user
+      POSTGRES_PASSWORD: xiuxian_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U xiuxian_user -d xiuxian_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis缓存
+  redis:
+    image: registry.cn-hongkong.aliyuncs.com/velero/redis:7-alpine
+    container_name: xiuxian-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:

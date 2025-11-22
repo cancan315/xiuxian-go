@@ -63,11 +63,15 @@
 
   // 检查成就完成情况
   onMounted(() => {
-    const newlyCompletedAchievements = checkAchievements(playerStore)
-    // 显示新完成的成就
-    newlyCompletedAchievements.forEach(achievement => {
-      message.success(`恭喜解锁新成就：${achievement.name}！\n\n${achievement.description}`, { duration: 3000 })
-    })
+    try {
+      const newlyCompletedAchievements = checkAchievements(playerStore)
+      // 显示新完成的成就
+      newlyCompletedAchievements.forEach(achievement => {
+        message.success(`恭喜解锁新成就：${achievement.name}！\n\n${achievement.description}`, { duration: 3000 })
+      })
+    } catch (error) {
+      console.error('检查成就时出错:', error)
+    }
   })
 
   // 获取所有成就类别
@@ -95,23 +99,37 @@
 
   // 检查成就是否完成
   const isAchievementCompleted = achievementId => {
-    return playerStore.completedAchievements.includes(achievementId)
+    try {
+      return playerStore.completedAchievements && Array.isArray(playerStore.completedAchievements) && playerStore.completedAchievements.includes(achievementId)
+    } catch (error) {
+      console.error('检查成就完成状态时出错:', error)
+      return false
+    }
   }
 
   // 显示成就详情
   const showAchievementDetails = achievement => {
-    let rewardText = '奖励：'
-    if (achievement.reward) {
-      if (achievement.reward.spirit) rewardText += `\n${achievement.reward.spirit} 灵力`
-      if (achievement.reward.spiritRate)
-        rewardText += `\n${(achievement.reward.spiritRate * 100 - 100).toFixed(0)}% 灵力获取提升`
-      if (achievement.reward.herbRate)
-        rewardText += `\n${(achievement.reward.herbRate * 100 - 100).toFixed(0)}% 灵草获取提升`
-      if (achievement.reward.alchemyRate)
-        rewardText += `\n${(achievement.reward.alchemyRate * 100 - 100).toFixed(0)}% 炼丹成功率提升`
-      if (achievement.reward.luck) rewardText += `\n${(achievement.reward.luck * 100 - 100).toFixed(0)}% 幸运提升`
+    try {
+      let rewardText = '奖励：'
+      if (achievement.reward) {
+        if (achievement.reward.spirit) rewardText += `\n${achievement.reward.spirit} 灵力`
+        if (achievement.reward.spiritRate)
+          rewardText += `\n${(achievement.reward.spiritRate * 100 - 100).toFixed(0)}% 灵力获取提升`
+        if (achievement.reward.herbRate)
+          rewardText += `\n${(achievement.reward.herbRate * 100 - 100).toFixed(0)}% 灵草获取提升`
+        if (achievement.reward.alchemyRate)
+          rewardText += `\n${(achievement.reward.alchemyRate * 100 - 100).toFixed(0)}% 炼丹成功率提升`
+        if (achievement.reward.luck) rewardText += `\n${(achievement.reward.luck * 100 - 100).toFixed(0)}% 幸运提升`
+      }
+      message.info(`${achievement.name}
+
+${achievement.description}
+
+${rewardText}`, { duration: 5000 })
+    } catch (error) {
+      console.error('显示成就详情时出错:', error)
+      message.error('显示成就详情时出错')
     }
-    message.info(`${achievement.name}\n\n${achievement.description}\n\n${rewardText}`, { duration: 5000 })
   }
 
   // 获取成就进度

@@ -4,18 +4,23 @@ import Home from '../views/Home.vue'
 import Cultivation from '../views/Cultivation.vue'
 import Inventory from '../views/Inventory.vue'
 import Exploration from '../views/Exploration.vue'
-import Achievements from '../views/Achievements.vue'
 import Settings from '../views/Settings.vue'
-import GM from '../views/GM.vue'
 import Alchemy from '../views/Alchemy.vue'
 import Dungeon from '../views/Dungeon.vue'
 import Gacha from '../views/Gacha.vue'
+import Leaderboard from '../views/Leaderboard.vue'
+import Login from '../views/Login.vue'
 
 const routes = [
   {
     path: '/',
     name: 'Home',
     component: Home
+  },
+  {
+    path: '/login',
+    name: 'Login',
+    component: Login
   },
   {
     path: '/cultivation',
@@ -33,27 +38,9 @@ const routes = [
     component: Exploration
   },
   {
-    path: '/achievements',
-    name: 'Achievements',
-    component: Achievements
-  },
-  {
     path: '/settings',
     name: 'Settings',
     component: Settings
-  },
-  {
-    path: '/gm',
-    name: 'gm',
-    component: GM,
-    beforeEnter: (to, from, next) => {
-      const playerStore = usePlayerStore()
-      if (!playerStore.isGMMode) {
-        next('/cultivation')
-      } else {
-        next()
-      }
-    }
   },
   {
     path: '/alchemy',
@@ -69,6 +56,11 @@ const routes = [
     path: '/gacha',
     name: 'Gacha',
     component: Gacha
+  },
+  {
+    path: '/leaderboard',
+    name: 'Leaderboard',
+    component: Leaderboard
   }
 ]
 
