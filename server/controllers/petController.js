@@ -381,6 +381,26 @@ const recallPet = async (req, res) => {
       return res.status(404).json({ message: '灵宠未找到' });
     }
 
+    // 检查灵宠是否处于出战状态
+    if (!pet.isActive) {
+      return res.status(400).json({ message: '灵宠未处于出战状态，无法召回' });
+    }
+
+    // 打印召回前灵宠属性
+    console.log(`[Pet Recall] 召回前灵宠属性:`, {
+      petId: pet.id,
+      petName: pet.name,
+      petRarity: pet.rarity,
+      petLevel: pet.level,
+      petStar: pet.star,
+      petDescription: pet.description,
+      petCombatAttributes: pet.combatAttributes,
+      petAttackBonus: pet.attackBonus,
+      petDefenseBonus: pet.defenseBonus,
+      petHealthBonus: pet.healthBonus,
+      petIsActive: pet.isActive
+    });
+
     // 标记灵宠为召回状态
     await Pet.update(
       { isActive: false },
@@ -395,7 +415,37 @@ const recallPet = async (req, res) => {
       }
     );
 
+    // 重新查询更新后的灵宠对象，确保获取最新状态
+    const updatedPet = await Pet.findOne({
+      where: {
+        userId: userId,
+        [Sequelize.Op.or]: [
+          { petId: petId },
+          { id: petId }
+        ]
+      }
+    });
+    
+    if (updatedPet) {
+      pet = updatedPet;
+      // 打印召回后灵宠属性
+      console.log(`[Pet Recall] 召回后灵宠属性:`, {
+        petId: pet.id,
+        petName: pet.name,
+        petRarity: pet.rarity,
+        petLevel: pet.level,
+        petStar: pet.star,
+        petDescription: pet.description,
+        petCombatAttributes: pet.combatAttributes,
+        petAttackBonus: pet.attackBonus,
+        petDefenseBonus: pet.defenseBonus,
+        petHealthBonus: pet.healthBonus,
+        petIsActive: pet.isActive
+      });
+    }
+
     // 计算灵宠属性加成（用于移除）
+    // 定义不同品质灵宠的基础属性加成
     const qualityBonusMap = {
       mythic: 0.15, // 仙兽基础加成15%
       legendary: 0.12, // 瑞兽基础加成12%
@@ -404,6 +454,8 @@ const recallPet = async (req, res) => {
       uncommon: 0.03, // 妖兽基础加成3%
       common: 0.03 // 凡兽品质基础加成3%
     }
+    
+    // 定义不同品质灵宠每升一星的属性加成
     const starBonusPerQuality = {
       mythic: 0.02, // 仙兽每星+2%
       legendary: 0.01, // 瑞兽每星+1%
@@ -413,53 +465,44 @@ const recallPet = async (req, res) => {
       common: 0.01 // 凡兽每星+1% 
     };
 
-    const baseBonus = qualityBonusMap[pet.rarity] || 0;
-    const starBonus = (pet.star || 0) * (starBonusPerQuality[pet.rarity] || 0);
-    const levelBonus = ((pet.level || 1) - 1) * (baseBonus * 0.1);
-    const phase = Math.floor((pet.star || 0) / 5);
-    const phaseBonus = phase * (baseBonus * 0.5);
-    const finalBonus = baseBonus + starBonus + levelBonus + phaseBonus;
+    // 计算基础属性加成：品质基础加成 + 星级加成 + 等级加成 + 阶段加成
+    const baseBonus = qualityBonusMap[pet.rarity] || 0;  // 品质基础加成
+    const starBonus = (pet.star || 0) * (starBonusPerQuality[pet.rarity] || 0);  // 星级加成
+    const levelBonus = ((pet.level || 1) - 1) * (baseBonus * 0.1);  // 等级加成
+    const phase = Math.floor((pet.star || 0) / 5);  // 计算当前处于第几阶段（每5星为一阶段）
+    const phaseBonus = phase * (baseBonus * 0.5);  // 阶段加成
+    const finalBonus = baseBonus + starBonus + levelBonus + phaseBonus;  // 总基础属性加成
+    
+    // 计算战斗属性加成（为基础属性加成的一半）
     const combatBonus = finalBonus * 0.5;
 
+    // 构造需要移除的属性加成对象
     const petBonus = {
-      attack: finalBonus,
-      defense: finalBonus,
-      health: finalBonus,
-      critRate: combatBonus,
-      comboRate: combatBonus,
-      counterRate: combatBonus,
-      stunRate: combatBonus,
-      dodgeRate: combatBonus,
-      vampireRate: combatBonus,
-      critResist: combatBonus,
-      comboResist: combatBonus,
-      counterResist: combatBonus,
-      stunResist: combatBonus,
-      dodgeResist: combatBonus,
-      vampireResist: combatBonus,
-      healBoost: combatBonus,
-      critDamageBoost: combatBonus,
-      critDamageReduce: combatBonus,
-      finalDamageBoost: combatBonus,
-      finalDamageReduce: combatBonus,
-      combatBoost: combatBonus,
-      resistanceBoost: combatBonus
+      attack: finalBonus,      // 攻击力加成
+      defense: finalBonus,     // 防御力加成
+      health: finalBonus,      // 生命值加成
+      critRate: combatBonus,   // 暴击率加成
+      comboRate: combatBonus,  // 连击率加成
+      counterRate: combatBonus, // 反击率加成
+      stunRate: combatBonus,   // 眩晕率加成
+      dodgeRate: combatBonus,  // 闪避率加成
+      vampireRate: combatBonus, // 吸血率加成
+      critResist: combatBonus, // 暴击抗性
+      comboResist: combatBonus, // 连击抗性
+      counterResist: combatBonus, // 反击抗性
+      stunResist: combatBonus,  // 眩晕抗性
+      dodgeResist: combatBonus, // 闪避抗性
+      vampireResist: combatBonus, // 吸血抗性
+      healBoost: combatBonus,   // 治疗加成
+      critDamageBoost: combatBonus, // 暴击伤害加成
+      critDamageReduce: combatBonus, // 暴击伤害减免
+      finalDamageBoost: combatBonus, // 最终伤害加成
+      finalDamageReduce: combatBonus, // 最终伤害减免
+      combatBoost: combatBonus,     // 战斗力加成
+      resistanceBoost: combatBonus  // 抗性加成
     };
     
-    // 打印召回灵宠的属性，用于排查属性移除问题
-    console.log(`[Pet Recall] 打印召回后灵宠属性:`, {
-      petId: pet.id,
-      petName: pet.name,
-      petRarity: pet.rarity,
-      petLevel: pet.level,
-      petStar: pet.star,
-      petDescription: pet.description,
-      petCombatAttributes: pet.combatAttributes,
-      petAttackBonus: pet.attackBonus,
-      petDefenseBonus: pet.defenseBonus,
-      petHealthBonus: pet.healthBonus,
-      petIsActive: pet.isActive
-    });
+    
 
     // 获取用户当前属性
     const user = await User.findByPk(userId);

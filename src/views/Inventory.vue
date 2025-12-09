@@ -1323,7 +1323,8 @@
       });
       
       
-      if (playerInfoStore.activePet?.id === item.id) {
+      // 检查灵宠是否处于出战状态
+      if (item.isActive) {
         // 召回灵宠
         console.log(`[Pet Action] 尝试召回灵宠: ${item.name}(${item.id}), 当前activePet:`, playerInfoStore.activePet);
         try {
