@@ -1,151 +1,136 @@
-<template>
-  <n-layout>
-    <n-layout-header bordered>
-      <n-page-header>
-        <template #title>成就系统</template>
-      </n-page-header>
-    </n-layout-header>
-    <n-layout-content>
-      <n-card :bordered="false">
-        <n-tabs type="line">
-          <n-tab-pane
-            v-for="category in achievementCategories"
-            :key="category.key"
-            :name="category.key"
-            :tab="category.name"
-          >
-            <n-space vertical>
-              <n-grid :cols="2" :x-gap="12" :y-gap="8">
-                <n-grid-item v-for="achievement in category.achievements" :key="achievement.id">
-                  <n-card
-                    :class="{ completed: isAchievementCompleted(achievement.id) }"
-                    size="small"
-                    hoverable
-                    @click="showAchievementDetails(achievement)"
-                  >
-                    <template #header>
-                      <n-space justify="space-between" align="center">
-                        <span>{{ achievement.name }}</span>
-                        <n-tag :type="isAchievementCompleted(achievement.id) ? 'success' : 'default'">
-                          {{ isAchievementCompleted(achievement.id) ? '已完成' : '未完成' }}
-                        </n-tag>
-                      </n-space>
-                    </template>
-                    <p>{{ achievement.description }}</p>
-                    <n-progress
-                      type="line"
-                      :percentage="getProgress(achievement)"
-                      :color="isAchievementCompleted(achievement.id) ? '#18a058' : '#2080f0'"
-                      :height="8"
-                      :border-radius="4"
-                      :show-indicator="true"
-                    />
-                  </n-card>
-                </n-grid-item>
-              </n-grid>
-            </n-space>
-          </n-tab-pane>
-        </n-tabs>
-      </n-card>
-    </n-layout-content>
-  </n-layout>
-</template>
-
 <script setup>
-  import { usePlayerStore } from '../stores/player'
-  import { achievements, getAchievementProgress } from '../plugins/achievements'
-  import { ref, onMounted } from 'vue'
+  // 修改为使用模块化store
+  import { usePlayerInfoStore } from '../stores/playerInfo'
+  import { useInventoryStore } from '../stores/inventory'
+  import { useEquipmentStore } from '../stores/equipment'
+  import { usePetsStore } from '../stores/pets'
+  import { usePillsStore } from '../stores/pills'
+  import { useSettingsStore } from '../stores/settings'
+  import { useStatsStore } from '../stores/stats'
+  import { ref, computed, onMounted } from 'vue'
   import { useMessage } from 'naive-ui'
-  import { checkAchievements } from '../plugins/achievements'
 
-  const playerStore = usePlayerStore()
+  const playerInfoStore = usePlayerInfoStore()
+  const inventoryStore = useInventoryStore()
+  const equipmentStore = useEquipmentStore()
+  const petsStore = usePetsStore()
+  const pillsStore = usePillsStore()
+  const settingsStore = useSettingsStore()
+  const statsStore = useStatsStore()
+  
   const message = useMessage()
+  const activeTab = ref('achievements')
 
-  // 检查成就完成情况
-  onMounted(() => {
-    try {
-      const newlyCompletedAchievements = checkAchievements(playerStore)
-      // 显示新完成的成就
-      newlyCompletedAchievements.forEach(achievement => {
-        message.success(`恭喜解锁新成就：${achievement.name}！\n\n${achievement.description}`, { duration: 3000 })
-      })
-    } catch (error) {
-      console.error('检查成就时出错:', error)
+  // 成就列表
+  const achievements = computed(() => [
+    {
+      id: 'first_breakthrough',
+      name: '初窥门径',
+      description: '完成第一次境界突破',
+      condition: '突破次数 >= 1',
+      achieved: statsStore.breakthroughCount >= 1,
+      reward: '100灵石'
+    },
+    {
+      id: 'explorer',
+      name: '探险家',
+      description: '完成10次探索',
+      condition: '探索次数 >= 10',
+      achieved: statsStore.explorationCount >= 10,
+      reward: '50灵石'
+    },
+    {
+      id: 'collector',
+      name: '收藏家',
+      description: '获得50件物品',
+      condition: '获得物品数 >= 50',
+      achieved: statsStore.itemsFound >= 50,
+      reward: '100灵石'
+    },
+    {
+      id: 'alchemist',
+      name: '炼丹师',
+      description: '炼制10颗丹药',
+      condition: '炼制丹药数 >= 10',
+      achieved: pillsStore.pillsCrafted >= 10,
+      reward: '200灵石'
+    },
+    {
+      id: 'equip_master',
+      name: '装备大师',
+      description: '装备一件仙品装备',
+      condition: '拥有仙品装备',
+      achieved: Object.values(equipmentStore.equippedArtifacts).some(a => a && a.quality === 'mythic'),
+      reward: '500灵石'
+    },
+    {
+      id: 'pet_tamer',
+      name: '灵宠大师',
+      description: '拥有一只神品灵宠',
+      condition: '拥有神品灵宠',
+      achieved: petsStore.pets.some(p => p.rarity === 'divine') || (playerInfoStore.activePet && playerInfoStore.activePet.rarity === 'divine'),
+      reward: '1000灵石'
+    },
+    {
+      id: 'realm_master',
+      name: '境界大师',
+      description: '达到练气十层',
+      condition: '境界等级 >= 10',
+      achieved: playerInfoStore.level >= 10,
+      reward: '1000灵石'
+    },
+    {
+      id: 'wealthy',
+      name: '富豪',
+      description: '拥有10000灵石',
+      condition: '灵石数量 >= 10000',
+      achieved: inventoryStore.spiritStones >= 10000,
+      reward: '500灵石'
     }
+  ])
+
+  // 已完成成就
+  const completedAchievements = computed(() => {
+    return achievements.value.filter(a => a.achieved)
   })
 
-  // 获取所有成就类别
-  const achievementCategories = Object.entries(achievements).map(([key, value]) => ({
-    key,
-    name: getCategoryName(key),
-    achievements: value
-  }))
+  // 未完成成就
+  const incompleteAchievements = computed(() => {
+    return achievements.value.filter(a => !a.achieved)
+  })
 
-  // 获取成就类别名称
-  const getCategoryName = category => {
-    const categoryNames = {
-      equipment: '装备成就',
-      dungeon_explore: '秘境探索',
-      dungeon_combat: '秘境战斗',
-      cultivation: '修炼成就',
-      breakthrough: '突破成就',
-      exploration: '探索成就',
-      collection: '收集成就',
-      resources: '资源成就',
-      alchemy: '炼丹成就'
-    }
-    return categoryNames[category] || '其他成就'
-  }
+  // 统计数据
+  const stats = computed(() => [
+    { name: '境界等级', value: playerInfoStore.level },
+    { name: '当前境界', value: playerInfoStore.realm },
+    { name: '总修炼时间', value: `${Math.floor(statsStore.totalCultivationTime / 60)}小时${statsStore.totalCultivationTime % 60}分钟` },
+    { name: '突破次数', value: statsStore.breakthroughCount },
+    { name: '探索次数', value: statsStore.explorationCount },
+    { name: '获得物品数', value: statsStore.itemsFound },
+    { name: '触发事件数', value: statsStore.eventTriggered },
+    { name: '炼制丹药数', value: pillsStore.pillsCrafted },
+    { name: '服用丹药数', value: pillsStore.pillsConsumed },
+    { name: '灵石数量', value: inventoryStore.spiritStones },
+    { name: '强化石数量', value: inventoryStore.reinforceStones },
+    { name: '洗练石数量', value: inventoryStore.refinementStones },
+    { name: '灵宠精华', value: playerInfoStore.petEssence },
+    { name: '背包物品数', value: inventoryStore.items.length },
+    { name: '灵宠数量', value: petsStore.pets.length },
+    { name: '灵草种类', value: inventoryStore.herbs.length },
+    { name: '掌握丹方数', value: pillsStore.pillRecipes.length }
+  ])
 
-  // 检查成就是否完成
-  const isAchievementCompleted = achievementId => {
-    try {
-      return playerStore.completedAchievements && Array.isArray(playerStore.completedAchievements) && playerStore.completedAchievements.includes(achievementId)
-    } catch (error) {
-      console.error('检查成就完成状态时出错:', error)
-      return false
-    }
-  }
+  // 解锁境界
+  const unlockedRealms = computed(() => {
+    return playerInfoStore.unlockedRealms.map(realm => ({
+      name: realm
+    }))
+  })
 
-  // 显示成就详情
-  const showAchievementDetails = achievement => {
-    try {
-      let rewardText = '奖励：'
-      if (achievement.reward) {
-        if (achievement.reward.spirit) rewardText += `\n${achievement.reward.spirit} 灵力`
-        if (achievement.reward.spiritRate)
-          rewardText += `\n${(achievement.reward.spiritRate * 100 - 100).toFixed(0)}% 灵力获取提升`
-        if (achievement.reward.herbRate)
-          rewardText += `\n${(achievement.reward.herbRate * 100 - 100).toFixed(0)}% 灵草获取提升`
-        if (achievement.reward.alchemyRate)
-          rewardText += `\n${(achievement.reward.alchemyRate * 100 - 100).toFixed(0)}% 炼丹成功率提升`
-        if (achievement.reward.luck) rewardText += `\n${(achievement.reward.luck * 100 - 100).toFixed(0)}% 幸运提升`
-      }
-      message.info(`${achievement.name}
-
-${achievement.description}
-
-${rewardText}`, { duration: 5000 })
-    } catch (error) {
-      console.error('显示成就详情时出错:', error)
-      message.error('显示成就详情时出错')
-    }
-  }
-
-  // 获取成就进度
-  const getProgress = achievement => {
-    try {
-      const progress = getAchievementProgress(playerStore, achievement)
-      return Number.isFinite(progress) ? Math.min(100, Math.max(0, Math.round(progress))) : 0
-    } catch (error) {
-      console.error('成就进度报错:', error)
-      return 0
-    }
-  }
+  // 解锁地点
+  const unlockedLocations = computed(() => {
+    return playerInfoStore.unlockedLocations.map(location => ({
+      name: location
+    }))
+  })
 </script>
-
-<style scoped>
-  .completed {
-    background-color: rgba(24, 160, 88, 0.1);
-  }
-</style>

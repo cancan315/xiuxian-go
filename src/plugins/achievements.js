@@ -1,17 +1,9 @@
 const equipmentTypes = {
-  weapon: '武器',
-  head: '头部',
-  body: '衣服',
-  legs: '裤子',
-  feet: '鞋子',
-  shoulder: '肩甲',
-  hands: '手套',
-  wrist: '护腕',
-  necklace: '项链',
-  ring1: '戒指1',
-  ring2: '戒指2',
-  belt: '腰带',
-  artifact: '法宝'
+  faqi: '法宝',
+  guanjin: '冠巾',
+  daopao: '道袍',
+  yunlv: '云履',
+  fabao: '本命法宝'
 }
 
 // 成就系统配置
@@ -818,10 +810,7 @@ export const checkAchievements = player => {
                 player.luck = (player.luck || 1) * achievement.reward.luck
               }
             }
-            // 保存玩家数据
-            if (player.saveData && typeof player.saveData === 'function') {
-              player.saveData()
-            }
+
           }
         } catch (error) {
           console.error(`检查成就 ${achievement.id} 时出错:`, error)

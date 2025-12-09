@@ -44,7 +44,7 @@ const User = sequelize.define('User', {
   },
   spiritStones: {
     type: DataTypes.INTEGER,
-    defaultValue: 0
+    defaultValue: 20000
   },
   reinforceStones: {
     type: DataTypes.INTEGER,

@@ -1,66 +1,31 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
-import { usePlayerStore } from '../stores/player'
-import Home from '../views/Home.vue'
-import Cultivation from '../views/Cultivation.vue'
-import Inventory from '../views/Inventory.vue'
-import Exploration from '../views/Exploration.vue'
-import Settings from '../views/Settings.vue'
-import Alchemy from '../views/Alchemy.vue'
-import Dungeon from '../views/Dungeon.vue'
-import Gacha from '../views/Gacha.vue'
-import Leaderboard from '../views/Leaderboard.vue'
 import Login from '../views/Login.vue'
+import { getAuthToken } from '../stores/db'
 
 const routes = [
   {
     path: '/',
-    name: 'Home',
-    component: Home
+    redirect: '/home'
+  },
+  {
+    path: '/home',
+    name: 'App',
+    component: () => import('../App.vue'),
+    beforeEnter: (to, from, next) => {
+      // 检查是否有认证令牌
+      if (!getAuthToken()) {
+        // 如果没有认证令牌，重定向到登录页
+        next('/login')
+      } else {
+        // 如果有认证令牌，允许访问
+        next()
+      }
+    }
   },
   {
     path: '/login',
     name: 'Login',
     component: Login
-  },
-  {
-    path: '/cultivation',
-    name: 'Cultivation',
-    component: Cultivation
-  },
-  {
-    path: '/inventory',
-    name: 'Inventory',
-    component: Inventory
-  },
-  {
-    path: '/exploration',
-    name: 'Exploration',
-    component: Exploration
-  },
-  {
-    path: '/settings',
-    name: 'Settings',
-    component: Settings
-  },
-  {
-    path: '/alchemy',
-    name: 'alchemy',
-    component: Alchemy
-  },
-  {
-    path: '/dungeon',
-    name: 'Dungeon',
-    component: Dungeon
-  },
-  {
-    path: '/gacha',
-    name: 'Gacha',
-    component: Gacha
-  },
-  {
-    path: '/leaderboard',
-    name: 'Leaderboard',
-    component: Leaderboard
   }
 ]
 

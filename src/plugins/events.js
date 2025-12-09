@@ -1,6 +1,15 @@
 import { getRandomHerb, herbQualities } from './herbs'
 import { pillRecipes } from './pills'
 
+// 事件类型定义
+export const eventTypes = {
+  ITEM_FOUND: 'item_found',
+  SPIRIT_STONE_FOUND: 'spirit_stone_found',
+  HERB_FOUND: 'herb_found',
+  PILL_RECIPE_FRAGMENT_FOUND: 'pill_recipe_fragment_found',
+  BATTLE_ENCOUNTER: 'battle_encounter'
+}
+
 // 随机事件配置
 export const events = [
   {
@@ -10,7 +19,7 @@ export const events = [
     chance: 0.08,
     effect: (playerStore, showMessage) => {
       const bonus = Math.floor(30 * (playerStore.level / 5 + 1))
-      playerStore.cultivation += bonus
+      playerStore.cultivate(bonus)
       showMessage('success', `[古老石碑]领悟石碑上的功法，获得${bonus}点修为`)
     }
   },
@@ -21,7 +30,7 @@ export const events = [
     chance: 0.12,
     effect: (playerStore, showMessage) => {
       const bonus = Math.floor(60 * (playerStore.level / 3 + 1))
-      playerStore.spirit += bonus
+      playerStore.gainSpirit(bonus)
       showMessage('success', `[灵泉]饮用灵泉，灵力增加${bonus}点`)
     }
   },
@@ -33,8 +42,8 @@ export const events = [
     effect: (playerStore, showMessage) => {
       const cultivationBonus = Math.floor(120 * (playerStore.level / 2 + 1))
       const spiritBonus = Math.floor(180 * (playerStore.level / 2 + 1))
-      playerStore.cultivation += cultivationBonus
-      playerStore.spirit += spiritBonus
+      playerStore.cultivate(cultivationBonus)
+      playerStore.gainSpirit(spiritBonus)
       showMessage('success', `[古修遗府]获得上古大能传承，修为增加${cultivationBonus}点，灵力增加${spiritBonus}点`)
     }
   },
@@ -159,7 +168,6 @@ export const triggerRandomEvent = (playerStore, message) => {
       message('info', `[${event.name}]${event.description}`)
       event.effect(playerStore, message)
       playerStore.eventTriggered++ // 增加事件触发次数统计
-      playerStore.saveData()
       return true
     }
   }

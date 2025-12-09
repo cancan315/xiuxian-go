@@ -4,8 +4,7 @@
       <template #header-extra>
         <n-space>
           <n-select
-            v-model:value="playerStore.dungeonDifficulty"
-            @update:value="handleUpdateValue"
+            v-model:value="statsStore.dungeonDifficulty"
             placeholder="请选择难度"
             :options="dungeonOptions"
             style="width: 120px"
@@ -128,67 +127,67 @@
                   <n-divider>战斗属性</n-divider>
                   <n-descriptions bordered :column="3">
                     <n-descriptions-item label="暴击率">
-                      {{ (dungeonState.combatManager.player.stats.critRate * 100).toFixed(1) }}%
+                      {{ (dungeonState.combatManager.player.stats.critRate * 100 || 0).toFixed(1) }}%
                     </n-descriptions-item>
                     <n-descriptions-item label="连击率">
-                      {{ (dungeonState.combatManager.player.stats.comboRate * 100).toFixed(1) }}%
+                      {{ (dungeonState.combatManager.player.stats.comboRate * 100 || 0).toFixed(1) }}%
                     </n-descriptions-item>
                     <n-descriptions-item label="反击率">
-                      {{ (dungeonState.combatManager.player.stats.counterRate * 100).toFixed(1) }}%
+                      {{ (dungeonState.combatManager.player.stats.counterRate * 100 || 0).toFixed(1) }}%
                     </n-descriptions-item>
                     <n-descriptions-item label="眩晕率">
-                      {{ (dungeonState.combatManager.player.stats.stunRate * 100).toFixed(1) }}%
+                      {{ (dungeonState.combatManager.player.stats.stunRate * 100 || 0).toFixed(1) }}%
                     </n-descriptions-item>
                     <n-descriptions-item label="闪避率">
-                      {{ (dungeonState.combatManager.player.stats.dodgeRate * 100).toFixed(1) }}%
+                      {{ (dungeonState.combatManager.player.stats.dodgeRate * 100 || 0).toFixed(1) }}%
                     </n-descriptions-item>
                     <n-descriptions-item label="吸血率">
-                      {{ (dungeonState.combatManager.player.stats.vampireRate * 100).toFixed(1) }}%
+                      {{ (dungeonState.combatManager.player.stats.vampireRate * 100 || 0).toFixed(1) }}%
                     </n-descriptions-item>
                   </n-descriptions>
                   <n-divider>战斗抗性</n-divider>
                   <n-descriptions bordered :column="3">
                     <n-descriptions-item label="抗暴击">
-                      {{ (dungeonState.combatManager.player.stats.critResist * 100).toFixed(1) }}%
+                      {{ (dungeonState.combatManager.player.stats.critResist * 100 || 0).toFixed(1) }}%
                     </n-descriptions-item>
                     <n-descriptions-item label="抗连击">
-                      {{ (dungeonState.combatManager.player.stats.comboResist * 100).toFixed(1) }}%
+                      {{ (dungeonState.combatManager.player.stats.comboResist * 100 || 0).toFixed(1) }}%
                     </n-descriptions-item>
                     <n-descriptions-item label="抗反击">
-                      {{ (dungeonState.combatManager.player.stats.counterResist * 100).toFixed(1) }}%
+                      {{ (dungeonState.combatManager.player.stats.counterResist * 100 || 0).toFixed(1) }}%
                     </n-descriptions-item>
                     <n-descriptions-item label="抗眩晕">
-                      {{ (dungeonState.combatManager.player.stats.stunResist * 100).toFixed(1) }}%
+                      {{ (dungeonState.combatManager.player.stats.stunResist * 100 || 0).toFixed(1) }}%
                     </n-descriptions-item>
                     <n-descriptions-item label="抗闪避">
-                      {{ (dungeonState.combatManager.player.stats.dodgeResist * 100).toFixed(1) }}%
+                      {{ (dungeonState.combatManager.player.stats.dodgeResist * 100 || 0).toFixed(1) }}%
                     </n-descriptions-item>
                     <n-descriptions-item label="抗吸血">
-                      {{ (dungeonState.combatManager.player.stats.vampireResist * 100).toFixed(1) }}%
+                      {{ (dungeonState.combatManager.player.stats.vampireResist * 100 || 0).toFixed(1) }}%
                     </n-descriptions-item>
                   </n-descriptions>
                   <n-divider>特殊属性</n-divider>
                   <n-descriptions bordered :column="4">
                     <n-descriptions-item label="强化治疗">
-                      {{ (dungeonState.combatManager.player.stats.healBoost * 100).toFixed(1) }}%
+                      {{ (dungeonState.combatManager.player.stats.healBoost * 100 || 0).toFixed(1) }}%
                     </n-descriptions-item>
                     <n-descriptions-item label="强化爆伤">
-                      {{ (dungeonState.combatManager.player.stats.critDamageBoost * 100).toFixed(1) }}%
+                      {{ (dungeonState.combatManager.player.stats.critDamageBoost * 100 || 0).toFixed(1) }}%
                     </n-descriptions-item>
                     <n-descriptions-item label="弱化爆伤">
-                      {{ (dungeonState.combatManager.player.stats.critDamageReduce * 100).toFixed(1) }}%
+                      {{ (dungeonState.combatManager.player.stats.critDamageReduce * 100 || 0).toFixed(1) }}%
                     </n-descriptions-item>
                     <n-descriptions-item label="最终增伤">
-                      {{ (dungeonState.combatManager.player.stats.finalDamageBoost * 100).toFixed(1) }}%
+                      {{ (dungeonState.combatManager.player.stats.finalDamageBoost * 100 || 0).toFixed(1) }}%
                     </n-descriptions-item>
                     <n-descriptions-item label="最终减伤">
-                      {{ (dungeonState.combatManager.player.stats.finalDamageReduce * 100).toFixed(1) }}%
+                      {{ (dungeonState.combatManager.player.stats.finalDamageReduce * 100 || 0).toFixed(1) }}%
                     </n-descriptions-item>
                     <n-descriptions-item label="战斗属性提升">
-                      {{ (dungeonState.combatManager.player.stats.combatBoost * 100).toFixed(1) }}%
+                      {{ (dungeonState.combatManager.player.stats.combatBoost * 100 || 0).toFixed(1) }}%
                     </n-descriptions-item>
                     <n-descriptions-item label="战斗抗性提升">
-                      {{ (dungeonState.combatManager.player.stats.resistanceBoost * 100).toFixed(1) }}%
+                      {{ (dungeonState.combatManager.player.stats.resistanceBoost * 100 || 0).toFixed(1) }}%
                     </n-descriptions-item>
                   </n-descriptions>
                 </template>
@@ -213,67 +212,67 @@
                   <n-divider>战斗属性</n-divider>
                   <n-descriptions bordered :column="3">
                     <n-descriptions-item label="暴击率">
-                      {{ (dungeonState.combatManager.enemy.stats.critRate * 100).toFixed(1) }}%
+                      {{ (dungeonState.combatManager.enemy.stats.critRate * 100 || 0).toFixed(1) }}%
                     </n-descriptions-item>
                     <n-descriptions-item label="连击率">
-                      {{ (dungeonState.combatManager.enemy.stats.comboRate * 100).toFixed(1) }}%
+                      {{ (dungeonState.combatManager.enemy.stats.comboRate * 100 || 0).toFixed(1) }}%
                     </n-descriptions-item>
                     <n-descriptions-item label="反击率">
-                      {{ (dungeonState.combatManager.enemy.stats.counterRate * 100).toFixed(1) }}%
+                      {{ (dungeonState.combatManager.enemy.stats.counterRate * 100 || 0).toFixed(1) }}%
                     </n-descriptions-item>
                     <n-descriptions-item label="眩晕率">
-                      {{ (dungeonState.combatManager.enemy.stats.stunRate * 100).toFixed(1) }}%
+                      {{ (dungeonState.combatManager.enemy.stats.stunRate * 100 || 0).toFixed(1) }}%
                     </n-descriptions-item>
                     <n-descriptions-item label="闪避率">
-                      {{ (dungeonState.combatManager.enemy.stats.dodgeRate * 100).toFixed(1) }}%
+                      {{ (dungeonState.combatManager.enemy.stats.dodgeRate * 100 || 0).toFixed(1) }}%
                     </n-descriptions-item>
                     <n-descriptions-item label="吸血率">
-                      {{ (dungeonState.combatManager.enemy.stats.vampireRate * 100).toFixed(1) }}%
+                      {{ (dungeonState.combatManager.enemy.stats.vampireRate * 100 || 0).toFixed(1) }}%
                     </n-descriptions-item>
                   </n-descriptions>
                   <n-divider>战斗抗性</n-divider>
                   <n-descriptions bordered :column="3">
                     <n-descriptions-item label="抗暴击">
-                      {{ (dungeonState.combatManager.enemy.stats.critResist * 100).toFixed(1) }}%
+                      {{ (dungeonState.combatManager.enemy.stats.critResist * 100 || 0).toFixed(1) }}%
                     </n-descriptions-item>
                     <n-descriptions-item label="抗连击">
-                      {{ (dungeonState.combatManager.enemy.stats.comboResist * 100).toFixed(1) }}%
+                      {{ (dungeonState.combatManager.enemy.stats.comboResist * 100 || 0).toFixed(1) }}%
                     </n-descriptions-item>
                     <n-descriptions-item label="抗反击">
-                      {{ (dungeonState.combatManager.enemy.stats.counterResist * 100).toFixed(1) }}%
+                      {{ (dungeonState.combatManager.enemy.stats.counterResist * 100 || 0).toFixed(1) }}%
                     </n-descriptions-item>
                     <n-descriptions-item label="抗眩晕">
-                      {{ (dungeonState.combatManager.enemy.stats.stunResist * 100).toFixed(1) }}%
+                      {{ (dungeonState.combatManager.enemy.stats.stunResist * 100 || 0).toFixed(1) }}%
                     </n-descriptions-item>
                     <n-descriptions-item label="抗闪避">
-                      {{ (dungeonState.combatManager.enemy.stats.dodgeResist * 100).toFixed(1) }}%
+                      {{ (dungeonState.combatManager.enemy.stats.dodgeResist * 100 || 0).toFixed(1) }}%
                     </n-descriptions-item>
                     <n-descriptions-item label="抗吸血">
-                      {{ (dungeonState.combatManager.enemy.stats.vampireResist * 100).toFixed(1) }}%
+                      {{ (dungeonState.combatManager.enemy.stats.vampireResist * 100 || 0).toFixed(1) }}%
                     </n-descriptions-item>
                   </n-descriptions>
                   <n-divider>特殊属性</n-divider>
                   <n-descriptions bordered :column="3">
                     <n-descriptions-item label="强化治疗">
-                      {{ (dungeonState.combatManager.enemy.stats.healBoost * 100).toFixed(1) }}%
+                      {{ (dungeonState.combatManager.enemy.stats.healBoost * 100 || 0).toFixed(1) }}%
                     </n-descriptions-item>
                     <n-descriptions-item label="强化爆伤">
-                      {{ (dungeonState.combatManager.enemy.stats.critDamageBoost * 100).toFixed(1) }}%
+                      {{ (dungeonState.combatManager.enemy.stats.critDamageBoost * 100 || 0).toFixed(1) }}%
                     </n-descriptions-item>
                     <n-descriptions-item label="弱化爆伤">
-                      {{ (dungeonState.combatManager.enemy.stats.critDamageReduce * 100).toFixed(1) }}%
+                      {{ (dungeonState.combatManager.enemy.stats.critDamageReduce * 100 || 0).toFixed(1) }}%
                     </n-descriptions-item>
                     <n-descriptions-item label="最终增伤">
-                      {{ (dungeonState.combatManager.enemy.stats.finalDamageBoost * 100).toFixed(1) }}%
+                      {{ (dungeonState.combatManager.enemy.stats.finalDamageBoost * 100 || 0).toFixed(1) }}%
                     </n-descriptions-item>
                     <n-descriptions-item label="最终减伤">
-                      {{ (dungeonState.combatManager.enemy.stats.finalDamageReduce * 100).toFixed(1) }}%
+                      {{ (dungeonState.combatManager.enemy.stats.finalDamageReduce * 100 || 0).toFixed(1) }}%
                     </n-descriptions-item>
                     <n-descriptions-item label="战斗属性提升">
-                      {{ (dungeonState.combatManager.enemy.stats.combatBoost * 100).toFixed(1) }}%
+                      {{ (dungeonState.combatManager.enemy.stats.combatBoost * 100 || 0).toFixed(1) }}%
                     </n-descriptions-item>
                     <n-descriptions-item label="战斗抗性提升">
-                      {{ (dungeonState.combatManager.enemy.stats.resistanceBoost * 100).toFixed(1) }}%
+                      {{ (dungeonState.combatManager.enemy.stats.resistanceBoost * 100 || 0).toFixed(1) }}%
                     </n-descriptions-item>
                   </n-descriptions>
                 </template>
@@ -289,332 +288,414 @@
 </template>
 
 <script setup>
-  import { ref } from 'vue'
-  import { usePlayerStore } from '../stores/player'
-  import { getRealmName } from '../plugins/realm'
-  import { CombatManager, CombatEntity, generateEnemy, CombatType } from '../plugins/combat'
-  import { getRandomOptions } from '../plugins/dungeon'
-  import dungeonBuffs from '../plugins/dungeonBuffs'
+  // 修改为使用模块化store
+  import { usePlayerInfoStore } from '../stores/playerInfo'
+  import { useInventoryStore } from '../stores/inventory'
+  import { useEquipmentStore } from '../stores/equipment'
+  import { usePetsStore } from '../stores/pets'
+  import { usePillsStore } from '../stores/pills'
+  import { useSettingsStore } from '../stores/settings'
+  import { useStatsStore } from '../stores/stats'
+  import { usePersistenceStore } from '../stores/persistence'
+  import { ref, computed, onMounted, onUnmounted } from 'vue'
   import { useMessage } from 'naive-ui'
   import LogPanel from '../components/LogPanel.vue'
+  import { difficultyModifiers, roguelikeOptions, getRandomOptions } from '../plugins/dungeon'
 
-  const playerStore = usePlayerStore()
+  const playerInfoStore = usePlayerInfoStore()
+  const inventoryStore = useInventoryStore()
+  const equipmentStore = useEquipmentStore()
+  const petsStore = usePetsStore()
+  const pillsStore = usePillsStore()
+  const settingsStore = useSettingsStore()
+  const statsStore = useStatsStore()
+  const persistenceStore = usePersistenceStore()
+  
   const message = useMessage()
-  const logRef = ref(null)
-  const playerAttacking = ref(false)
-  const playerHurt = ref(false)
-  const enemyAttacking = ref(false)
-  const enemyHurt = ref(false)
+  const showBattleLog = ref(false)
+  const battleLogs = ref([])
+  const currentEnemy = ref(null)
+  const isInBattle = ref(false)
+  const battleResult = ref(null)
+  const dungeonWorker = ref(null)
   const infoShow = ref(false)
   const infoType = ref('')
+  const playerAttacking = ref(false)
+  const enemyAttacking = ref(false)
+  const playerHurt = ref(false)
+  const enemyHurt = ref(false)
+  const refreshNumber = ref(3)
+  const combatLog = ref([])
+  const logRef = ref(null)
 
-  const floorData = computed(() => {
-    switch (playerStore.dungeonDifficulty) {
-      case 1:
-        return playerStore.dungeonHighestFloor
-      case 2:
-        return playerStore.dungeonHighestFloor_2
-      case 5:
-        return playerStore.dungeonHighestFloor_5
-      case 10:
-        return playerStore.dungeonHighestFloor_10
-      case 100:
-        return playerStore.dungeonHighestFloor_100
-      default:
-        return playerStore.dungeonHighestFloor
-    }
-  })
+  // 秘境难度选项
+  const dungeonOptions = [
+    { label: '凡界', value: 'easy' },
+    { label: '小世界', value: 'normal' },
+    { label: '灵界', value: 'hard' },
+    { label: '仙界', value: 'expert' }
+  ]
 
-  // 副本状态
+  // 秘境状态
   const dungeonState = ref({
-    floor: floorData.value,
+    floor: 1,
     inCombat: false,
     showingOptions: false,
     currentOptions: [],
     combatManager: null
   })
 
-  // 当前战斗日志
-  const combatLog = ref([])
-
-  // 根据选项类型获取颜色
-  const getOptionColor = type => {
-    const types = {
-      epic: {
-        name: '史诗',
-        color: '#e91e63'
-      },
-      rare: {
-        name: '稀有',
-        color: '#2196f3'
-      },
-      common: {
-        name: '普通',
-        color: '#4caf50'
-      }
-    }
-    return types[type]
-  }
-
-  // 创建玩家战斗实体
-  const createPlayerEntity = () => {
+  // 获取玩家总属性（基础属性+装备加成+灵宠加成）
+  const playerStats = computed(() => {
     // 基础属性
-    const baseStats = {
-      health: playerStore.baseAttributes.health,
-      damage: playerStore.baseAttributes.attack,
-      defense: playerStore.baseAttributes.defense,
-      speed: playerStore.baseAttributes.speed,
-      // 战斗属性
-      critRate: playerStore.combatAttributes.critRate,
-      comboRate: playerStore.combatAttributes.comboRate,
-      counterRate: playerStore.combatAttributes.counterRate,
-      stunRate: playerStore.combatAttributes.stunRate,
-      dodgeRate: playerStore.combatAttributes.dodgeRate,
-      vampireRate: playerStore.combatAttributes.vampireRate,
-      // 战斗抗性
-      critResist: playerStore.combatResistance.critResist,
-      comboResist: playerStore.combatResistance.comboResist,
-      counterResist: playerStore.combatResistance.counterResist,
-      stunResist: playerStore.combatResistance.stunResist,
-      dodgeResist: playerStore.combatResistance.dodgeResist,
-      vampireResist: playerStore.combatResistance.vampireResist,
-      // 特殊属性
-      healBoost: playerStore.specialAttributes.healBoost,
-      critDamageBoost: playerStore.specialAttributes.critDamageBoost,
-      critDamageReduce: playerStore.specialAttributes.critDamageReduce,
-      finalDamageBoost: playerStore.specialAttributes.finalDamageBoost,
-      finalDamageReduce: playerStore.specialAttributes.finalDamageReduce,
-      combatBoost: playerStore.specialAttributes.combatBoost,
-      resistanceBoost: playerStore.specialAttributes.resistanceBoost,
-      // 其他属性
-      spiritDamage: playerStore.spirit * 0.1,
-      maxHealth: playerStore.baseAttributes.health
+    const base = { ...playerInfoStore.baseAttributes }
+    
+    // 计算装备加成（已废弃，装备属性加成由后端计算并同步到playerInfoStore）
+    const equipmentBonus = {
+      attack: 0,
+      defense: 0,
+      health: 0,
+      speed: 0,
+      critRate: 0,
+      comboRate: 0,
+      counterRate: 0,
+      stunRate: 0,
+      dodgeRate: 0,
+      vampireRate: 0,
+      critResist: 0,
+      comboResist: 0,
+      counterResist: 0,
+      stunResist: 0,
+      dodgeResist: 0,
+      vampireResist: 0,
+      healBoost: 0,
+      critDamageBoost: 0,
+      critDamageReduce: 0,
+      finalDamageBoost: 0,
+      finalDamageReduce: 0,
+      combatBoost: 0,
+      resistanceBoost: 0
     }
-    const entity = new CombatEntity(playerStore.name, playerStore.level, baseStats, playerStore.realm)
-    // 应用所有激活的增益效果
-    const activeBuffs = dungeonBuffs.getActiveBuffs()
-    activeBuffs.forEach(buff => {
-      if (typeof buff.effect === 'function') {
-        buff.effect(entity)
-      }
+    
+    // 计算灵宠加成（已移除，因为灵宠属性加成逻辑已转移到后端API处理）
+    const petBonus = {
+      attack: 0,
+      defense: 0,
+      health: 0,
+      critRate: 0,
+      comboRate: 0,
+      counterRate: 0,
+      stunRate: 0,
+      dodgeRate: 0,
+      vampireRate: 0,
+      critResist: 0,
+      comboResist: 0,
+      counterResist: 0,
+      stunResist: 0,
+      dodgeResist: 0,
+      vampireResist: 0,
+      healBoost: 0,
+      critDamageBoost: 0,
+      critDamageReduce: 0,
+      finalDamageBoost: 0,
+      finalDamageReduce: 0,
+      combatBoost: 0,
+      resistanceBoost: 0
+    }
+    
+    // 合并所有属性
+    return {
+      attack: base.attack + equipmentBonus.attack, // 移除了 petBonus.attack
+      defense: base.defense + equipmentBonus.defense, // 移除了 petBonus.defense
+      health: base.health + equipmentBonus.health, // 移除了 petBonus.health
+      speed: base.speed + equipmentBonus.speed, // 移除了 petBonus.speed
+      critRate: Math.min(1, playerInfoStore.combatAttributes.critRate + equipmentBonus.critRate), // 移除了 petBonus.critRate
+      comboRate: Math.min(1, playerInfoStore.combatAttributes.comboRate + equipmentBonus.comboRate), // 移除了 petBonus.comboRate
+      counterRate: Math.min(1, playerInfoStore.combatAttributes.counterRate + equipmentBonus.counterRate), // 移除了 petBonus.counterRate
+      stunRate: Math.min(1, playerInfoStore.combatAttributes.stunRate + equipmentBonus.stunRate), // 移除了 petBonus.stunRate
+      dodgeRate: Math.min(1, playerInfoStore.combatAttributes.dodgeRate + equipmentBonus.dodgeRate), // 移除了 petBonus.dodgeRate
+      vampireRate: Math.min(1, playerInfoStore.combatAttributes.vampireRate + equipmentBonus.vampireRate), // 移除了 petBonus.vampireRate
+      critResist: Math.min(1, playerInfoStore.combatResistance.critResist + equipmentBonus.critResist), // 移除了 petBonus.critResist
+      comboResist: Math.min(1, playerInfoStore.combatResistance.comboResist + equipmentBonus.comboResist), // 移除了 petBonus.comboResist
+      counterResist: Math.min(1, playerInfoStore.combatResistance.counterResist + equipmentBonus.counterResist), // 移除了 petBonus.counterResist
+      stunResist: Math.min(1, playerInfoStore.combatResistance.stunResist + equipmentBonus.stunResist), // 移除了 petBonus.stunResist
+      dodgeResist: Math.min(1, playerInfoStore.combatResistance.dodgeResist + equipmentBonus.dodgeResist), // 移除了 petBonus.dodgeResist
+      vampireResist: Math.min(1, playerInfoStore.combatResistance.vampireResist + equipmentBonus.vampireResist), // 移除了 petBonus.vampireResist
+      healBoost: playerInfoStore.specialAttributes.healBoost + equipmentBonus.healBoost, // 移除了 petBonus.healBoost
+      critDamageBoost: playerInfoStore.specialAttributes.critDamageBoost + equipmentBonus.critDamageBoost, // 移除了 petBonus.critDamageBoost
+      critDamageReduce: playerInfoStore.specialAttributes.critDamageReduce + equipmentBonus.critDamageReduce, // 移除了 petBonus.critDamageReduce
+      finalDamageBoost: playerInfoStore.specialAttributes.finalDamageBoost + equipmentBonus.finalDamageBoost, // 移除了 petBonus.finalDamageBoost
+      finalDamageReduce: playerInfoStore.specialAttributes.finalDamageReduce + equipmentBonus.finalDamageReduce, // 移除了 petBonus.finalDamageReduce
+      combatBoost: playerInfoStore.specialAttributes.combatBoost + equipmentBonus.combatBoost, // 移除了 petBonus.combatBoost
+      resistanceBoost: playerInfoStore.specialAttributes.resistanceBoost + equipmentBonus.resistanceBoost // 移除了 petBonus.resistanceBoost
+    }
+  })
+
+  // 敌人属性计算
+  const enemyStats = computed(() => {
+    if (!currentEnemy.value) return null
+    
+    // 基础属性基于难度和楼层
+    const baseAttack = Math.floor(5 * playerStats.value.attack * (0.5 + 0.1 * statsStore.dungeonDifficulty) * (1 + currentEnemy.value.floor * 0.05))
+    const baseDefense = Math.floor(2 * playerStats.value.defense * (0.5 + 0.1 * statsStore.dungeonDifficulty) * (1 + currentEnemy.value.floor * 0.05))
+    const baseHealth = Math.floor(20 * playerStats.value.health * (0.5 + 0.1 * statsStore.dungeonDifficulty) * (1 + currentEnemy.value.floor * 0.05))
+    const baseSpeed = Math.floor(3 * playerStats.value.speed * (0.5 + 0.1 * statsStore.dungeonDifficulty) * (1 + currentEnemy.value.floor * 0.05))
+    
+    return {
+      attack: baseAttack,
+      defense: baseDefense,
+      health: baseHealth,
+      maxHealth: baseHealth,
+      speed: baseSpeed,
+      critRate: 0.05 * statsStore.dungeonDifficulty,
+      comboRate: 0.05 * statsStore.dungeonDifficulty,
+      counterRate: 0.05 * statsStore.dungeonDifficulty,
+      stunRate: 0.05 * statsStore.dungeonDifficulty,
+      dodgeRate: 0.05 * statsStore.dungeonDifficulty,
+      vampireRate: 0.05 * statsStore.dungeonDifficulty,
+      critResist: 0.05 * statsStore.dungeonDifficulty,
+      comboResist: 0.05 * statsStore.dungeonDifficulty,
+      counterResist: 0.05 * statsStore.dungeonDifficulty,
+      stunResist: 0.05 * statsStore.dungeonDifficulty,
+      dodgeResist: 0.05 * statsStore.dungeonDifficulty,
+      vampireResist: 0.05 * statsStore.dungeonDifficulty,
+      healBoost: 0,
+      critDamageBoost: 0,
+      critDamageReduce: 0,
+      finalDamageBoost: 0,
+      finalDamageReduce: 0,
+      combatBoost: 0,
+      resistanceBoost: 0
+    }
+  })
+
+  // 添加战斗日志
+  const addBattleLog = (message) => {
+    battleLogs.value.push({
+      time: new Date().toLocaleTimeString(),
+      message: message
     })
-    return entity
-  }
-
-  // 开始新的副本
-  const startDungeon = () => {
-    const startingFloor = floorData.value
-    dungeonState.value = {
-      floor: startingFloor,
-      inCombat: false,
-      showingOptions: false,
-      currentOptions: [],
-      combatManager: null
-    }
-    playerStore.dungeonTotalRuns++ // 增加总探索次数
-    nextFloor()
-  }
-
-  // 进入下一层
-  const nextFloor = () => {
-    dungeonState.value = {
-      ...dungeonState.value,
-      floor: dungeonState.value.floor + 1
-    }
-    const floor = dungeonState.value.floor
-    // 检查是否需要显示选项
-    if (floor === 1 || floor % 5 === 0) {
-      const randRefres = Math.floor(Math.random() * 3) + 1
-      message.success(`获得了${randRefres}刷新次数`)
-      refreshNumber.value = randRefres
-      showOptions()
-      return
-    }
-    startCombat()
-  }
-
-  // 显示随机选项
-  const showOptions = () => {
-    dungeonState.value.showingOptions = true
-    dungeonState.value.currentOptions = getRandomOptions(dungeonState.value.floor)
-  }
-
-  // 选择选项
-  const selectOption = option => {
-    dungeonBuffs.apply(playerStore, option)
-    message.success(`选择了：${option.name}`)
-    dungeonState.value.showingOptions = false
-    dungeonState.value.currentOptions = []
-    startCombat()
-  }
-
-  // 处理失败
-  const handleDefeat = () => {
-    dungeonState.value.inCombat = false
-    infoShow.value = false
-    infoType.value = ''
-    message.error(`在第 ${dungeonState.value.floor} 层被击败了...`)
-    playerStore.dungeonDeathCount++
-    // 清除所有临时增益效果
-    dungeonBuffs.clear(playerStore)
-    // 记录失败层数
-    playerStore.dungeonLastFailedFloor = dungeonState.value.floor
-    // 随机跌落境界或修为
-    if (playerStore.dungeonDifficulty !== 100) {
-      // 损失一定修为值作为惩罚
-      const cultivationLossRate = Math.random() * 0.4 + 0.1 // 随机10%到50%
-      const cultivationLoss = Math.floor(playerStore.cultivation * cultivationLossRate)
-      playerStore.cultivation = Math.max(0, playerStore.cultivation - cultivationLoss)
-      message.error(`战斗失败！损失了${cultivationLoss}点修为。`)
-    } else {
-      // 跌落境界作为惩罚
-      const randomGradeLoss = Math.floor(Math.random() * 3) + 1 // 随机损失1-3个境界
-      const playerLevel = Math.max(1, playerStore.level - randomGradeLoss) // 降低境界
-      playerStore.level = playerLevel
-      playerStore.cultivation = 0 // 移除所有灵力
-      playerStore.maxCultivation = getRealmName(playerLevel).maxCultivation // 降低所需最大灵力值
-      message.error(`战斗失败！跌落了${playerLevel}个境界。`)
+    // 限制日志数量
+    if (battleLogs.value.length > 100) {
+      battleLogs.value.shift()
     }
   }
 
   // 开始战斗
-  const startCombat = () => {
-    const floor = dungeonState.value.floor
-    const isBossFloor = floor % 10 === 0
-    const isEliteFloor = floor % 5 === 0
-    const enemyType = isBossFloor ? CombatType.BOSS : isEliteFloor ? CombatType.ELITE : CombatType.NORMAL
-    // 创建玩家战斗实体，并应用所有增益效果
-    const playerEntity = createPlayerEntity()
-    // 创建敌人
-    const enemy = generateEnemy(floor, enemyType, playerStore.dungeonDifficulty)
-    // 创建战斗管理器
-    dungeonState.value.combatManager = new CombatManager(playerEntity, enemy, log => {
-      if (logRef.value) {
-        logRef.value.addLog(log)
+  const startBattle = (enemy) => {
+    currentEnemy.value = enemy
+    isInBattle.value = true
+    battleLogs.value = []
+    battleResult.value = null
+    addBattleLog(`遭遇${enemy.name}！`)
+    
+    // 初始化战斗
+    if (dungeonWorker.value) {
+      dungeonWorker.value.terminate()
+    }
+    
+    dungeonWorker.value = new Worker(new URL('../workers/exploration.js', import.meta.url))
+    dungeonWorker.value.onmessage = e => {
+      const { type, data } = e.data
+      if (type === 'battle_update') {
+        // 更新战斗状态
+        Object.assign(currentEnemy.value, data.enemy)
+        addBattleLog(data.log)
+      } else if (type === 'battle_end') {
+        // 战斗结束
+        finishBattle(data.result)
       }
+    }
+    
+    dungeonWorker.value.postMessage({
+      type: 'start_battle',
+      player: playerStats.value,
+      enemy: enemyStats.value,
+      enemyInfo: enemy
     })
-    dungeonState.value.inCombat = true
-    dungeonState.value.combatManager.start() // 初始化战斗状态
-    autoCombat() // 开始自动战斗
   }
 
-  // 自动战斗
-  const autoCombat = async () => {
-    while (dungeonState.value.inCombat) {
-      const result = dungeonState.value.combatManager.executeTurn()
-      const getCombatLog = dungeonState.value.combatManager.getCombatLog()
-      // 添加动画效果
-      if (result.attacker === dungeonState.value.combatManager.player) {
-        playerAttacking.value = true
-        enemyHurt.value = true
-        await new Promise(resolve => setTimeout(resolve, 500))
-        playerAttacking.value = false
-        enemyHurt.value = false
+  // 结束战斗
+  const finishBattle = (result) => {
+    if (dungeonWorker.value) {
+      dungeonWorker.value.terminate()
+      dungeonWorker.value = null
+    }
+    
+    isInBattle.value = false
+    battleResult.value = result
+    
+    if (result.victory) {
+      // 战斗胜利
+      addBattleLog('战斗胜利！')
+      
+      // 增加统计数据
+      if (currentEnemy.value.isBoss) {
+        statsStore.dungeonBossKills += 1
+      } else if (currentEnemy.value.isElite) {
+        statsStore.dungeonEliteKills += 1
       } else {
-        enemyAttacking.value = true
-        playerHurt.value = true
-        await new Promise(resolve => setTimeout(resolve, 500))
-        enemyAttacking.value = false
-        playerHurt.value = false
+        statsStore.dungeonTotalKills += 1
       }
-      if (!result) break
-      // 更新战斗日志
-      getCombatLog.forEach(item => {
-        logRef.value?.addLog('info', item)
-      })
-      // 检查战斗是否结束
-      if (result.state === 'victory') {
-        handleVictory()
-        break
-      } else if (result.state === 'defeat') {
-        handleDefeat()
-        break
-      }
-      // 添加延迟使战斗动画更流畅
-      await new Promise(resolve => setTimeout(resolve, 500))
+      
+      // 获得奖励
+      gainBattleReward(result.rewards)
+    } else {
+      // 战斗失败
+      addBattleLog('战斗失败！')
+      statsStore.dungeonDeathCount += 1
     }
+    
+    statsStore.dungeonTotalRuns += 1
   }
 
-  // 处理胜利
-  const handleVictory = () => {
-    dungeonState.value.inCombat = false
-    message.success(`击败了第 ${dungeonState.value.floor} 层的敌人！`)
-    // 更新统计数据
-    playerStore.dungeonTotalKills++
-    if (dungeonState.value.floor % 10 === 0) {
-      playerStore.dungeonBossKills++
-    } else if (dungeonState.value.floor % 5 === 0) {
-      // 增加洗练石
-      playerStore.refinementStones += playerStore.dungeonDifficulty
-      playerStore.dungeonEliteKills++
-      message.success(`获得了${playerStore.dungeonDifficulty}颗洗练石`)
-    }
-    // 更新最高层数记录
-    if (dungeonState.value.floor > playerStore.dungeonHighestFloor) {
-      playerStore.dungeonHighestFloor = dungeonState.value.floor
-    }
-    // 获得奖励
-    const rewards = generateRewards()
+  // 获得战斗奖励
+  const gainBattleReward = (rewards) => {
     rewards.forEach(reward => {
-      playerStore.spiritStones += reward.amount
-      message.success(`获得了 ${reward.amount} 灵石！`)
-      playerStore.dungeonTotalRewards++
+      switch (reward.type) {
+        case 'spirit_stone':
+          inventoryStore.spiritStones += reward.amount
+          addBattleLog(`获得${reward.amount}灵石`)
+          break
+        case 'herb':
+          // 添加灵草到背包
+          const existingHerb = inventoryStore.herbs.find(h => h.id === reward.herb.id)
+          if (existingHerb) {
+            existingHerb.count += reward.amount
+          } else {
+            inventoryStore.herbs.push({
+              ...reward.herb,
+              count: reward.amount
+            })
+          }
+          addBattleLog(`获得${reward.amount}个${reward.herb.name}`)
+          break
+        case 'equipment':
+          inventoryStore.items.push(reward.equipment)
+          addBattleLog(`获得装备${reward.equipment.name}`)
+          break
+        case 'pet':
+          petsStore.pets.push(reward.pet)
+          addBattleLog(`获得灵宠${reward.pet.name}`)
+          break
+      }
     })
-    // 进入下一层
-    nextFloor()
+    statsStore.dungeonTotalRewards += 1
   }
 
-  // 生成奖励
-  const generateRewards = () => {
-    const rewards = []
-    // 灵石奖励
-    const baseStones = 10 * dungeonState.value.floor * playerStore.dungeonDifficulty
-    rewards.push({
-      type: 'spirit_stones',
-      amount: baseStones
-    })
-    return rewards
-  }
-
-  const infoCliclk = type => {
-    infoShow.value = true
-    infoType.value = type
-  }
-
-  const dungeonOptions = [
-    {
-      label: '简单',
-      value: 1
-    },
-    {
-      label: '普通',
-      value: 2
-    },
-    {
-      label: '困难',
-      value: 5
-    },
-    {
-      label: '地狱',
-      value: 10
-    },
-    {
-      label: '通天',
-      value: 100
+  // 逃跑
+  const flee = () => {
+    if (dungeonWorker.value) {
+      dungeonWorker.value.terminate()
+      dungeonWorker.value = null
     }
-  ]
-
-  const handleUpdateValue = (value, option) => {
-    if (value === 100) {
-      message.warning('警告! 通天难度挑战失败后会跌落境界')
-    }
+    
+    isInBattle.value = false
+    currentEnemy.value = null
+    addBattleLog('你逃跑了！')
   }
-  const refreshNumber = ref(3)
-  // 刷新选择
+
+  // 开始秘境探索
+  const startDungeon = () => {
+    dungeonState.value.floor = 1
+    dungeonState.value.showingOptions = true
+    refreshNumber.value = 3
+    generateOptions()
+  }
+
+  // 生成选项
+  const generateOptions = () => {
+    dungeonState.value.currentOptions = getRandomOptions(dungeonState.value.floor)
+  }
+
+  // 刷新选项
   const handleRefreshOptions = () => {
-    showOptions()
-    refreshNumber.value--
+    if (refreshNumber.value > 0) {
+      refreshNumber.value--
+      generateOptions()
+    }
   }
+
+  // 选择选项
+  const selectOption = (option) => {
+    // 应用选项效果
+    if (typeof option.effect === 'function') {
+      option.effect(playerStats.value)
+    }
+    
+    // 进入下一层或者开始战斗
+    dungeonState.value.showingOptions = false
+    dungeonState.value.floor++
+    
+    // 简单模拟进入战斗
+    setTimeout(() => {
+      dungeonState.value.inCombat = true
+      dungeonState.value.combatManager = {
+        round: 1,
+        maxRounds: 10,
+        player: {
+          name: playerInfoStore.name,
+          currentHealth: playerStats.value.health,
+          stats: playerStats.value
+        },
+        enemy: {
+          name: '秘境守卫',
+          currentHealth: 100,
+          stats: {
+            maxHealth: 100,
+            damage: 20,
+            defense: 10,
+            speed: 15,
+            critRate: 0.1,
+            comboRate: 0.1,
+            counterRate: 0.1,
+            stunRate: 0.1,
+            dodgeRate: 0.1,
+            vampireRate: 0.1,
+            critResist: 0.1,
+            comboResist: 0.1,
+            counterResist: 0.1,
+            stunResist: 0.1,
+            dodgeResist: 0.1,
+            vampireResist: 0.1,
+            healBoost: 0,
+            critDamageBoost: 0,
+            critDamageReduce: 0,
+            finalDamageBoost: 0,
+            finalDamageReduce: 0,
+            combatBoost: 0,
+            resistanceBoost: 0
+          }
+        }
+      }
+    }, 1000)
+  }
+
+  // 获取选项颜色
+  const getOptionColor = (type) => {
+    switch (type) {
+      case 'common':
+        return { name: '普通', color: '#cccccc' }
+      case 'rare':
+        return { name: '稀有', color: '#0066ff' }
+      case 'epic':
+        return { name: '史诗', color: '#cc00ff' }
+      default:
+        return { name: '普通', color: '#cccccc' }
+    }
+  }
+
+  // 信息点击
+  const infoCliclk = (type) => {
+    infoType.value = type
+    infoShow.value = true
+  }
+
+  onUnmounted(() => {
+    if (dungeonWorker.value) {
+      dungeonWorker.value.terminate()
+    }
+  })
 </script>
 
 <style scoped>

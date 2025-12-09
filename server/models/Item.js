@@ -4,9 +4,10 @@ const sequelize = require('./database');
 // Player inventory items
 const Item = sequelize.define('Item', {
   id: {
-    type: DataTypes.INTEGER,
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
     primaryKey: true,
-    autoIncrement: true
+    allowNull: false
   },
   userId: {
     type: DataTypes.INTEGER,
@@ -32,7 +33,25 @@ const Item = sequelize.define('Item', {
   details: {
     type: DataTypes.JSON,
     allowNull: true
+  },
+  slot: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  stats: {
+    type: DataTypes.JSON,
+    allowNull: true
+  },
+  quality: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  equipped: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
   }
+  // Removed isActive field since it doesn't exist in the database table
 });
 
+// Export the model with its associated methods
 module.exports = Item;

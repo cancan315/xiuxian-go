@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS "Users" (
     cultivation FLOAT DEFAULT 0,
     "maxCultivation" FLOAT DEFAULT 100,
     spirit FLOAT DEFAULT 0,
-    "spiritStones" INTEGER DEFAULT 0,
+    "spiritStones" INTEGER DEFAULT 20000,
     "reinforceStones" INTEGER DEFAULT 0,
     "refinementStones" INTEGER DEFAULT 0,
     "baseAttributes" JSON DEFAULT '{"attack": 10, "health": 100, "defense": 5, "speed": 10}',
@@ -33,20 +33,66 @@ CREATE TABLE IF NOT EXISTS "Users" (
     "unlockedLocations" JSON DEFAULT '["新手村"]',
     "unlockedSkills" JSON DEFAULT '[]',
     "isNewPlayer" BOOLEAN DEFAULT true,
-    "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL,
-    "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL
+    "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Items table
+-- Items table (保留用于存储非装备类物品，如丹药、灵草等)
 CREATE TABLE IF NOT EXISTS "Items" (
-    id SERIAL PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     "userId" INTEGER REFERENCES "Users"(id) ON DELETE CASCADE,
     "itemId" VARCHAR(255) NOT NULL,
     name VARCHAR(255) NOT NULL,
     type VARCHAR(255) NOT NULL,
     details JSON,
-    "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL,
-    "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL
+    slot VARCHAR(255),
+    stats JSON,
+    quality VARCHAR(255),
+    equipped BOOLEAN DEFAULT false,
+    "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Equipment table (新建设备表)
+CREATE TABLE IF NOT EXISTS "Equipment" (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    "userId" INTEGER REFERENCES "Users"(id) ON DELETE CASCADE,
+    "equipmentId" VARCHAR(255) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    type VARCHAR(255) NOT NULL,
+    slot VARCHAR(255) NOT NULL,
+    "equipType" VARCHAR(255),  -- 添加 equipType 字段用于映射抽奖系统中的 equipType
+    details JSON,
+    stats JSON,
+    quality VARCHAR(255),
+    "enhanceLevel" INTEGER DEFAULT 0,
+    level INTEGER DEFAULT 1,  -- 添加 level 字段用于映射抽奖系统中的 level
+    equipped BOOLEAN DEFAULT false,
+    description VARCHAR(255),
+    "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Pets table
+CREATE TABLE IF NOT EXISTS "Pets" (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    "userId" INTEGER REFERENCES "Users"(id) ON DELETE CASCADE,
+    "petId" VARCHAR(255) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    type VARCHAR(255) DEFAULT 'pet',
+    rarity VARCHAR(255) NOT NULL,
+    level INTEGER DEFAULT 1,
+    star INTEGER DEFAULT 0,
+    experience INTEGER DEFAULT 0,
+    "maxExperience" INTEGER DEFAULT 100,
+    quality JSON,
+    "combatAttributes" JSON DEFAULT '{}',
+    "isActive" BOOLEAN DEFAULT false,
+    power INTEGER DEFAULT 0,
+    "upgradeItems" INTEGER DEFAULT 1,
+    description VARCHAR(255),
+    "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Herbs table
@@ -56,8 +102,8 @@ CREATE TABLE IF NOT EXISTS "Herbs" (
     "herbId" VARCHAR(255) NOT NULL,
     name VARCHAR(255) NOT NULL,
     count INTEGER DEFAULT 1,
-    "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL,
-    "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL
+    "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Pills table
@@ -68,27 +114,67 @@ CREATE TABLE IF NOT EXISTS "Pills" (
     name VARCHAR(255) NOT NULL,
     description TEXT,
     effect JSON,
-    "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL,
-    "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL
+    "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Artifacts table (equipment)
-CREATE TABLE IF NOT EXISTS "Artifacts" (
-    id SERIAL PRIMARY KEY,
-    "userId" INTEGER REFERENCES "Users"(id) ON DELETE CASCADE,
-    "artifactId" VARCHAR(255) NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    slot VARCHAR(255),
-    stats JSON,
-    quality VARCHAR(255),
-    equipped BOOLEAN DEFAULT false,
-    "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL,
-    "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL
-);
+-- Artifacts table (removed - merged into Items table)
+
+-- Add auto-update trigger for updated_at columns
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW."updatedAt" = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- Create triggers to automatically update the updatedAt column
+DROP TRIGGER IF EXISTS update_users_updated_at ON "Users";
+CREATE TRIGGER update_users_updated_at 
+    BEFORE UPDATE ON "Users" 
+    FOR EACH ROW 
+    EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_items_updated_at ON "Items";
+CREATE TRIGGER update_items_updated_at 
+    BEFORE UPDATE ON "Items" 
+    FOR EACH ROW 
+    EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_equipment_updated_at ON "Equipment";
+CREATE TRIGGER update_equipment_updated_at 
+    BEFORE UPDATE ON "Equipment" 
+    FOR EACH ROW 
+    EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_pets_updated_at ON "Pets";
+CREATE TRIGGER update_pets_updated_at 
+    BEFORE UPDATE ON "Pets" 
+    FOR EACH ROW 
+    EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_herbs_updated_at ON "Herbs";
+CREATE TRIGGER update_herbs_updated_at 
+    BEFORE UPDATE ON "Herbs" 
+    FOR EACH ROW 
+    EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_pills_updated_at ON "Pills";
+CREATE TRIGGER update_pills_updated_at 
+    BEFORE UPDATE ON "Pills" 
+    FOR EACH ROW 
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- Artifacts table triggers (removed)
 
 -- Indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_users_username ON "Users"(username);
+CREATE INDEX IF NOT EXISTS idx_users_created_at ON "Users"("createdAt");
 CREATE INDEX IF NOT EXISTS idx_items_user_id ON "Items"("userId");
+CREATE INDEX IF NOT EXISTS idx_equipment_user_id ON "Equipment"("userId");
+CREATE INDEX IF NOT EXISTS idx_pets_user_id ON "Pets"("userId");
+CREATE INDEX IF NOT EXISTS idx_pets_active ON "Pets"("isActive");
 CREATE INDEX IF NOT EXISTS idx_herbs_user_id ON "Herbs"("userId");
 CREATE INDEX IF NOT EXISTS idx_pills_user_id ON "Pills"("userId");
-CREATE INDEX IF NOT EXISTS idx_artifacts_user_id ON "Artifacts"("userId");
+-- Artifact indexes (removed)

@@ -62,17 +62,17 @@ const columns = [
   {
     title: '道号',
     key: 'playerName',
-    width: 200
+    width: 80
   },
   {
     title: '境界',
     key: 'realm',
-    width: 200
+    width: 80
   },
   {
     title: '灵石',
     key: 'spiritStones',
-    width: 150,
+    width: 80,
     render(row) {
       return `${row.spiritStones} 💠`
     }

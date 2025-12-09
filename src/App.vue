@@ -1,5 +1,5 @@
 <template>
-  <n-config-provider :theme="playerStore.isDarkMode ? darkTheme : null">
+  <n-config-provider :theme="settingsStore.isDarkMode ? darkTheme : null">
     <n-message-provider>
       <n-dialog-provider>
         <n-spin :show="isLoading" description="正在加载游戏数据...">
@@ -7,14 +7,14 @@
             <n-layout-header bordered>
               <div class="header-content">
                 <n-page-header>
-                  <template #title>我的放置仙途</template>
+                  <template #title>我的小小修仙界</template>
                   <template #extra>
                     <n-space>
                       <n-button @click="logout">退出游戏</n-button>
-                      <n-button quaternary circle @click="playerStore.toggle">
+                      <n-button quaternary circle @click="toggleDarkMode">
                         <template #icon>
                           <n-icon>
-                            <Sunny v-if="playerStore.isDarkMode" />
+                            <Sunny v-if="settingsStore.isDarkMode" />
                             <Moon v-else />
                           </n-icon>
                         </template>
@@ -27,7 +27,7 @@
                     <n-menu
                       mode="horizontal"
                       :options="menuOptions"
-                      :value="getCurrentMenuKey()"
+                      :value="currentView"
                       @update:value="handleMenuClick"
                     />
                   </n-scrollbar>
@@ -40,22 +40,22 @@
                   <n-space vertical>
                     <n-descriptions bordered>
                       <n-descriptions-item label="道号">
-                        {{ playerStore.name }}
+                        {{ playerInfoStore.name }}
                       </n-descriptions-item>
                       <n-descriptions-item label="境界">
-                        {{ getRealmName(playerStore.level).name }}
+                        {{ getRealmName(playerInfoStore.level).name }}
                       </n-descriptions-item>
                       <n-descriptions-item label="修为">
-                        {{ playerStore.cultivation }} / {{ playerStore.maxCultivation }}
+                        {{ playerInfoStore.cultivation }} / {{ playerInfoStore.maxCultivation }}
                       </n-descriptions-item>
                       <n-descriptions-item label="灵力">
-                        {{ playerStore.spirit.toFixed(2) }}
+                        {{ playerInfoStore.spirit.toFixed(2) }}
                       </n-descriptions-item>
                       <n-descriptions-item label="灵石">
-                        {{ playerStore.spiritStones }}
+                        {{ inventoryStore.spiritStones }}
                       </n-descriptions-item>
                       <n-descriptions-item label="强化石">
-                        {{ playerStore.reinforceStones }}
+                        {{ inventoryStore.reinforceStones }}
                       </n-descriptions-item>
                     </n-descriptions>
                     <n-collapse>
@@ -63,89 +63,89 @@
                         <n-divider>基础属性</n-divider>
                         <n-descriptions bordered :column="2">
                           <n-descriptions-item label="生命值">
-                            {{ (playerStore.baseAttributes.health || 0).toFixed(0) }}
+                            {{ (playerInfoStore.baseAttributes?.health || 0).toFixed(0) }}
                           </n-descriptions-item>
                           <n-descriptions-item label="攻击力">
-                            {{ (playerStore.baseAttributes.attack || 0).toFixed(0) }}
+                            {{ (playerInfoStore.baseAttributes?.attack || 0).toFixed(0) }}
                           </n-descriptions-item>
                           <n-descriptions-item label="防御力">
-                            {{ (playerStore.baseAttributes.defense || 0).toFixed(0) }}
+                            {{ (playerInfoStore.baseAttributes?.defense || 0).toFixed(0) }}
                           </n-descriptions-item>
                           <n-descriptions-item label="速度">
-                            {{ (playerStore.baseAttributes.speed || 0).toFixed(0) }}
+                            {{ (playerInfoStore.baseAttributes?.speed || 0).toFixed(0) }}
                           </n-descriptions-item>
                         </n-descriptions>
                         <n-divider>战斗属性</n-divider>
                         <n-descriptions bordered :column="3">
                           <n-descriptions-item label="暴击率">
-                            {{ (playerStore.combatAttributes.critRate * 100).toFixed(1) }}%
+                            {{ (playerInfoStore.combatAttributes?.critRate * 100 || 0).toFixed(1) }}%
                           </n-descriptions-item>
                           <n-descriptions-item label="连击率">
-                            {{ (playerStore.combatAttributes.comboRate * 100).toFixed(1) }}%
+                            {{ (playerInfoStore.combatAttributes?.comboRate * 100 || 0).toFixed(1) }}%
                           </n-descriptions-item>
                           <n-descriptions-item label="反击率">
-                            {{ (playerStore.combatAttributes.counterRate * 100).toFixed(1) }}%
+                            {{ (playerInfoStore.combatAttributes?.counterRate * 100 || 0).toFixed(1) }}%
                           </n-descriptions-item>
                           <n-descriptions-item label="眩晕率">
-                            {{ (playerStore.combatAttributes.stunRate * 100).toFixed(1) }}%
+                            {{ (playerInfoStore.combatAttributes?.stunRate * 100 || 0).toFixed(1) }}%
                           </n-descriptions-item>
                           <n-descriptions-item label="闪避率">
-                            {{ (playerStore.combatAttributes.dodgeRate * 100).toFixed(1) }}%
+                            {{ (playerInfoStore.combatAttributes?.dodgeRate * 100 || 0).toFixed(1) }}%
                           </n-descriptions-item>
                           <n-descriptions-item label="吸血率">
-                            {{ (playerStore.combatAttributes.vampireRate * 100).toFixed(1) }}%
+                            {{ (playerInfoStore.combatAttributes?.vampireRate * 100 || 0).toFixed(1) }}%
                           </n-descriptions-item>
                         </n-descriptions>
                         <n-divider>战斗抗性</n-divider>
                         <n-descriptions bordered :column="3">
                           <n-descriptions-item label="抗暴击">
-                            {{ (playerStore.combatResistance.critResist * 100 || 0).toFixed(1) }}%
+                            {{ (playerInfoStore.combatResistance?.critResist * 100 || 0).toFixed(1) }}%
                           </n-descriptions-item>
                           <n-descriptions-item label="抗连击">
-                            {{ (playerStore.combatResistance.comboResist * 100 || 0).toFixed(1) }}%
+                            {{ (playerInfoStore.combatResistance?.comboResist * 100 || 0).toFixed(1) }}%
                           </n-descriptions-item>
                           <n-descriptions-item label="抗反击">
-                            {{ (playerStore.combatResistance.counterResist * 100 || 0).toFixed(1) }}%
+                            {{ (playerInfoStore.combatResistance?.counterResist * 100 || 0).toFixed(1) }}%
                           </n-descriptions-item>
                           <n-descriptions-item label="抗眩晕">
-                            {{ (playerStore.combatResistance.stunResist * 100 || 0).toFixed(1) }}%
+                            {{ (playerInfoStore.combatResistance?.stunResist * 100 || 0).toFixed(1) }}%
                           </n-descriptions-item>
                           <n-descriptions-item label="抗闪避">
-                            {{ (playerStore.combatResistance.dodgeResist * 100 || 0).toFixed(1) }}%
+                            {{ (playerInfoStore.combatResistance?.dodgeResist * 100 || 0).toFixed(1) }}%
                           </n-descriptions-item>
                           <n-descriptions-item label="抗吸血">
-                            {{ (playerStore.combatResistance.vampireResist * 100 || 0).toFixed(1) }}%
+                            {{ (playerInfoStore.combatResistance?.vampireResist * 100 || 0).toFixed(1) }}%
                           </n-descriptions-item>
                         </n-descriptions>
                         <n-divider>特殊属性</n-divider>
                         <n-descriptions bordered :column="4">
                           <n-descriptions-item label="强化治疗">
-                            {{ (playerStore.specialAttributes.healBoost * 100 || 0).toFixed(1) }}%
+                            {{ (playerInfoStore.specialAttributes?.healBoost * 100 || 0).toFixed(1) }}%
                           </n-descriptions-item>
                           <n-descriptions-item label="强化爆伤">
-                            {{ (playerStore.specialAttributes.critDamageBoost * 100 || 0).toFixed(1) }}%
+                            {{ (playerInfoStore.specialAttributes?.critDamageBoost * 100 || 0).toFixed(1) }}%
                           </n-descriptions-item>
                           <n-descriptions-item label="弱化爆伤">
-                            {{ (playerStore.specialAttributes.critDamageReduce * 100 || 0).toFixed(1) }}%
+                            {{ (playerInfoStore.specialAttributes?.critDamageReduce * 100 || 0).toFixed(1) }}%
                           </n-descriptions-item>
                           <n-descriptions-item label="最终增伤">
-                            {{ (playerStore.specialAttributes.finalDamageBoost * 100 || 0).toFixed(1) }}%
+                            {{ (playerInfoStore.specialAttributes?.finalDamageBoost * 100 || 0).toFixed(1) }}%
                           </n-descriptions-item>
                           <n-descriptions-item label="最终减伤">
-                            {{ (playerStore.specialAttributes.finalDamageReduce * 100 || 0).toFixed(1) }}%
+                            {{ (playerInfoStore.specialAttributes?.finalDamageReduce * 100 || 0).toFixed(1) }}%
                           </n-descriptions-item>
                           <n-descriptions-item label="战斗属性提升">
-                            {{ (playerStore.specialAttributes.combatBoost * 100 || 0).toFixed(1) }}%
+                            {{ (playerInfoStore.specialAttributes?.combatBoost * 100 || 0).toFixed(1) }}%
                           </n-descriptions-item>
                           <n-descriptions-item label="战斗抗性提升">
-                            {{ (playerStore.specialAttributes.resistanceBoost * 100 || 0).toFixed(1) }}%
+                            {{ (playerInfoStore.specialAttributes?.resistanceBoost * 100 || 0).toFixed(1) }}%
                           </n-descriptions-item>
                         </n-descriptions>
                       </n-collapse-item>
                     </n-collapse>
                     <n-progress
                       type="line"
-                      :percentage="Number(((playerStore.cultivation / playerStore.maxCultivation) * 100).toFixed(2))"
+                      :percentage="Number(((playerInfoStore.cultivation / playerInfoStore.maxCultivation) * 100).toFixed(2))"
                       indicator-text-color="rgba(255, 255, 255, 0.82)"
                       rail-color="rgba(32, 128, 240, 0.2)"
                       color="#2080f0"
@@ -155,7 +155,13 @@
                     />
                   </n-space>
                 </n-card>
-                <router-view />
+                
+                <!-- 在此处显示选中的视图 -->
+                <component 
+                  :is="currentViewComponent" 
+                  v-if="currentViewComponent" 
+                  :key="currentView"
+                />
               </div>
             </n-layout-content>
           </n-layout>
@@ -170,91 +176,119 @@
 
 <script setup>
   import { useRouter, useRoute } from 'vue-router'
-  import { usePlayerStore } from './stores/player'
-  import { h, ref, computed } from 'vue'
+  // 修改为使用模块化store
+  import { usePlayerInfoStore } from './stores/playerInfo'
+  import { useInventoryStore } from './stores/inventory'
+  import { useEquipmentStore } from './stores/equipment'
+  import { usePetsStore } from './stores/pets'
+  import { usePillsStore } from './stores/pills'
+  import { useSettingsStore } from './stores/settings'
+  import { useStatsStore } from './stores/stats'
+  import { usePersistenceStore } from './stores/persistence'
+  import { h, onMounted, onUnmounted, ref, computed } from 'vue'
   import { NIcon, darkTheme } from 'naive-ui'
-  import {
-    BookOutlined,
-    ExperimentOutlined,
-    CompassOutlined,
-    TrophyOutlined,
-    SettingOutlined,
-    MedicineBoxOutlined,
-    GiftOutlined,
-    HomeOutlined,
-    SmileOutlined
-  } from '@ant-design/icons-vue'
+  import { 
+    BookOutline,
+    FlaskOutline,
+    CompassOutline,
+    TrophyOutline,
+    SettingsOutline,
+    GiftOutline,
+    HomeOutline,
+    HappyOutline
+  } from '@vicons/ionicons5'
   import { Moon, Sunny, Flash } from '@vicons/ionicons5'
   import { getRealmName } from './plugins/realm'
   import { getAuthToken, clearAuthToken } from './stores/db'
+  import APIService from './services/api'
+
+  // 导入各视图组件
+  import Cultivation from './views/Cultivation.vue'
+  import Inventory from './views/Inventory.vue'
+  import Exploration from './views/Exploration.vue'
+  import Settings from './views/Settings.vue'
+  import Alchemy from './views/Alchemy.vue'
+  import Dungeon from './views/Dungeon.vue'
+  import Gacha from './views/Gacha.vue'
+  import Leaderboard from './views/Leaderboard.vue'
 
   const router = useRouter()
   const route = useRoute()
-  const playerStore = usePlayerStore()
-  const spiritWorker = ref(null)
+  // 使用模块化store替代原来的usePlayerStore
+  const playerInfoStore = usePlayerInfoStore()
+  const inventoryStore = useInventoryStore()
+  const equipmentStore = useEquipmentStore()
+  const petsStore = usePetsStore()
+  const pillsStore = usePillsStore()
+  const settingsStore = useSettingsStore()
+  const statsStore = useStatsStore()
+  const persistenceStore = usePersistenceStore()
+  
   const menuOptions = ref([])
-  const isNewPlayer = ref(false)
   const isLoading = ref(true) // 添加加载状态
   const isLoggingOut = ref(false) // 添加登出状态
+  const currentView = ref('cultivation') // 默认显示修炼页面
 
   // Check if user is authenticated
   const isAuthenticated = computed(() => {
     return !!getAuthToken()
   })
 
-  // 初始化数据加载
-  playerStore.initializePlayer().then(() => {
-    isLoading.value = false
-    getMenuOptions()
+  // 计算当前应该显示的组件
+  const currentViewComponent = computed(() => {
+    switch (currentView.value) {
+      case 'cultivation':
+        return Cultivation
+      case 'inventory':
+        return Inventory
+      case 'exploration':
+        return Exploration
+      case 'settings':
+        return Settings
+      case 'alchemy':
+        return Alchemy
+      case 'dungeon':
+        return Dungeon
+      case 'gacha':
+        return Gacha
+      case 'leaderboard':
+        return Leaderboard
+      default:
+        return Cultivation
+    }
   })
 
-  // 监听玩家状态
-  watch(
-    () => playerStore.isNewPlayer,
-    bool => {
-      isNewPlayer.value = bool
-    }
-  )
-
-  // 灵力获取相关配置
-  const baseGainRate = 1 // 基础灵力获取率
+  // 图标
+  const renderIcon = icon => {
+    return () => h(NIcon, null, { default: () => h(icon) })
+  }
 
   const getMenuOptions = () => {
     menuOptions.value = [
-      ,
-      ...(isNewPlayer.value
-        ? [
-            {
-              label: '欢迎',
-              key: '',
-              icon: renderIcon(HomeOutlined)
-            }
-          ]
-        : []),
       {
         label: '修炼',
         key: 'cultivation',
-        icon: renderIcon(BookOutlined)
+        icon: renderIcon(BookOutline)
       },
       {
         label: '背包',
         key: 'inventory',
-        icon: renderIcon(ExperimentOutlined)
+        icon: renderIcon(FlaskOutline)
       },
       {
         label: '抽奖',
         key: 'gacha',
-        icon: renderIcon(GiftOutlined)
+        icon: renderIcon(GiftOutline)
       },
       {
         label: '炼丹',
         key: 'alchemy',
-        icon: renderIcon(MedicineBoxOutlined)
+        icon: renderIcon(FlaskOutline)
       },
       {
         label: '探索',
         key: 'exploration',
-        icon: renderIcon(CompassOutlined)
+        icon: renderIcon(CompassOutline)
       },
       {
         label: '秘境',
@@ -264,58 +298,150 @@
       {
         label: '排行榜',
         key: 'leaderboard',
-        icon: renderIcon(TrophyOutlined)
+        icon: renderIcon(TrophyOutline)
       },
       {
         label: '设置',
         key: 'settings',
-        icon: renderIcon(SettingOutlined)
+        icon: renderIcon(SettingsOutline)
       }
     ]
   }
+
+  // 初始化数据加载
+  const initializePlayerData = async () => {
+    const token = getAuthToken()
+    if (token) {
+      try {
+        const data = await APIService.initializePlayer(token)
+        
+        // Load user data
+        if (data.user) {
+          playerInfoStore.$patch(data.user)
+        }
+        
+        // Load inventory items
+        if (data.items) {
+          inventoryStore.items = data.items
+        }
+        
+        // Load pets
+        if (data.pets) {
+          petsStore.pets = data.pets
+        }
+        
+        // Load herbs
+        if (data.herbs) {
+          inventoryStore.herbs = data.herbs
+        }
+        
+        // Load pills
+        if (data.pills) {
+          inventoryStore.pills = data.pills
+        }
+        
+        // Load inventory data (including spirit stones)
+        if (data.user) {
+          inventoryStore.spiritStones = data.user.spiritStones || 20000
+          inventoryStore.reinforceStones = data.user.reinforceStones || 0
+          inventoryStore.refinementStones = data.user.refinementStones || 0
+        }
+        
+        isLoading.value = false
+        getMenuOptions()
+      } catch (error) {
+        console.error('初始化玩家数据失败:', error)
+        isLoading.value = false
+        getMenuOptions()
+      }
+    } else {
+      isLoading.value = false
+      getMenuOptions()
+    }
+  }
+  
+  // Call initialization
+  initializePlayerData()
+
+  // 灵力获取相关配置
+  const baseGainRate = 1 // 基础灵力获取率
+  const spiritWorker = ref(null)
+
+  onMounted(() => {
+    getMenuOptions() // 获取菜单选项
+    
+    // 监听页面刷新/关闭事件，执行退出游戏操作
+    const handleBeforeUnload = (event) => {
+      // 执行退出游戏操作
+      logout()
+    }
+    
+    // 添加事件监听器
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    
+    // 在组件卸载时移除事件监听器
+    onUnmounted(() => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    })
+
+    // 自动获取灵力
+    startAutoGain()
+  })
+
+  // 菜单点击事件
+  const handleMenuClick = (key) => {
+    currentView.value = key
+  }
+
+  // 退出游戏
+  const logout = async () => {
+    // 设置登出状态
+    isLoggingOut.value = true
+    
+    // 通知后端玩家已离线
+    try {
+      if (playerInfoStore.id) {
+        // 调用API通知后端玩家离线
+        await APIService.playerOffline(playerInfoStore.id)
+      }
+    } catch (error) {
+      console.error('通知后端玩家离线失败:', error)
+    }
+    
+    // 清除认证令牌
+    clearAuthToken()
+    // 重置玩家状态
+    playerInfoStore.$reset()
+    inventoryStore.$reset()
+    equipmentStore.$reset()
+    petsStore.$reset()
+    pillsStore.$reset()
+    settingsStore.$reset()
+    statsStore.$reset()
+    // 跳转到登录页面
+    router.push('/login')
+  }
+
   // 自动获取灵力
   const startAutoGain = () => {
+    // 立即同步一次数据以获取最新灵力值
+    persistenceStore.syncSpiritOnly()
+    
+    // 保留原有的worker逻辑，用于其他同步任务
     if (spiritWorker.value) return
     spiritWorker.value = new Worker(new URL('./workers/spirit.js', import.meta.url))
     spiritWorker.value.onmessage = e => {
-      if (e.data.type === 'gain') {
-        playerStore.totalCultivationTime += 1
-        playerStore.gainSpirit(baseGainRate)
+      if (e.data.type === 'sync') {
+        // 定期同步玩家数据以获取最新的灵力值
+        persistenceStore.syncSpiritOnly()
       }
     }
     spiritWorker.value.postMessage({ type: 'start' })
   }
 
-  onMounted(() => {
-    startAutoGain() // 启动自动获取灵力
-  })
-
-  // 图标
-  const renderIcon = icon => {
-    return () => h(NIcon, null, { default: () => h(icon) })
-  }
-
-  // 获取当前路由对应的菜单key
-  const getCurrentMenuKey = () => {
-    const path = route.path.slice(1) // 移除开头的斜杠
-    return path // 如果是根路径，默认返回cultivation
-  }
-
-  // 菜单点击事件
-  const handleMenuClick = key => {
-    router.push(`/${key}`)
-  }
-
-  // 退出游戏
-  const logout = () => {
-    // 设置登出状态
-    isLoggingOut.value = true
-    // 清除认证令牌
-    clearAuthToken()
-    // 重置玩家状态
-    playerStore.$reset()
-    // 自动刷新页面而不是跳转
-    window.location.reload()
+  // 切换暗黑模式
+  const toggleDarkMode = () => {
+    settingsStore.toggle(persistenceStore)
   }
 </script>
 

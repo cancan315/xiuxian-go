@@ -43,6 +43,16 @@ export const formatStatValue = (stat, value) => {
   if (value === null || value === undefined) {
     return '0'
   }
+  
+  // 确保value是数字类型
+  if (typeof value !== 'number') {
+    value = Number(value)
+    // 如果转换失败，返回默认值
+    if (isNaN(value)) {
+      return '0'
+    }
+  }
+  
   // 这些属性需要显示为百分比
   const percentageStats = [
     'critRate',

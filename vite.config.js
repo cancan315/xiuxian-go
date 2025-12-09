@@ -80,5 +80,15 @@ export default defineConfig({
   ],
   worker: {
     format: 'es'
+  },
+  server: {
+    port: parseInt(process.env.VITE_PORT) || 2025,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        secure: false
+      }
+    }
   }
 })

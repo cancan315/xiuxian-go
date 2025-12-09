@@ -56,8 +56,8 @@ class CombatStats {
     // 计算暴击（考虑目标的抗暴击）
     const finalCritRate = Math.max(
       0,
-      this.critRate * (1 + this.combatBoost) -
-        (target ? target.stats.critResist * (1 + target.stats.resistanceBoost) : 0)
+      Math.min(0.8, this.critRate * (1 + this.combatBoost) -
+        (target ? target.stats.critResist * (1 + target.stats.resistanceBoost) : 0))
     )
     if (Math.random() < finalCritRate) {
       damage *= 1.5 + this.critDamageBoost
@@ -66,7 +66,7 @@ class CombatStats {
     // 计算连击（考虑目标的抗连击）
     const finalComboRate = Math.max(
       0,
-      this.comboRate * (1 + this.combatBoost) - (target ? target.stats.comboResist : 0)
+      Math.min(0.8, this.comboRate * (1 + this.combatBoost) - (target ? target.stats.comboResist : 0))
     )
     if (Math.random() < finalComboRate) {
       damage *= 1.3
@@ -75,13 +75,13 @@ class CombatStats {
     // 计算吸血（考虑目标的抗吸血）
     const finalVampireRate = Math.max(
       0,
-      this.vampireRate * (1 + this.combatBoost) - (target ? target.stats.vampireResist : 0)
+      Math.min(0.8, this.vampireRate * (1 + this.combatBoost) - (target ? target.stats.vampireResist : 0))
     )
     if (Math.random() < finalVampireRate) {
       isVampire = true
     }
     // 计算眩晕（考虑目标的抗眩晕）
-    const finalStunRate = Math.max(0, this.stunRate * (1 + this.combatBoost) - (target ? target.stats.stunResist : 0))
+    const finalStunRate = Math.max(0, Math.min(0.8, this.stunRate * (1 + this.combatBoost) - (target ? target.stats.stunResist : 0)))
     if (Math.random() < finalStunRate) {
       isStun = true
     }
@@ -123,18 +123,18 @@ class CombatEntity {
   // 受到伤害
   takeDamage(amount, source) {
     // 计算实际闪避率（考虑攻击方的抗闪避）
-    const actualDodgeRate = Math.max(0, Math.min(1, this.stats.dodgeRate - (source ? source.stats.dodgeResist : 0)))
+    const actualDodgeRate = Math.max(0, Math.min(0.8, Math.abs(this.stats.dodgeRate - (source ? source.stats.dodgeResist : 0))))
     // 闪避判定
     if (Math.random() < actualDodgeRate) {
       return { dodged: true, damage: 0 }
     }
     // 计算实际伤害
-    const reducedDamage = this.stats.calculateDamageReduction(amount)
+    const reducedDamage = this.stats.calculateDamageReduction(Math.abs(amount))
     this.currentHealth = Math.max(0, this.currentHealth - reducedDamage)
     // 计算反击（考虑攻击方的抗反击）
     let isCounter = false
     if (source) {
-      const finalCounterRate = Math.max(0, this.stats.counterRate - source.stats.counterResist)
+      const finalCounterRate = Math.max(0, Math.min(0.8, Math.abs(this.stats.counterRate - source.stats.counterResist)))
       if (Math.random() < finalCounterRate) {
         isCounter = true
       }
@@ -176,7 +176,7 @@ class CombatManager {
     this.type = type
     this.state = CombatState.READY
     this.round = 0
-    this.maxRounds = 10 // 设置最大回合数为10
+    this.maxRounds = 100 // 设置最大回合数为100
     this.log = []
   }
   // 开始战斗
@@ -191,7 +191,7 @@ class CombatManager {
     // 检查是否超过最大回合数
     if (this.round > this.maxRounds) {
       this.state = CombatState.DEFEAT
-      this.log.push(`战斗超过${this.maxRounds}回合，战斗失败！`)
+      this.log.push(`战斗超过${this.maxRounds}回合，双方都已筋疲力尽，战斗失败！`)
       return { results: [], state: this.state }
     }
     const results = []
