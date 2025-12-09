@@ -475,8 +475,9 @@ const generateRandomPet = (level) => {
   const phase = Math.floor(0 / 5); // 初始星级为0
   const phaseBonus = phase * (baseBonus * 0.5);
   const finalBonus = baseBonus + starBonus + levelBonus + phaseBonus;
-
-  return {
+  
+  // 创建灵宠对象
+  const pet = {
     id: uuidv4(),
     name,
     type: 'pet',
@@ -491,6 +492,12 @@ const generateRandomPet = (level) => {
     healthBonus: finalBonus,
     createdAt: new Date().toISOString()
   };
+  
+  // 打印生成的灵宠属性
+  console.log(`[Gacha] 生成灵宠: ${pet.name} (${pet.rarity})`);
+  console.log(`[Gacha] 生成的灵宠完整属性:`, JSON.stringify(pet, null, 2));
+  
+  return pet;
 };
 
 // 执行抽奖
@@ -563,7 +570,9 @@ const drawGacha = async (req, res) => {
         console.log(`[Server Gacha] 装备保存成功: ${item.name}, ID: ${item.id}`);
       } else if (item.type === 'pet') {
         console.log(`[Server Gacha] 准备保存灵宠到数据库: ${item.name}, ID: ${item.id}, 品质: ${item.rarity}`);
-        await Pet.create({
+        // 打印将要存入数据库的灵宠属性
+        console.log(`[Server Gacha] 存入数据库前的灵宠完整属性:`, JSON.stringify(item, null, 2));
+        const createdPet = await Pet.create({
           userId,
           petId: item.id,
           name: item.name,
@@ -580,6 +589,8 @@ const drawGacha = async (req, res) => {
           isActive: false
         });
         console.log(`[Server Gacha] 灵宠保存成功: ${item.name}, ID: ${item.id}`);
+        // 打印存入数据库后的灵宠属性
+        console.log(`[Server Gacha] 存入数据库后的灵宠完整属性:`, JSON.stringify(createdPet, null, 2));
       }
     }
     console.log(`[Server Gacha] 物品保存完成，总共保存数量: ${items.length}`);

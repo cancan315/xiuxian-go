@@ -65,7 +65,7 @@ const deployPet = async (req, res) => {
     const userId = req.user.id;
 
     // 查找要出战的灵宠
-    const pet = await Pet.findOne({
+    let pet = await Pet.findOne({
       where: {
         userId: userId,
         [Sequelize.Op.or]: [
@@ -78,6 +78,21 @@ const deployPet = async (req, res) => {
     if (!pet) {
       return res.status(404).json({ message: '灵宠未找到' });
     }
+
+    // 打印出战前灵宠属性
+    console.log(`[Pet Deploy] 出战前灵宠属性:`, {
+      petId: pet.id,
+      petName: pet.name,
+      petRarity: pet.rarity,
+      petLevel: pet.level,
+      petStar: pet.star,
+      petDescription: pet.description,
+      petCombatAttributes: pet.combatAttributes,
+      petAttackBonus: pet.attackBonus,
+      petDefenseBonus: pet.defenseBonus,
+      petHealthBonus: pet.healthBonus,
+      petIsActive: pet.isActive
+    });
 
     // 检查是否已经有出战的灵宠
     const activePet = await Pet.findOne({
@@ -127,6 +142,27 @@ const deployPet = async (req, res) => {
       
     console.log(`成功出战灵宠: ${pet.name}(${petId})`);
 
+    
+
+    // 重新查询更新后的灵宠对象，确保获取最新状态
+    const updatedPet = await Pet.findOne({
+      where: {
+        userId: userId,
+        [Sequelize.Op.or]: [
+          { petId: petId },
+          { id: petId }
+        ]
+      }
+    });
+    
+    if (!updatedPet) {
+      console.log(`未能找到更新后的灵宠: ${pet.name}(${petId})`);
+      return res.status(500).json({ message: '未能找到更新后的灵宠' });
+    }
+    
+    // 用更新后的灵宠对象替换原有对象
+    pet = updatedPet;
+
     // 计算灵宠属性加成
     const qualityBonusMap = {
       mythic: 0.15, // 仙兽基础加成15%
@@ -151,48 +187,34 @@ const deployPet = async (req, res) => {
     const phase = Math.floor((pet.star || 0) / 5);
     const phaseBonus = phase * (baseBonus * 0.5);
     const finalBonus = baseBonus + starBonus + levelBonus + phaseBonus;
-    const combatBonus = finalBonus * 0.5;
-
+    
+    // 使用预定义的攻击、防御、生命加成值
     const petBonus = {
-      attack: finalBonus,
-      defense: finalBonus,
-      health: finalBonus,
-      critRate: combatBonus,
-      comboRate: combatBonus,
-      counterRate: combatBonus,
-      stunRate: combatBonus,
-      dodgeRate: combatBonus,
-      vampireRate: combatBonus,
-      critResist: combatBonus,
-      comboResist: combatBonus,
-      counterResist: combatBonus,
-      stunResist: combatBonus,
-      dodgeResist: combatBonus,
-      vampireResist: combatBonus,
-      healBoost: combatBonus,
-      critDamageBoost: combatBonus,
-      critDamageReduce: combatBonus,
-      finalDamageBoost: combatBonus,
-      finalDamageReduce: combatBonus,
-      combatBoost: combatBonus,
-      resistanceBoost: combatBonus
+      attack: pet.attackBonus || 0,
+      defense: pet.defenseBonus || 0,
+      health: pet.healthBonus || 0
     };
     
-    // 打印出战灵宠的属性，用于排查属性附加问题
-    console.log(`[Pet Deploy] 出战灵宠属性:`, {
+    // 打印出战后灵宠属性
+    console.log(`[Pet Deploy] 出战后灵宠属性:`, {
       petId: pet.id,
       petName: pet.name,
       petRarity: pet.rarity,
       petLevel: pet.level,
       petStar: pet.star,
-      petBonus: petBonus
+      petDescription: pet.description,
+      petCombatAttributes: pet.combatAttributes,
+      petAttackBonus: pet.attackBonus,
+      petDefenseBonus: pet.defenseBonus,
+      petHealthBonus: pet.healthBonus,
+      petIsActive: pet.isActive
     });
 
     // 获取用户当前属性
     const user = await User.findByPk(userId);
     if (user) {
-      // 打印玩家原始属性
-      console.log(`[Pet Deploy] 玩家原始属性:`, {
+      // 打印出战前玩家属性
+      console.log(`[Pet Deploy] 出战前玩家属性:`, {
         baseAttributes: user.baseAttributes,
         combatAttributes: user.combatAttributes,
         combatResistance: user.combatResistance,
@@ -205,38 +227,103 @@ const deployPet = async (req, res) => {
       const updatedCombatResistance = { ...user.combatResistance };
       const updatedSpecialAttributes = { ...user.specialAttributes };
 
-      // 应用基础属性加成
-      updatedBaseAttributes.attack = (updatedBaseAttributes.attack || 0) * (1 + petBonus.attack);
-      updatedBaseAttributes.defense = (updatedBaseAttributes.defense || 0) * (1 + petBonus.defense);
-      updatedBaseAttributes.health = (updatedBaseAttributes.health || 0) * (1 + petBonus.health);
+      // 先将灵宠的combatAttributes中的字段属性累加到玩家属性中的相同字段
+      if (pet.combatAttributes) {
+        // 解析combatAttributes（如果是字符串）
+        let combatAttributes = pet.combatAttributes;
+        if (typeof combatAttributes === 'string') {
+          try {
+            combatAttributes = JSON.parse(combatAttributes);
+          } catch (e) {
+            console.error('解析combatAttributes失败:', e);
+          }
+        }
+        
+        // 累加基础属性
+        if (combatAttributes.attack) {
+          updatedBaseAttributes.attack = (updatedBaseAttributes.attack || 0) + combatAttributes.attack;
+        }
+        if (combatAttributes.defense) {
+          updatedBaseAttributes.defense = (updatedBaseAttributes.defense || 0) + combatAttributes.defense;
+        }
+        if (combatAttributes.health) {
+          updatedBaseAttributes.health = (updatedBaseAttributes.health || 0) + combatAttributes.health;
+        }
+        if (combatAttributes.speed) {
+          updatedBaseAttributes.speed = (updatedBaseAttributes.speed || 0) + combatAttributes.speed;
+        }
+        
+        // 累加战斗属性
+        if (combatAttributes.critRate !== undefined) {
+          updatedCombatAttributes.critRate = Math.min(1, (updatedCombatAttributes.critRate || 0) + combatAttributes.critRate);
+        }
+        if (combatAttributes.comboRate !== undefined) {
+          updatedCombatAttributes.comboRate = Math.min(1, (updatedCombatAttributes.comboRate || 0) + combatAttributes.comboRate);
+        }
+        if (combatAttributes.counterRate !== undefined) {
+          updatedCombatAttributes.counterRate = Math.min(1, (updatedCombatAttributes.counterRate || 0) + combatAttributes.counterRate);
+        }
+        if (combatAttributes.stunRate !== undefined) {
+          updatedCombatAttributes.stunRate = Math.min(1, (updatedCombatAttributes.stunRate || 0) + combatAttributes.stunRate);
+        }
+        if (combatAttributes.dodgeRate !== undefined) {
+          updatedCombatAttributes.dodgeRate = Math.min(1, (updatedCombatAttributes.dodgeRate || 0) + combatAttributes.dodgeRate);
+        }
+        if (combatAttributes.vampireRate !== undefined) {
+          updatedCombatAttributes.vampireRate = Math.min(1, (updatedCombatAttributes.vampireRate || 0) + combatAttributes.vampireRate);
+        }
+        
+        // 累加战斗抗性
+        if (combatAttributes.critResist !== undefined) {
+          updatedCombatResistance.critResist = Math.min(1, (updatedCombatResistance.critResist || 0) + combatAttributes.critResist);
+        }
+        if (combatAttributes.comboResist !== undefined) {
+          updatedCombatResistance.comboResist = Math.min(1, (updatedCombatResistance.comboResist || 0) + combatAttributes.comboResist);
+        }
+        if (combatAttributes.counterResist !== undefined) {
+          updatedCombatResistance.counterResist = Math.min(1, (updatedCombatResistance.counterResist || 0) + combatAttributes.counterResist);
+        }
+        if (combatAttributes.stunResist !== undefined) {
+          updatedCombatResistance.stunResist = Math.min(1, (updatedCombatResistance.stunResist || 0) + combatAttributes.stunResist);
+        }
+        if (combatAttributes.dodgeResist !== undefined) {
+          updatedCombatResistance.dodgeResist = Math.min(1, (updatedCombatResistance.dodgeResist || 0) + combatAttributes.dodgeResist);
+        }
+        if (combatAttributes.vampireResist !== undefined) {
+          updatedCombatResistance.vampireResist = Math.min(1, (updatedCombatResistance.vampireResist || 0) + combatAttributes.vampireResist);
+        }
+        
+        // 累加特殊属性
+        if (combatAttributes.healBoost !== undefined) {
+          updatedSpecialAttributes.healBoost = (updatedSpecialAttributes.healBoost || 0) + combatAttributes.healBoost;
+        }
+        if (combatAttributes.critDamageBoost !== undefined) {
+          updatedSpecialAttributes.critDamageBoost = (updatedSpecialAttributes.critDamageBoost || 0) + combatAttributes.critDamageBoost;
+        }
+        if (combatAttributes.critDamageReduce !== undefined) {
+          updatedSpecialAttributes.critDamageReduce = (updatedSpecialAttributes.critDamageReduce || 0) + combatAttributes.critDamageReduce;
+        }
+        if (combatAttributes.finalDamageBoost !== undefined) {
+          updatedSpecialAttributes.finalDamageBoost = (updatedSpecialAttributes.finalDamageBoost || 0) + combatAttributes.finalDamageBoost;
+        }
+        if (combatAttributes.finalDamageReduce !== undefined) {
+          updatedSpecialAttributes.finalDamageReduce = (updatedSpecialAttributes.finalDamageReduce || 0) + combatAttributes.finalDamageReduce;
+        }
+        if (combatAttributes.combatBoost !== undefined) {
+          updatedSpecialAttributes.combatBoost = (updatedSpecialAttributes.combatBoost || 0) + combatAttributes.combatBoost;
+        }
+        if (combatAttributes.resistanceBoost !== undefined) {
+          updatedSpecialAttributes.resistanceBoost = (updatedSpecialAttributes.resistanceBoost || 0) + combatAttributes.resistanceBoost;
+        }
+      }
 
-      // 应用战斗属性加成
-      updatedCombatAttributes.critRate = Math.min(1, (updatedCombatAttributes.critRate || 0) + petBonus.critRate);
-      updatedCombatAttributes.comboRate = Math.min(1, (updatedCombatAttributes.comboRate || 0) + petBonus.comboRate);
-      updatedCombatAttributes.counterRate = Math.min(1, (updatedCombatAttributes.counterRate || 0) + petBonus.counterRate);
-      updatedCombatAttributes.stunRate = Math.min(1, (updatedCombatAttributes.stunRate || 0) + petBonus.stunRate);
-      updatedCombatAttributes.dodgeRate = Math.min(1, (updatedCombatAttributes.dodgeRate || 0) + petBonus.dodgeRate);
-      updatedCombatAttributes.vampireRate = Math.min(1, (updatedCombatAttributes.vampireRate || 0) + petBonus.vampireRate);
+      // 再应用基础属性百分比加成
+      updatedBaseAttributes.attack = (updatedBaseAttributes.attack || 0) * (1 + (pet.attackBonus || 0));
+      updatedBaseAttributes.defense = (updatedBaseAttributes.defense || 0) * (1 + (pet.defenseBonus || 0));
+      updatedBaseAttributes.health = (updatedBaseAttributes.health || 0) * (1 + (pet.healthBonus || 0));
 
-      // 应用战斗抗性加成
-      updatedCombatResistance.critResist = Math.min(1, (updatedCombatResistance.critResist || 0) + petBonus.critResist);
-      updatedCombatResistance.comboResist = Math.min(1, (updatedCombatResistance.comboResist || 0) + petBonus.comboResist);
-      updatedCombatResistance.counterResist = Math.min(1, (updatedCombatResistance.counterResist || 0) + petBonus.counterResist);
-      updatedCombatResistance.stunResist = Math.min(1, (updatedCombatResistance.stunResist || 0) + petBonus.stunResist);
-      updatedCombatResistance.dodgeResist = Math.min(1, (updatedCombatResistance.dodgeResist || 0) + petBonus.dodgeResist);
-      updatedCombatResistance.vampireResist = Math.min(1, (updatedCombatResistance.vampireResist || 0) + petBonus.vampireResist);
-
-      // 应用特殊属性加成
-      updatedSpecialAttributes.healBoost = (updatedSpecialAttributes.healBoost || 0) + petBonus.healBoost;
-      updatedSpecialAttributes.critDamageBoost = (updatedSpecialAttributes.critDamageBoost || 0) + petBonus.critDamageBoost;
-      updatedSpecialAttributes.critDamageReduce = (updatedSpecialAttributes.critDamageReduce || 0) + petBonus.critDamageReduce;
-      updatedSpecialAttributes.finalDamageBoost = (updatedSpecialAttributes.finalDamageBoost || 0) + petBonus.finalDamageBoost;
-      updatedSpecialAttributes.finalDamageReduce = (updatedSpecialAttributes.finalDamageReduce || 0) + petBonus.finalDamageReduce;
-      updatedSpecialAttributes.combatBoost = (updatedSpecialAttributes.combatBoost || 0) + petBonus.combatBoost;
-      updatedSpecialAttributes.resistanceBoost = (updatedSpecialAttributes.resistanceBoost || 0) + petBonus.resistanceBoost;
-      
-      // 打印更新后的玩家属性
-      console.log(`[Pet Deploy] 更新后玩家属性:`, {
+      // 打印出战后玩家属性
+      console.log(`[Pet Deploy] 出战后玩家属性:`, {
         updatedBaseAttributes,
         updatedCombatAttributes,
         updatedCombatResistance,
@@ -257,24 +344,13 @@ const deployPet = async (req, res) => {
       );
     }
 
-    // 更新成功后，重新查询宠物信息以确保返回最新的状态
-    const updatedPet = await Pet.findOne({
-      where: {
-        userId: userId,
-        [Sequelize.Op.or]: [
-          { petId: petId },
-          { id: petId }
-        ]
-      }
-    });
-    
     res.status(200).send({ 
       success: true, 
       message: '出战成功', 
       pet: { 
-        id: updatedPet.id, 
-        name: updatedPet.name, 
-        isActive: updatedPet.isActive 
+        id: pet.id, 
+        name: pet.name, 
+        isActive: pet.isActive 
       } 
     });
   } catch (error) {
@@ -283,14 +359,15 @@ const deployPet = async (req, res) => {
   }
 };
 
+    
 // 召回灵宠
 const recallPet = async (req, res) => {
   try {
     const { id: petId } = req.params;
     const userId = req.user.id;
-
+    
     // 查找要召回的灵宠
-    const pet = await Pet.findOne({
+    let pet = await Pet.findOne({
       where: {
         userId: userId,
         [Sequelize.Op.or]: [
@@ -370,13 +447,18 @@ const recallPet = async (req, res) => {
     };
     
     // 打印召回灵宠的属性，用于排查属性移除问题
-    console.log(`[Pet Recall] 召回灵宠属性:`, {
+    console.log(`[Pet Recall] 打印召回后灵宠属性:`, {
       petId: pet.id,
       petName: pet.name,
       petRarity: pet.rarity,
       petLevel: pet.level,
       petStar: pet.star,
-      petBonus: petBonus
+      petDescription: pet.description,
+      petCombatAttributes: pet.combatAttributes,
+      petAttackBonus: pet.attackBonus,
+      petDefenseBonus: pet.defenseBonus,
+      petHealthBonus: pet.healthBonus,
+      petIsActive: pet.isActive
     });
 
     // 获取用户当前属性
@@ -396,35 +478,100 @@ const recallPet = async (req, res) => {
       const updatedCombatResistance = { ...user.combatResistance };
       const updatedSpecialAttributes = { ...user.specialAttributes };
 
-      // 移除基础属性加成
-      updatedBaseAttributes.attack = (updatedBaseAttributes.attack || 0) / (1 + petBonus.attack);
-      updatedBaseAttributes.defense = (updatedBaseAttributes.defense || 0) / (1 + petBonus.defense);
-      updatedBaseAttributes.health = (updatedBaseAttributes.health || 0) / (1 + petBonus.health);
+      // 先移除基础属性百分比加成
+      updatedBaseAttributes.attack = (updatedBaseAttributes.attack || 0) / (1 + (pet.attackBonus || 0));
+      updatedBaseAttributes.defense = (updatedBaseAttributes.defense || 0) / (1 + (pet.defenseBonus || 0));
+      updatedBaseAttributes.health = (updatedBaseAttributes.health || 0) / (1 + (pet.healthBonus || 0));
 
-      // 移除战斗属性加成
-      updatedCombatAttributes.critRate = Math.max(0, (updatedCombatAttributes.critRate || 0) - petBonus.critRate);
-      updatedCombatAttributes.comboRate = Math.max(0, (updatedCombatAttributes.comboRate || 0) - petBonus.comboRate);
-      updatedCombatAttributes.counterRate = Math.max(0, (updatedCombatAttributes.counterRate || 0) - petBonus.counterRate);
-      updatedCombatAttributes.stunRate = Math.max(0, (updatedCombatAttributes.stunRate || 0) - petBonus.stunRate);
-      updatedCombatAttributes.dodgeRate = Math.max(0, (updatedCombatAttributes.dodgeRate || 0) - petBonus.dodgeRate);
-      updatedCombatAttributes.vampireRate = Math.max(0, (updatedCombatAttributes.vampireRate || 0) - petBonus.vampireRate);
-
-      // 移除战斗抗性加成
-      updatedCombatResistance.critResist = Math.max(0, (updatedCombatResistance.critResist || 0) - petBonus.critResist);
-      updatedCombatResistance.comboResist = Math.max(0, (updatedCombatResistance.comboResist || 0) - petBonus.comboResist);
-      updatedCombatResistance.counterResist = Math.max(0, (updatedCombatResistance.counterResist || 0) - petBonus.counterResist);
-      updatedCombatResistance.stunResist = Math.max(0, (updatedCombatResistance.stunResist || 0) - petBonus.stunResist);
-      updatedCombatResistance.dodgeResist = Math.max(0, (updatedCombatResistance.dodgeResist || 0) - petBonus.dodgeResist);
-      updatedCombatResistance.vampireResist = Math.max(0, (updatedCombatResistance.vampireResist || 0) - petBonus.vampireResist);
-
-      // 移除特殊属性加成
-      updatedSpecialAttributes.healBoost = Math.max(0, (updatedSpecialAttributes.healBoost || 0) - petBonus.healBoost);
-      updatedSpecialAttributes.critDamageBoost = Math.max(0, (updatedSpecialAttributes.critDamageBoost || 0) - petBonus.critDamageBoost);
-      updatedSpecialAttributes.critDamageReduce = Math.max(0, (updatedSpecialAttributes.critDamageReduce || 0) - petBonus.critDamageReduce);
-      updatedSpecialAttributes.finalDamageBoost = Math.max(0, (updatedSpecialAttributes.finalDamageBoost || 0) - petBonus.finalDamageBoost);
-      updatedSpecialAttributes.finalDamageReduce = Math.max(0, (updatedSpecialAttributes.finalDamageReduce || 0) - petBonus.finalDamageReduce);
-      updatedSpecialAttributes.combatBoost = Math.max(0, (updatedSpecialAttributes.combatBoost || 0) - petBonus.combatBoost);
-      updatedSpecialAttributes.resistanceBoost = Math.max(0, (updatedSpecialAttributes.resistanceBoost || 0) - petBonus.resistanceBoost);
+      // 再移除combatAttributes中的属性加成
+      if (pet.combatAttributes) {
+        // 解析combatAttributes（如果是字符串）
+        let combatAttributes = pet.combatAttributes;
+        if (typeof combatAttributes === 'string') {
+          try {
+            combatAttributes = JSON.parse(combatAttributes);
+          } catch (e) {
+            console.error('解析combatAttributes失败:', e);
+          }
+        }
+        
+        // 移除基础属性
+        if (combatAttributes.attack) {
+          updatedBaseAttributes.attack = (updatedBaseAttributes.attack || 0) - combatAttributes.attack;
+        }
+        if (combatAttributes.defense) {
+          updatedBaseAttributes.defense = (updatedBaseAttributes.defense || 0) - combatAttributes.defense;
+        }
+        if (combatAttributes.health) {
+          updatedBaseAttributes.health = (updatedBaseAttributes.health || 0) - combatAttributes.health;
+        }
+        if (combatAttributes.speed) {
+          updatedBaseAttributes.speed = (updatedBaseAttributes.speed || 0) - combatAttributes.speed;
+        }
+        
+        // 移除战斗属性
+        if (combatAttributes.critRate !== undefined) {
+          updatedCombatAttributes.critRate = Math.max(0, (updatedCombatAttributes.critRate || 0) - combatAttributes.critRate);
+        }
+        if (combatAttributes.comboRate !== undefined) {
+          updatedCombatAttributes.comboRate = Math.max(0, (updatedCombatAttributes.comboRate || 0) - combatAttributes.comboRate);
+        }
+        if (combatAttributes.counterRate !== undefined) {
+          updatedCombatAttributes.counterRate = Math.max(0, (updatedCombatAttributes.counterRate || 0) - combatAttributes.counterRate);
+        }
+        if (combatAttributes.stunRate !== undefined) {
+          updatedCombatAttributes.stunRate = Math.max(0, (updatedCombatAttributes.stunRate || 0) - combatAttributes.stunRate);
+        }
+        if (combatAttributes.dodgeRate !== undefined) {
+          updatedCombatAttributes.dodgeRate = Math.max(0, (updatedCombatAttributes.dodgeRate || 0) - combatAttributes.dodgeRate);
+        }
+        if (combatAttributes.vampireRate !== undefined) {
+          updatedCombatAttributes.vampireRate = Math.max(0, (updatedCombatAttributes.vampireRate || 0) - combatAttributes.vampireRate);
+        }
+        
+        // 移除战斗抗性
+        if (combatAttributes.critResist !== undefined) {
+          updatedCombatResistance.critResist = Math.max(0, (updatedCombatResistance.critResist || 0) - combatAttributes.critResist);
+        }
+        if (combatAttributes.comboResist !== undefined) {
+          updatedCombatResistance.comboResist = Math.max(0, (updatedCombatResistance.comboResist || 0) - combatAttributes.comboResist);
+        }
+        if (combatAttributes.counterResist !== undefined) {
+          updatedCombatResistance.counterResist = Math.max(0, (updatedCombatResistance.counterResist || 0) - combatAttributes.counterResist);
+        }
+        if (combatAttributes.stunResist !== undefined) {
+          updatedCombatResistance.stunResist = Math.max(0, (updatedCombatResistance.stunResist || 0) - combatAttributes.stunResist);
+        }
+        if (combatAttributes.dodgeResist !== undefined) {
+          updatedCombatResistance.dodgeResist = Math.max(0, (updatedCombatResistance.dodgeResist || 0) - combatAttributes.dodgeResist);
+        }
+        if (combatAttributes.vampireResist !== undefined) {
+          updatedCombatResistance.vampireResist = Math.max(0, (updatedCombatResistance.vampireResist || 0) - combatAttributes.vampireResist);
+        }
+        
+        // 移除特殊属性
+        if (combatAttributes.healBoost !== undefined) {
+          updatedSpecialAttributes.healBoost = Math.max(0, (updatedSpecialAttributes.healBoost || 0) - combatAttributes.healBoost);
+        }
+        if (combatAttributes.critDamageBoost !== undefined) {
+          updatedSpecialAttributes.critDamageBoost = Math.max(0, (updatedSpecialAttributes.critDamageBoost || 0) - combatAttributes.critDamageBoost);
+        }
+        if (combatAttributes.critDamageReduce !== undefined) {
+          updatedSpecialAttributes.critDamageReduce = Math.max(0, (updatedSpecialAttributes.critDamageReduce || 0) - combatAttributes.critDamageReduce);
+        }
+        if (combatAttributes.finalDamageBoost !== undefined) {
+          updatedSpecialAttributes.finalDamageBoost = Math.max(0, (updatedSpecialAttributes.finalDamageBoost || 0) - combatAttributes.finalDamageBoost);
+        }
+        if (combatAttributes.finalDamageReduce !== undefined) {
+          updatedSpecialAttributes.finalDamageReduce = Math.max(0, (updatedSpecialAttributes.finalDamageReduce || 0) - combatAttributes.finalDamageReduce);
+        }
+        if (combatAttributes.combatBoost !== undefined) {
+          updatedSpecialAttributes.combatBoost = Math.max(0, (updatedSpecialAttributes.combatBoost || 0) - combatAttributes.combatBoost);
+        }
+        if (combatAttributes.resistanceBoost !== undefined) {
+          updatedSpecialAttributes.resistanceBoost = Math.max(0, (updatedSpecialAttributes.resistanceBoost || 0) - combatAttributes.resistanceBoost);
+        }
+      }
       
       // 打印更新后的玩家属性
       console.log(`[Pet Recall] 更新后玩家属性:`, {
@@ -448,24 +595,13 @@ const recallPet = async (req, res) => {
       );
     }
 
-    // 更新成功后，重新查询宠物信息以确保返回最新的状态
-    const updatedPet = await Pet.findOne({
-      where: {
-        userId: userId,
-        [Sequelize.Op.or]: [
-          { petId: petId },
-          { id: petId }
-        ]
-      }
-    });
-    
     res.status(200).send({ 
       success: true, 
       message: '召回成功', 
       pet: { 
-        id: updatedPet.id, 
-        name: updatedPet.name, 
-        isActive: updatedPet.isActive 
+        id: pet.id, 
+        name: pet.name, 
+        isActive: pet.isActive 
       } 
     });
   } catch (error) {
@@ -484,7 +620,7 @@ const upgradePet = async (req, res) => {
     const userId = req.user.id;
 
     // 查找要升级的灵宠
-    const pet = await Pet.findOne({
+    let pet = await Pet.findOne({
       where: {
         userId: userId,
         [Sequelize.Op.or]: [
@@ -576,7 +712,7 @@ const evolvePet = async (req, res) => {
     const userId = req.user.id;
 
     // 查找目标灵宠
-    const targetPet = await Pet.findOne({
+    let targetPet = await Pet.findOne({
       where: {
         userId: userId,
         [Sequelize.Op.or]: [

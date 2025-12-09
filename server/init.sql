@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS "Items" (
     "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Equipment table (新建设备表)
+-- Equipment table (新建装备表)
 CREATE TABLE IF NOT EXISTS "Equipment" (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     "userId" INTEGER REFERENCES "Users"(id) ON DELETE CASCADE,
@@ -73,7 +73,7 @@ CREATE TABLE IF NOT EXISTS "Equipment" (
     "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Pets table
+-- Pets table(新建灵宠表)
 CREATE TABLE IF NOT EXISTS "Pets" (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     "userId" INTEGER REFERENCES "Users"(id) ON DELETE CASCADE,
@@ -86,11 +86,14 @@ CREATE TABLE IF NOT EXISTS "Pets" (
     experience INTEGER DEFAULT 0,
     "maxExperience" INTEGER DEFAULT 100,
     quality JSON,
-    "combatAttributes" JSON DEFAULT '{}',
+    "combatAttributes" JSON,
     "isActive" BOOLEAN DEFAULT false,
     power INTEGER DEFAULT 0,
     "upgradeItems" INTEGER DEFAULT 1,
     description VARCHAR(255),
+    "attackBonus" FLOAT DEFAULT 0,
+    "defenseBonus" FLOAT DEFAULT 0,
+    "healthBonus" FLOAT DEFAULT 0,
     "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

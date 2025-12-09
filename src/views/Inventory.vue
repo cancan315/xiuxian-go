@@ -1322,6 +1322,7 @@
         specialAttributes: playerInfoStore.specialAttributes
       });
       
+      
       if (playerInfoStore.activePet?.id === item.id) {
         // 召回灵宠
         console.log(`[Pet Action] 尝试召回灵宠: ${item.name}(${item.id}), 当前activePet:`, playerInfoStore.activePet);
@@ -1347,6 +1348,20 @@
             if (petInStore) {
               petInStore.isActive = false;
               console.log(`[Pet Action] 更新petsStore中灵宠isActive为false: ${petInStore.name}(${petInStore.id})`);
+            }
+            
+            // 重新加载玩家数据以获取更新后的属性
+            try {
+              const playerDataResponse = await APIService.initializePlayer(token);
+              console.log('[Pet Action] 获取更新后的玩家数据:', playerDataResponse);
+              
+              // 更新玩家属性
+              if (playerDataResponse.user) {
+                Object.assign(playerInfoStore, playerDataResponse.user);
+                console.log('[Pet Action] 已更新玩家属性');
+              }
+            } catch (error) {
+              console.error('[Pet Action] 获取更新后的玩家数据失败:', error);
             }
             
             // 重新加载灵宠列表以确保数据同步
@@ -1384,6 +1399,20 @@
             if (petInStore) {
               petInStore.isActive = true;
               console.log(`[Pet Action] 更新petsStore中灵宠isActive为true: ${petInStore.name}(${petInStore.id})`);
+            }
+            
+            // 重新加载玩家数据以获取更新后的属性
+            try {
+              const playerDataResponse = await APIService.initializePlayer(token);
+              console.log('[Pet Action] 获取更新后的玩家数据:', playerDataResponse);
+              
+              // 更新玩家属性
+              if (playerDataResponse.user) {
+                Object.assign(playerInfoStore, playerDataResponse.user);
+                console.log('[Pet Action] 已更新玩家属性');
+              }
+            } catch (error) {
+              console.error('[Pet Action] 获取更新后的玩家数据失败:', error);
             }
             
             // 重新加载灵宠列表以确保数据同步
@@ -1534,45 +1563,7 @@
     return { complete, incomplete }
   })
   
-  // 装备列表项组件
-  const EquipmentListItem = {
-    props: ['equipment'],
-    emits: ['equip', 'show-details'],
-    setup(props, { emit }) {
-      const handleEquip = () => {
-        emit('equip', props.equipment);
-      };
-      
-      const handleShowDetails = () => {
-        emit('show-details', props.equipment);
-      };
-      
-      return () => h('div', { class: 'equipment-item' }, [
-        h('div', { class: 'equipment-info' }, [
-          h('div', { class: 'equipment-name', style: { color: itemQualities.equipment[props.equipment.quality]?.color } }, props.equipment.name),
-          h('div', { class: 'equipment-stats' }, [
-            ...Object.entries(props.equipment.stats || {}).map(([stat, value]) => 
-              h('span', { class: 'stat' }, `${stats[stat]}: ${value}`)
-            )
-          ]),
-          h('div', { class: 'equipment-meta' }, [
-            h('span', { class: 'enhance-level' }, `强化: +${props.equipment.enhanceLevel || 0}`),
-            props.equipment.equipped ? h('span', { class: 'equipped-tag' }, '已装备') : null
-          ])
-        ]),
-        h('div', { class: 'equipment-actions' }, [
-          !props.equipment.equipped ? h('button', { 
-            class: 'equip-btn',
-            onClick: handleEquip
-          }, '装备') : null,
-          h('button', {
-            class: 'detail-btn',
-            onClick: handleShowDetails
-          }, '详情')
-        ])
-      ]);
-    }
-  };
+ 
 </script>
 
 <style scoped>
