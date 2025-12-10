@@ -76,22 +76,7 @@ class APIService {
     return response.json();
   }
   
-  /**
-   * 更新心跳包
-   * @param {string} playerId - 玩家ID
-   * @returns {Promise<Object>} 心跳更新结果
-   */
-  static async updateHeartbeat(playerId) {
-    const response = await fetch(`${API_BASE_URL}/online/heartbeat`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ playerId })
-    });
-    
-    return response.json();
-  }
+  
   
   /**
    * 标记玩家离线

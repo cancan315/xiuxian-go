@@ -41,10 +41,8 @@ func RegisterRoutes(r *gin.Engine) {
 		playerGroup.DELETE("/pets", player.DeletePets)
 
 		// 库存/装备相关查询接口
-		playerGroup.GET("/inventory/:userId", player.GetPlayerInventory)
-		playerGroup.GET("/inventory", player.GetPlayerInventory)
-		playerGroup.GET("/inventory/item/:itemId", player.GetItemDetails)
-		playerGroup.GET("/equipment/:userId", player.GetPlayerEquipment)
+		
+		
 		playerGroup.GET("/equipment", player.GetPlayerEquipment)
 		playerGroup.GET("/equipment/details/:id", player.GetEquipmentDetails)
 

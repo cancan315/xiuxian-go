@@ -6,28 +6,28 @@ import "gorm.io/datatypes"
 
 type Equipment struct {
 	ID     string `gorm:"type:uuid;primaryKey;column:id"`
-	UserID uint   `gorm:"column:userId"`
+	UserID uint   `gorm:"column:user_id"`
 
-	EquipmentID string `gorm:"column:equipmentId"`
+	EquipmentID string `gorm:"column:equipment_id"`
 	Name        string `gorm:"column:name"`
 	Type        string `gorm:"column:type"`
 
 	Slot      *string        `gorm:"column:slot"`
-	EquipType *string        `gorm:"column:equipType"`
+	EquipType *string        `gorm:"column:equip_type"`
 	Details   datatypes.JSON `gorm:"column:details"`
 	Stats     datatypes.JSON `gorm:"column:stats"`
 	// 额外属性，与 Node Equipment.extraAttributes 对应
-	ExtraAttributes datatypes.JSON `gorm:"column:extraAttributes"`
+	ExtraAttributes datatypes.JSON `gorm:"column:extra_attributes"`
 
 	Quality      string `gorm:"column:quality"`
-	EnhanceLevel int    `gorm:"column:enhanceLevel"`
+	EnhanceLevel int    `gorm:"column:enhance_level"`
 	Equipped     bool   `gorm:"column:equipped"`
 
 	Description   *string `gorm:"column:description"`
-	RequiredRealm int     `gorm:"column:requiredRealm"`
+	RequiredRealm int     `gorm:"column:required_realm"`
 	Level         int     `gorm:"column:level"`
 }
 
 func (Equipment) TableName() string {
-	return "Equipment"
+	return "equipment"
 }

@@ -6,9 +6,9 @@ import "gorm.io/datatypes"
 
 type Pet struct {
 	ID     string `gorm:"type:uuid;primaryKey;column:id"`
-	UserID uint   `gorm:"column:userId"`
+	UserID uint   `gorm:"column:user_id"`
 
-	PetID string `gorm:"column:petId"`
+	PetID string `gorm:"column:pet_id"`
 	Name  string `gorm:"column:name"`
 	Type  string `gorm:"column:type"`
 
@@ -17,18 +17,18 @@ type Pet struct {
 	Star   int    `gorm:"column:star"`
 
 	Experience    int `gorm:"column:experience"`
-	MaxExperience int `gorm:"column:maxExperience"`
+	MaxExperience int `gorm:"column:max_experience"`
 
 	Quality          datatypes.JSON `gorm:"column:quality"`
-	CombatAttributes datatypes.JSON `gorm:"column:combatAttributes"`
+	CombatAttributes datatypes.JSON `gorm:"column:combat_attributes"`
 
-	IsActive bool `gorm:"column:isActive"`
+	IsActive bool `gorm:"column:is_active"`
 
-	AttackBonus  float64 `gorm:"column:attackBonus"`
-	DefenseBonus float64 `gorm:"column:defenseBonus"`
-	HealthBonus  float64 `gorm:"column:healthBonus"`
+	AttackBonus  float64 `gorm:"column:attack_bonus"`
+	DefenseBonus float64 `gorm:"column:defense_bonus"`
+	HealthBonus  float64 `gorm:"column:health_bonus"`
 }
 
 func (Pet) TableName() string {
-	return "Pets"
+	return "pets"
 }

@@ -1,0 +1,111 @@
+-- 创建数据库表结构，基于Go后端模型定义
+-- 表名命名规范：复数名词  --
+-- users
+-- items
+-- user_items  -- 关联表命名规范用下划线连接
+
+-- 字段名命名规范：小写+下划线
+
+-- users 表
+CREATE TABLE IF NOT EXISTS "users" (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(255) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    player_name VARCHAR(255),
+    level INTEGER DEFAULT 1,
+    realm VARCHAR(255),
+    cultivation DOUBLE PRECISION DEFAULT 0,
+    max_cultivation DOUBLE PRECISION DEFAULT 100,
+    spirit DOUBLE PRECISION DEFAULT 0,
+    spirit_stones INTEGER DEFAULT 0,
+    reinforce_stones INTEGER DEFAULT 0,
+    refinement_stones INTEGER DEFAULT 0,
+    pet_essence INTEGER DEFAULT 0,
+    base_attributes JSONB,
+    combat_attributes JSONB,
+    combat_resistance JSONB,
+    special_attributes JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- items 表
+CREATE TABLE IF NOT EXISTS "items" (
+    id UUID PRIMARY KEY,
+    user_id INTEGER REFERENCES "users"(id),
+    item_id VARCHAR(255),
+    name VARCHAR(255),
+    type VARCHAR(255),
+    details JSONB,
+    slot VARCHAR(255),
+    stats JSONB,
+    quality VARCHAR(50),
+    equipped BOOLEAN DEFAULT FALSE
+);
+
+-- herbs 表
+CREATE TABLE IF NOT EXISTS "herbs" (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES "users"(id),
+    herb_id VARCHAR(255),
+    name VARCHAR(255),
+    count INTEGER DEFAULT 0
+);
+
+-- pills 表
+CREATE TABLE IF NOT EXISTS "pills" (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES "users"(id),
+    pill_id VARCHAR(255),
+    name VARCHAR(255),
+    description TEXT,
+    effect JSONB
+);
+
+-- pets 表
+CREATE TABLE IF NOT EXISTS "pets" (
+    id UUID PRIMARY KEY,
+    user_id INTEGER REFERENCES "users"(id),
+    pet_id VARCHAR(255),
+    name VARCHAR(255),
+    type VARCHAR(255),
+    rarity VARCHAR(50),
+    level INTEGER DEFAULT 1,
+    star INTEGER DEFAULT 1,
+    experience INTEGER DEFAULT 0,
+    max_experience INTEGER DEFAULT 100,
+    quality JSONB,
+    combat_attributes JSONB,
+    is_active BOOLEAN DEFAULT FALSE,
+    attack_bonus DOUBLE PRECISION DEFAULT 0,
+    defense_bonus DOUBLE PRECISION DEFAULT 0,
+    health_bonus DOUBLE PRECISION DEFAULT 0
+);
+
+-- equipment 表
+CREATE TABLE IF NOT EXISTS "equipment" (
+    id UUID PRIMARY KEY,
+    user_id INTEGER REFERENCES "users"(id),
+    equipment_id VARCHAR(255),
+    name VARCHAR(255),
+    type VARCHAR(255),
+    slot VARCHAR(255),
+    equip_type VARCHAR(255),
+    details JSONB,
+    stats JSONB,
+    extra_attributes JSONB,
+    quality VARCHAR(50),
+    enhance_level INTEGER DEFAULT 0,
+    equipped BOOLEAN DEFAULT FALSE,
+    description TEXT,
+    required_realm INTEGER DEFAULT 1,
+    level INTEGER DEFAULT 1
+);
+
+-- 创建索引以提高查询性能
+CREATE INDEX IF NOT EXISTS idx_users_username ON "users"(username);
+CREATE INDEX IF NOT EXISTS idx_items_user_id ON "items"(user_id);
+CREATE INDEX IF NOT EXISTS idx_herbs_user_id ON "herbs"(user_id);
+CREATE INDEX IF NOT EXISTS idx_pills_user_id ON "pills"(user_id);
+CREATE INDEX IF NOT EXISTS idx_pets_user_id ON "pets"(user_id);
+CREATE INDEX IF NOT EXISTS idx_equipment_user_id ON "equipment"(user_id);

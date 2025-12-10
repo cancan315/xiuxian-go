@@ -60,16 +60,7 @@ const handleLogin = async (e) => {
       // 初始化玩家数据
       // 由于 persistenceStore.initializePlayer() 不存在，我们将依赖 App.vue 在挂载时初始化数据
       
-      // 标记玩家在线
-      try {
-        await APIService.playerOnline(response.id, window.location.hostname);
-        
-        // 启动心跳机制
-        const { startHeartbeat } = await import('../utils/heartbeat');
-        startHeartbeat(response.id);
-      } catch (error) {
-        console.error('设置玩家在线状态失败:', error);
-      }
+      
       
       message.success('登录成功');
       // 登录成功后跳转到游戏主界面
@@ -122,16 +113,7 @@ const handleRegister = async (e) => {
       // 初始化玩家数据
       // 由于 persistenceStore.initializePlayer() 不存在，我们将依赖 App.vue 在挂载时初始化数据
       
-      // 标记玩家在线
-      try {
-        await APIService.playerOnline(response.id, window.location.hostname);
-        
-        // 启动心跳机制
-        const { startHeartbeat } = await import('../utils/heartbeat');
-        startHeartbeat(response.id);
-      } catch (error) {
-        console.error('设置玩家在线状态失败:', error);
-      }
+      
       
       message.success('注册成功');
       // 注册成功后跳转到首页，确保能触发新手礼包等流程

@@ -6,9 +6,9 @@ import "gorm.io/datatypes"
 
 type Item struct {
 	ID     string `gorm:"type:uuid;primaryKey;column:id"`
-	UserID uint   `gorm:"column:userId"`
+	UserID uint   `gorm:"column:user_id"`
 
-	ItemID string `gorm:"column:itemId"`
+	ItemID string `gorm:"column:item_id"`
 	Name   string `gorm:"column:name"`
 	Type   string `gorm:"column:type"`
 
@@ -20,5 +20,5 @@ type Item struct {
 }
 
 func (Item) TableName() string {
-	return "Items"
+	return "items"
 }

@@ -15,30 +15,30 @@ type User struct {
 	Password string `gorm:"size:255;not null;column:password"`
 
 	// Player basic info
-	PlayerName       string  `gorm:"column:playerName"`
+	PlayerName       string  `gorm:"column:player_name"`
 	Level            int     `gorm:"column:level"`
 	Realm            string  `gorm:"column:realm"`
 	Cultivation      float64 `gorm:"column:cultivation"`
-	MaxCultivation   float64 `gorm:"column:maxCultivation"`
+	MaxCultivation   float64 `gorm:"column:max_cultivation"`
 	Spirit           float64 `gorm:"column:spirit"`
-	SpiritStones     int     `gorm:"column:spiritStones"`
-	ReinforceStones  int     `gorm:"column:reinforceStones"`
-	RefinementStones int     `gorm:"column:refinementStones"`
-	PetEssence       int     `gorm:"column:petEssence"`
+	SpiritStones     int     `gorm:"column:spirit_stones"`
+	ReinforceStones  int     `gorm:"column:reinforce_stones"`
+	RefinementStones int     `gorm:"column:refinement_stones"`
+	PetEssence       int     `gorm:"column:pet_essence"`
 
 	// 战斗相关属性（JSON 存储，与 Node User 模型字段对应）
-	BaseAttributes    datatypes.JSON `gorm:"column:baseAttributes"`
-	CombatAttributes  datatypes.JSON `gorm:"column:combatAttributes"`
-	CombatResistance  datatypes.JSON `gorm:"column:combatResistance"`
-	SpecialAttributes datatypes.JSON `gorm:"column:specialAttributes"`
+	BaseAttributes    datatypes.JSON `gorm:"column:base_attributes"`
+	CombatAttributes  datatypes.JSON `gorm:"column:combat_attributes"`
+	CombatResistance  datatypes.JSON `gorm:"column:combat_resistance"`
+	SpecialAttributes datatypes.JSON `gorm:"column:special_attributes"`
 
 	// 其他字段先不全部展开，后续需要再补充
 
-	CreatedAt time.Time `gorm:"column:createdAt"`
-	UpdatedAt time.Time `gorm:"column:updatedAt"`
+	CreatedAt time.Time `gorm:"column:created_at"`
+	UpdatedAt time.Time `gorm:"column:updated_at"`
 }
 
 // TableName 显式指定与 Sequelize 使用的表名一致
 func (User) TableName() string {
-	return "Users"
+	return "users"
 }

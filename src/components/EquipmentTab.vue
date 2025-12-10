@@ -393,10 +393,14 @@
       }
       
       // 使用新的API服务方法获取装备数据，获取所有装备（已装备和未装备）
-      const data = await APIService.getPlayerInventory(token, { equipType: type })
+      const data = await APIService.getEquipmentList(token, { equipType: type })
       
       // 保存装备列表到本地变量
-      localEquipmentList.value = data.items;
+      if (data.equipment) {
+        localEquipmentList.value = data.equipment;
+      } else {
+        localEquipmentList.value = [];
+      }
     } catch (error) {
       console.error('获取装备数据时发生错误:', error)
       message.error('获取装备数据时发生错误')

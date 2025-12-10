@@ -2,7 +2,6 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
-import { handleBeforeUnload } from './utils/heartbeat'
 import APIService from './services/api'
 import { getAuthToken } from './stores/db'
 

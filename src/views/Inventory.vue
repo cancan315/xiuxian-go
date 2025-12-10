@@ -90,24 +90,26 @@
       }
       
       console.log('[Inventory] 开始获取已装备的装备列表')
-      const data = await APIService.getPlayerInventory(token, { equipped: 'true' })
+      const data = await APIService.getEquipmentList(token, { equipped: 'true' })
       
       // 更新已装备的装备状态
-      data.items.forEach(item => {
-        if (item.slot) {
-          equipmentStore.equippedArtifacts[item.slot] = item
-        }
-      })
+      if (data.equipment) {
+        data.equipment.forEach(item => {
+          if (item.slot) {
+            equipmentStore.equippedArtifacts[item.slot] = item
+          }
+        })
+      }
       
       // 清空没有装备的槽位
       Object.keys(equipmentStore.equippedArtifacts).forEach(slot => {
-        const isEquipped = data.items.some(item => item.slot === slot);
+        const isEquipped = data.equipment && data.equipment.some(item => item.slot === slot);
         if (!isEquipped) {
           equipmentStore.equippedArtifacts[slot] = null;
         }
       });
       
-      console.log(`[Inventory] 成功获取已装备的装备列表，数量: ${data.items.length}`)
+      console.log(`[Inventory] 成功获取已装备的装备列表，数量: ${data.equipment ? data.equipment.length : 0}`)
     } catch (error) {
       console.error('[Inventory] 获取已装备装备列表时发生错误:', error)
     }
