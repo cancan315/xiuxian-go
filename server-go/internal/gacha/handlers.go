@@ -1,10 +1,11 @@
 package gacha
 
 import (
-	"fmt"
 	"net/http"
+	"go.uber.org/zap"
 
 	"github.com/gin-gonic/gin"
+	
 	"gorm.io/gorm"
 
 	"xiuxian/server-go/internal/db"
@@ -30,9 +31,15 @@ func DrawGacha(c *gin.Context) {
 		return
 	}
 
+	// 获取zap logger
+	logger, _ := c.Get("zap_logger")
+	zapLogger := logger.(*zap.Logger)
+	
 	// 记录认证信息用于调试
 	authHeader := c.GetHeader("Authorization")
-	fmt.Printf("抽奖请求 - 用户ID: %d, 认证头: %s\n", userID, authHeader)
+	zapLogger.Info("抽奖请求",
+		zap.Uint("用户ID", userID),
+		zap.String("认证头", authHeader))
 
 	var req struct {
 		PoolType    string `json:"poolType"`
@@ -41,10 +48,16 @@ func DrawGacha(c *gin.Context) {
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "请求参数错误"})
-		fmt.Printf("抽奖请求绑定错误: %v\n", err)
+		zapLogger.Error("抽奖请求绑定错误",
+			zap.Error(err))
 		return
 	}
-	fmt.Printf("抽奖请求参数 - 抽奖池类型: %s, 数量: %d, 使用心愿单: %t\n", req.PoolType, req.Count, req.UseWishlist)
+	
+	zapLogger.Info("抽奖请求参数",
+		zap.String("抽奖池类型", req.PoolType),
+		zap.Int("数量", req.Count),
+		zap.Bool("使用心愿单", req.UseWishlist))
+		
 	if req.Count <= 0 {
 		req.Count = 1
 	}
@@ -59,7 +72,11 @@ func DrawGacha(c *gin.Context) {
 		return
 	}
 	// 打印玩家信息
-	fmt.Printf("抽奖前玩家信息 - 用户ID: %d, 等级: %d, 灵石: %d, 强化石: %d\n", user.ID, user.Level, user.SpiritStones, user.ReinforceStones)
+	zapLogger.Info("抽奖前玩家信息",
+		zap.Uint("用户ID", user.ID),
+		zap.Int("等级", user.Level),
+		zap.Int("灵石", user.SpiritStones),
+		zap.Int("强化石", user.ReinforceStones))
 
 	cost := map[int]int{}
 	if req.UseWishlist {
@@ -78,7 +95,10 @@ func DrawGacha(c *gin.Context) {
 
 	if user.SpiritStones < required {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "灵石不足"})
-		fmt.Printf("抽奖失败 - 灵石不足。用户: %d, 拥有: %d, 需要: %d\n", userID, user.SpiritStones, required)
+		zapLogger.Info("抽奖失败 - 灵石不足",
+			zap.Uint("用户", userID),
+			zap.Int("拥有", user.SpiritStones),
+			zap.Int("需要", required))
 		return
 	}
 
@@ -98,22 +118,30 @@ func DrawGacha(c *gin.Context) {
 
 	for i := 0; i < req.Count; i++ {
 		if req.PoolType == "equipment" {
-			equipment, err := GenerateEquipment(userID, user.Level)
+			equipment, err := GenerateEquipment(userID, user.Level, zapLogger)
 			if err != nil {
 				tx.Rollback()
 				c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "服务器错误", "error": err.Error()})
 				return
 			}
-			fmt.Printf("获得装备 - 用户: %d, 装备名称: %s, 品质: %s, 属性: %+v\n", userID, equipment.Name, equipment.Quality, equipment.Stats)
+			zapLogger.Info("获得装备",
+				zap.Uint("用户", userID),
+				zap.String("装备名称", equipment.Name),
+				zap.String("品质", equipment.Quality),
+				zap.Any("属性", equipment.Stats))
 			items = append(items, equipment)
 		} else if req.PoolType == "pet" {
-			pet, err := GeneratePet(userID, user.Level)
+			pet, err := GeneratePet(userID, user.Level, zapLogger)
 			if err != nil {
 				tx.Rollback()
 				c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "服务器错误", "error": err.Error()})
 				return
 			}
-			fmt.Printf("获得灵宠 - 用户: %d, 灵宠名称: %s, 稀有度: %s, 属性: %+v\n", userID, pet.Name, pet.Rarity, pet.CombatAttributes)
+			zapLogger.Info("获得灵宠",
+				zap.Uint("用户", userID),
+				zap.String("灵宠名称", pet.Name),
+				zap.String("稀有度", pet.Rarity),
+				zap.Any("属性", pet.CombatAttributes))
 			items = append(items, pet)
 		}
 	}
@@ -131,7 +159,11 @@ func DrawGacha(c *gin.Context) {
 	}
 
 	newStones := user.SpiritStones - required
-	fmt.Printf("抽奖成功 - 用户: %d, 抽奖池类型: %s, 数量: %d, 剩余灵石: %d\n", userID, req.PoolType, req.Count, newStones)
+	zapLogger.Info("抽奖成功",
+		zap.Uint("用户", userID),
+		zap.String("抽奖池类型", req.PoolType),
+		zap.Int("数量", req.Count),
+		zap.Int("剩余灵石", newStones))
 	c.JSON(http.StatusOK, gin.H{
 		"success":      true,
 		"items":        items,
@@ -148,9 +180,15 @@ func ProcessAutoActions(c *gin.Context) {
 		return
 	}
 
+	// 获取zap logger
+	logger, _ := c.Get("zap_logger")
+	zapLogger := logger.(*zap.Logger)
+
 	// 记录认证信息用于调试
 	authHeader := c.GetHeader("Authorization")
-	fmt.Printf("自动处理请求 - 用户ID: %d, 认证头: %s\n", userID, authHeader)
+	zapLogger.Info("自动处理请求",
+		zap.Uint("用户ID", userID),
+		zap.String("认证头", authHeader))
 
 	var req struct {
 		Items               []map[string]interface{} `json:"items"`
@@ -159,10 +197,15 @@ func ProcessAutoActions(c *gin.Context) {
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "请求参数错误"})
-		fmt.Printf("自动处理请求绑定错误: %v\n", err)
+		zapLogger.Error("自动处理请求绑定错误",
+			zap.Error(err))
 		return
 	}
-	fmt.Printf("自动处理请求参数 - 物品数: %d, 自动出售品质: %v, 自动释放稀有度: %v\n", len(req.Items), req.AutoSellQualities, req.AutoReleaseRarities)
+	
+	zapLogger.Info("自动处理请求参数",
+		zap.Int("物品数", len(req.Items)),
+		zap.Strings("自动出售品质", req.AutoSellQualities),
+		zap.Strings("自动释放稀有度", req.AutoReleaseRarities))
 
 	qualityStoneValues := map[string]int{
 		"common":    1,
@@ -225,7 +268,11 @@ func ProcessAutoActions(c *gin.Context) {
 		}
 	}
 
-	fmt.Printf("自动处理成功 - 用户: %d, 出售物品数: %d, 释放灵宽数: %d, 获得强化石: %d\n", userID, len(soldItems), len(releasedPets), stonesGained)
+	zapLogger.Info("自动处理成功",
+		zap.Uint("用户", userID),
+		zap.Int("出售物品数", len(soldItems)),
+		zap.Int("释放灵宽数", len(releasedPets)),
+		zap.Int("获得强化石", stonesGained))
 	c.JSON(http.StatusOK, gin.H{
 		"success":      true,
 		"soldItems":    soldItems,

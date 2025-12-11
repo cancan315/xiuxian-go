@@ -103,6 +103,7 @@ class APIService {
    * @returns {Promise<Object>} 玩家数据
    */
   static async getPlayerData(token) {
+    console.log('[API Service] 调用获取玩家数据接口: /api/player/data');
     const response = await fetch(`${API_BASE_URL}/player/data`, {
       method: 'GET',
       headers: {
@@ -117,6 +118,7 @@ class APIService {
     
     const data = await response.json();
     console.log('从后端API获取玩家数据:', data);
+    console.log('[API Service] 获取玩家数据接口调用完成: /api/player/data');
     return data;
   }
   
@@ -147,6 +149,7 @@ class APIService {
    * @returns {Promise<Object>} 玩家完整数据
    */
   static async initializePlayer(token) {
+    console.log('[API Service] 调用初始化玩家数据接口: /api/player/init');
     const response = await fetch(`${API_BASE_URL}/player/init`, {
       method: 'GET',
       headers: {
@@ -161,6 +164,7 @@ class APIService {
     
     const data = await response.json();
     console.log('从后端API初始化玩家数据:', data);
+    console.log('[API Service] 初始化玩家数据接口调用完成: /api/player/init');
     return data;
   }
   
@@ -380,18 +384,20 @@ class APIService {
       delete params.userId;
     }
     
-    // 添加其他查询参数
+    // 添加其他查询参数，确保参数名与后端一致
     const searchParams = new URLSearchParams();
     Object.keys(params).forEach(key => {
       if (params[key] !== undefined && params[key] !== null) {
+        // 不再进行任何转换，直接使用原始键名
         searchParams.append(key, params[key]);
       }
     });
-    
+
     if (searchParams.toString()) {
       url += `?${searchParams.toString()}`;
     }
 
+    console.log(`[API Service] 调用获取玩家装备列表接口: ${url}`);
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -404,7 +410,9 @@ class APIService {
       throw new Error('获取玩家装备列表失败');
     }
 
-    return response.json();
+    const data = await response.json();
+    console.log(`[API Service] 获取玩家装备列表接口调用完成: ${url}`, data);
+    return data;
   }
   
   /**

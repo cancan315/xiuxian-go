@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 
 	"xiuxian/server-go/internal/db"
 	"xiuxian/server-go/internal/models"
@@ -32,6 +33,11 @@ func assembleFullPlayerData(userID uint) (gin.H, error) {
 		return nil, err
 	}
 
+	var equipments []models.Equipment
+	if err := db.DB.Where("user_id = ?", userID).Find(&equipments).Error; err != nil {
+		return nil, err
+	}
+
 	var pets []models.Pet
 	if err := db.DB.Where("user_id = ?", userID).Find(&pets).Error; err != nil {
 		return nil, err
@@ -50,14 +56,25 @@ func assembleFullPlayerData(userID uint) (gin.H, error) {
 	// artifacts 目前 Node 版固定为空数组
 	artifacts := []interface{}{}
 
-	return gin.H{
+	// 合并 items 和 equipments
+	allItems := make([]interface{}, 0, len(items)+len(equipments))
+	for _, item := range items {
+		allItems = append(allItems, item)
+	}
+	for _, equipment := range equipments {
+		allItems = append(allItems, equipment)
+	}
+
+	data := gin.H{
 		"user":      user,
-		"items":     items,
+		"items":     allItems,
 		"pets":      pets,
 		"herbs":     herbs,
 		"pills":     pills,
 		"artifacts": artifacts,
-	}, nil
+	}
+	
+	return data, nil
 }
 
 // GetPlayerData 对应 GET /api/player/data （已弃用，但前端仍在使用）
@@ -68,12 +85,29 @@ func GetPlayerData(c *gin.Context) {
 		return
 	}
 
+	// 记录入参
+	logger, _ := c.Get("zap_logger")
+	zapLogger := logger.(*zap.Logger)
+	zapLogger.Info("GetPlayerData 入参",
+		zap.Uint("userID", userID))
+
 	data, err := assembleFullPlayerData(userID)
 	if err != nil {
-		log.Printf("get player data failed: %v", err)
+		// log.Printf("get player data failed: %v", err)
+		zapLogger.Error("get player data failed",
+			zap.Uint("userID", userID),
+			zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
 		return
 	}
+
+	// 记录出参
+	items, _ := data["items"].([]interface{})
+	pets, _ := data["pets"].([]models.Pet)
+	zapLogger.Info("GetPlayerData 出参",
+		zap.Uint("userID", userID),
+		zap.Int("itemsCount", len(items)),
+		zap.Int("petsCount", len(pets)))
 
 	c.JSON(http.StatusOK, data)
 }
@@ -86,12 +120,29 @@ func InitializePlayer(c *gin.Context) {
 		return
 	}
 
+	// 记录入参
+	logger, _ := c.Get("zap_logger")
+	zapLogger := logger.(*zap.Logger)
+	zapLogger.Info("InitializePlayer 入参",
+		zap.Uint("userID", userID))
+
 	data, err := assembleFullPlayerData(userID)
 	if err != nil {
-		log.Printf("initialize player failed: %v", err)
+		// log.Printf("initialize player failed: %v", err)
+		zapLogger.Error("initialize player failed",
+			zap.Uint("userID", userID),
+			zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
 		return
 	}
+
+	// 记录出参
+	items, _ := data["items"].([]interface{})
+	pets, _ := data["pets"].([]models.Pet)
+	zapLogger.Info("InitializePlayer 出参",
+		zap.Uint("userID", userID),
+		zap.Int("itemsCount", len(items)),
+		zap.Int("petsCount", len(pets)))
 
 	c.JSON(http.StatusOK, data)
 }

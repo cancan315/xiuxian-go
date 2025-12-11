@@ -75,7 +75,7 @@
                   :style="{ color: (equipment.quality && equipmentQualities[equipment.quality]?.color) || '#000000' }"
                   @click.stop="() => logClickEvent('装备品质标签', equipment)"
                 >
-                  {{ (equipment.quality && equipmentQualities[equipment.quality]?.name) || '未知品质' }}
+                  {{ (equipment.quality && equipmentQualities[equipment.quality]?.name) || (equipment.quality && equipmentQualities[equipment.quality]?.name) || '未知品质' }}
                 </n-tag>
                 <n-text @click.stop="() => logClickEvent('境界要求文本', equipment)">境界要求：{{ getRealmPeriodName(equipment.requiredRealm) || '未知境界' }}</n-text>
                 <!-- 显示装备状态 -->
@@ -393,13 +393,39 @@
       }
       
       // 使用新的API服务方法获取装备数据，获取所有装备（已装备和未装备）
-      const data = await APIService.getEquipmentList(token, { equipType: type })
+      const data = await APIService.getEquipmentList(token, { equip_type: type })
       
       // 保存装备列表到本地变量
       if (data.equipment) {
-        localEquipmentList.value = data.equipment;
+        // 映射后端字段名到前端期望的字段名
+        localEquipmentList.value = data.equipment.map(e => ({
+          id: e.ID,
+          name: e.Name,
+          type: e.Type,
+          quality: e.Quality,
+          enhanceLevel: e.EnhanceLevel,
+          equipped: e.Equipped,
+          equipType: e.EquipType,
+          stats: e.Stats,
+          level: e.Level,
+          requiredRealm: e.RequiredRealm,
+          description: e.Description
+        }));
+        
+        console.log(`[Inventory] 成功获取装备列表，共${data.equipment.length}件装备`, {
+          equipmentCount: data.equipment.length,
+          equipmentList: localEquipmentList.value.map(e => ({
+            id: e.id,
+            name: e.name,
+            type: e.type,
+            quality: e.quality,
+            enhanceLevel: e.enhanceLevel,
+            equipped: e.equipped
+          }))
+        });
       } else {
         localEquipmentList.value = [];
+        console.log('[Inventory] 获取装备列表失败，返回空列表');
       }
     } catch (error) {
       console.error('获取装备数据时发生错误:', error)
@@ -438,12 +464,17 @@
       const itemId = equipment?.id || selectedEquipment.value?.id
       if (!itemId) {
         message.error('无效的装备ID')
-        console.error('[Inventory] 无效的装备ID，无法获取装备详情')
+        console.error('[Inventory] 无效的装备ID，无法获取装备详情', { 
+          equipmentId: equipment?.id, 
+          selectedEquipmentId: selectedEquipment.value?.id,
+          equipment: equipment,
+          selectedEquipment: selectedEquipment.value
+        })
         return
       }
       
-      const response = await APIService.getItemDetails(token, itemId)
-      selectedEquipment.value = response.item
+      const response = await APIService.getEquipmentDetails(token, itemId)
+      selectedEquipment.value = response.equipment
       showEquipmentDetailModal.value = true
     } catch (error) {
       console.error('获取装备详情时发生错误:', error)
@@ -505,7 +536,7 @@
     
     const result = await props.equipmentStore.equipArtifact(
       equipment,
-      equipment.equipType,
+      equipment.equipType || equipment.EquipType,
       props.inventoryStore,
       props.persistenceStore,
       props.playerInfoStore,

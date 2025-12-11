@@ -263,13 +263,28 @@
       const processedItems = response.items.map(item => {
         if (item.type === 'equipment') {
           // 为装备添加品质信息
+          const qualityInfo = equipmentQualities[item.quality];
+          if (!qualityInfo) {
+            console.warn(`[GachaMain] 未找到装备品质信息: ${item.quality}`);
+            // 仅使用从后端获取的数据，不使用前端默认的 common 品质
+            return item;
+          }
           return {
             ...item,
-            qualityInfo: equipmentQualities[item.quality] || equipmentQualities.common
+            qualityInfo
           };
         } else if (item.type === 'pet') {
-          // 为灵宠添加品质信息（如果需要）
-          return item;
+          // 为灵宠添加稀有度信息（如果需要）
+          const rarityInfo = petRarities[item.rarity];
+          if (!rarityInfo) {
+            console.warn(`[GachaMain] 未找到灵宠稀有度信息: ${item.rarity}`);
+            // 仅使用从后端获取的数据，不使用前端默认的 common 品质
+            return item;
+          }
+          return {
+            ...item,
+            rarityInfo
+          };
         }
         return item;
       });
@@ -295,7 +310,9 @@
       } catch (inventoryError) {
         console.error('[GachaMain] 获取玩家完整数据失败:', inventoryError);
         // 如果获取最新数据失败，仍然使用抽卡返回的结果
-        inventoryStore.items = [...inventoryStore.items, ...response.items];
+        if (response.items) {
+          inventoryStore.items = [...inventoryStore.items, ...response.items];
+        }
       }
 
       // 处理自动操作（如果后端也支持的话）

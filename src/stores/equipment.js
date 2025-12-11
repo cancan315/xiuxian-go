@@ -51,6 +51,8 @@ export const useEquipmentStore = defineStore('equipment', {
           }
           
           console.log(`[Equipment Store] 成功装备物品: ${response.equipment.name} (${response.equipment.id})`)
+          // 更新本地已装备物品状态
+          this.equippedArtifacts[slot] = response.equipment;
           return { success: true, message: '装备成功', equipment: response.equipment, user: response.user }
         } else {
           console.log(`[Equipment Store] 装备失败: ${response.message || '未知错误'}`);
@@ -83,6 +85,8 @@ export const useEquipmentStore = defineStore('equipment', {
           
           if (response.success) {
             console.log(`[Equipment Store] 成功卸下装备: ${response.equipment.name} (${response.equipment.id})`)
+            // 更新本地已装备物品状态
+            this.equippedArtifacts[slot] = null;
             // 返回装备和用户属性（如果有的话）
             return { 
               success: true, 
@@ -176,6 +180,19 @@ export const useEquipmentStore = defineStore('equipment', {
       } catch (error) {
         console.error('[Equipment Store] 批量出售装备失败:', error);
         return { success: false, message: '批量出售装备失败: ' + error.message }
+      }
+    },
+    
+    // 从后端获取玩家装备数据
+    async fetchPlayerEquipment(token, params = {}) {
+      try {
+        console.log('[Equipment Store] 从后端获取玩家装备数据');
+        const response = await APIService.getEquipmentList(token, params);
+        console.log('[Equipment Store] 成功获取玩家装备数据:', response);
+        return response;
+      } catch (error) {
+        console.error('[Equipment Store] 获取玩家装备数据失败:', error);
+        throw error;
       }
     }
   }

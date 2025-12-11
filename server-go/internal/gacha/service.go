@@ -1,7 +1,7 @@
 package gacha
 
 import (
-	"fmt"
+	"go.uber.org/zap"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -11,11 +11,15 @@ import (
 )
 
 // GenerateEquipment 将生成的装备保存到数据库
-func GenerateEquipment(userID uint, level int) (*models.Equipment, error) {
+func GenerateEquipment(userID uint, level int, logger *zap.Logger) (*models.Equipment, error) {
 	eq := GenerateRandomEquipment(level)
 
 	// 打印装备存入数据库前的属性
-	fmt.Printf("[抽奖] 装备存入数据库前 - 用户ID: %d, 装备名称: %s, 品质: %s, 属性: %+v\n", userID, eq.Name, eq.Quality, eq.Stats)
+	logger.Info("[抽奖] 装备存入数据库前",
+		zap.Uint("用户ID", userID),
+		zap.String("装备名称", eq.Name),
+		zap.String("品质", eq.Quality),
+		zap.Any("属性", eq.Stats))
 
 	model := models.Equipment{
 		ID:              uuid.NewString(),
@@ -38,17 +42,26 @@ func GenerateEquipment(userID uint, level int) (*models.Equipment, error) {
 	}
 
 	// 打印装备存入数据库后的属性
-	fmt.Printf("[抽奖] 装备存入数据库后 - 用户ID: %d, 装备ID: %s, 装备名称: %s, 品质: %s, 属性: %s\n", userID, model.ID, model.Name, model.Quality, model.Stats)
+	logger.Info("[抽奖] 装备存入数据库后",
+		zap.Uint("用户ID", userID),
+		zap.String("装备ID", model.ID),
+		zap.String("装备名称", model.Name),
+		zap.String("品质", model.Quality),
+		zap.Any("属性", model.Stats))
 
 	return &model, nil
 }
 
 // GeneratePet 将生成的宠物保存到数据库
-func GeneratePet(userID uint, level int) (*models.Pet, error) {
+func GeneratePet(userID uint, level int, logger *zap.Logger) (*models.Pet, error) {
 	p := GenerateRandomPet(level)
 
 	// 打印灵宠存入数据库前的属性
-	fmt.Printf("[抽奖] 灵宠存入数据库前 - 用户ID: %d, 灵宠名称: %s, 稀有度: %s, 属性: %+v\n", userID, p.Name, p.Rarity, p.CombatAttrs)
+	logger.Info("[抽奖] 灵宠存入数据库前",
+		zap.Uint("用户ID", userID),
+		zap.String("灵宠名称", p.Name),
+		zap.String("稀有度", p.Rarity),
+		zap.Any("属性", p.CombatAttrs))
 
 	// 确保宠物ID唯一性
 	petID := p.ID
@@ -82,7 +95,12 @@ func GeneratePet(userID uint, level int) (*models.Pet, error) {
 	}
 
 	// 打印灵宠存入数据库后的属性
-	fmt.Printf("[抽奖] 灵宠存入数据库后 - 用户ID: %d, 灵宠ID: %s, 灵宠名称: %s, 稀有度: %s, 属性: %s\n", userID, petModel.ID, petModel.Name, petModel.Rarity, petModel.CombatAttributes)
+	logger.Info("[抽奖] 灵宠存入数据库后",
+		zap.Uint("用户ID", userID),
+		zap.String("灵宠ID", petModel.ID),
+		zap.String("灵宠名称", petModel.Name),
+		zap.String("稀有度", petModel.Rarity),
+		zap.Any("属性", petModel.CombatAttributes))
 
 	return &petModel, nil
 }

@@ -1,4 +1,4 @@
-// 统一的物品品质配置
+// 统一的装备灵宠品质配置
 export const itemQualities = {
   // 装备品质
   equipment: {
