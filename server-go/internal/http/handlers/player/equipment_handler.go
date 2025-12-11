@@ -197,6 +197,13 @@ func GetEquipmentDetails(c *gin.Context) {
 		return
 	}
 
+	// 记录返回给前端的数据
+	logger, _ := c.Get("zap_logger")
+	zapLogger := logger.(*zap.Logger)
+	zapLogger.Info("GetEquipmentDetails 出参",
+		zap.String("equipmentId", id),
+		zap.Any("responseData", equipment))
+
 	c.JSON(http.StatusOK, gin.H{
 		"success":   true,
 		"equipment": equipment,

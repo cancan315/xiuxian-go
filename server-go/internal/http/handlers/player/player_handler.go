@@ -27,27 +27,27 @@ func assembleFullPlayerData(userID uint) (gin.H, error) {
 	if err := db.DB.First(&user, userID).Error; err != nil {
 		return nil, err
 	}
-
+	// 获取用户物品
 	var items []models.Item
 	if err := db.DB.Where("user_id = ?", userID).Find(&items).Error; err != nil {
 		return nil, err
 	}
-
+	// 获取用户装备
 	var equipments []models.Equipment
 	if err := db.DB.Where("user_id = ?", userID).Find(&equipments).Error; err != nil {
 		return nil, err
 	}
-
+	// 获取用户宠物
 	var pets []models.Pet
 	if err := db.DB.Where("user_id = ?", userID).Find(&pets).Error; err != nil {
 		return nil, err
 	}
-
+	// 获取用户草药
 	var herbs []models.Herb
 	if err := db.DB.Where("user_id = ?", userID).Find(&herbs).Error; err != nil {
 		return nil, err
 	}
-
+	// 获取用户丹药
 	var pills []models.Pill
 	if err := db.DB.Where("user_id = ?", userID).Find(&pills).Error; err != nil {
 		return nil, err
@@ -56,18 +56,10 @@ func assembleFullPlayerData(userID uint) (gin.H, error) {
 	// artifacts 目前 Node 版固定为空数组
 	artifacts := []interface{}{}
 
-	// 合并 items 和 equipments
-	allItems := make([]interface{}, 0, len(items)+len(equipments))
-	for _, item := range items {
-		allItems = append(allItems, item)
-	}
-	for _, equipment := range equipments {
-		allItems = append(allItems, equipment)
-	}
-
 	data := gin.H{
 		"user":      user,
-		"items":     allItems,
+		"items":     items,
+		"equipments": equipments,
 		"pets":      pets,
 		"herbs":     herbs,
 		"pills":     pills,
@@ -107,7 +99,8 @@ func GetPlayerData(c *gin.Context) {
 	zapLogger.Info("GetPlayerData 出参",
 		zap.Uint("userID", userID),
 		zap.Int("itemsCount", len(items)),
-		zap.Int("petsCount", len(pets)))
+		zap.Int("petsCount", len(pets)),
+		zap.Any("responseData", data))
 
 	c.JSON(http.StatusOK, data)
 }
@@ -142,7 +135,8 @@ func InitializePlayer(c *gin.Context) {
 	zapLogger.Info("InitializePlayer 出参",
 		zap.Uint("userID", userID),
 		zap.Int("itemsCount", len(items)),
-		zap.Int("petsCount", len(pets)))
+		zap.Int("petsCount", len(pets)),
+		zap.Any("responseData", data))
 
 	c.JSON(http.StatusOK, data)
 }

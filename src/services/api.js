@@ -1,6 +1,39 @@
 // API服务类，用于与后端进行通信
 const API_BASE_URL = '/api';
 
+// 将大驼峰命名转换为小驼峰命名的通用函数
+function convertToCamelCase(obj) {
+  if (obj === null || typeof obj !== 'object') {
+    return obj;
+  }
+
+  if (Array.isArray(obj)) {
+    return obj.map(item => convertToCamelCase(item));
+  }
+
+  const converted = {};
+  for (const key in obj) {
+    if (obj.hasOwnProperty(key)) {
+      // 定义特殊字段映射规则
+      const fieldMapping = {
+        'ID': 'id',
+        'UserID': 'userId',
+        'EquipmentID': 'equipmentId',
+        'EquipType': 'equipType',
+        'EnhanceLevel': 'enhanceLevel',
+        'Equipped': 'equipped',
+        'ExtraAttributes': 'extraAttributes',
+        'RequiredRealm': 'requiredRealm'
+      };
+      
+      // 使用特殊映射规则或默认转换规则
+      const camelCaseKey = fieldMapping[key] || (key.charAt(0).toLowerCase() + key.slice(1));
+      converted[camelCaseKey] = convertToCamelCase(obj[key]);
+    }
+  }
+  return converted;
+}
+
 class APIService {
   // 用户认证相关方法
   
@@ -119,7 +152,8 @@ class APIService {
     const data = await response.json();
     console.log('从后端API获取玩家数据:', data);
     console.log('[API Service] 获取玩家数据接口调用完成: /api/player/data');
-    return data;
+    // 统一转换后端返回的数据字段为小驼峰命名法
+    return convertToCamelCase(data);
   }
   
   /**
@@ -164,8 +198,9 @@ class APIService {
     
     const data = await response.json();
     console.log('从后端API初始化玩家数据:', data);
-    console.log('[API Service] 初始化玩家数据接口调用完成: /api/player/init');
-    return data;
+    console.log('[API Service] 初始化玩家数据接口调用完成: /api/player/init', data);
+    // 统一转换后端返回的数据字段为小驼峰命名法
+    return convertToCamelCase(data);
   }
   
   /**
@@ -412,7 +447,9 @@ class APIService {
 
     const data = await response.json();
     console.log(`[API Service] 获取玩家装备列表接口调用完成: ${url}`, data);
-    return data;
+    
+    // 统一转换后端返回的数据字段为小驼峰命名法
+    return convertToCamelCase(data);
   }
   
   /**
@@ -434,7 +471,9 @@ class APIService {
       throw new Error('获取装备详情失败');
     }
 
-    return response.json();
+    const data = await response.json();
+    // 统一转换后端返回的数据字段为小驼峰命名法
+    return convertToCamelCase(data);
   }
   
   /**
@@ -458,7 +497,9 @@ class APIService {
       throw new Error('装备强化失败');
     }
 
-    return response.json();
+    const data = await response.json();
+    // 统一转换后端返回的数据字段为小驼峰命名法
+    return convertToCamelCase(data);
   }
   
   /**
@@ -482,7 +523,9 @@ class APIService {
       throw new Error('装备洗练失败');
     }
 
-    return response.json();
+    const data = await response.json();
+    // 统一转换后端返回的数据字段为小驼峰命名法
+    return convertToCamelCase(data);
   }
   
   /**
@@ -507,7 +550,9 @@ class APIService {
       throw new Error('确认洗练结果失败');
     }
 
-    return response.json();
+    const data = await response.json();
+    // 统一转换后端返回的数据字段为小驼峰命名法
+    return convertToCamelCase(data);
   }
   
   /**
@@ -554,7 +599,10 @@ class APIService {
       throw new Error(errorMessage);
     }
 
-    return response.json();
+    const data = await response.json();
+    console.log('[API Service] 装备穿戴接口返回结果:', data);
+    // 统一转换后端返回的数据字段为小驼峰命名法
+    return convertToCamelCase(data);
   }
   
   /**
@@ -594,7 +642,8 @@ class APIService {
 
     const result = await response.json();
     console.log('[API Service] 装备卸下接口返回结果:', result);
-    return result;
+    // 统一转换后端返回的数据字段为小驼峰命名法
+    return convertToCamelCase(result);
   }
   
   /**
@@ -616,7 +665,9 @@ class APIService {
       throw new Error('装备出售失败');
     }
 
-    return response.json();
+    const data = await response.json();
+    // 统一转换后端返回的数据字段为小驼峰命名法
+    return convertToCamelCase(data);
   }
   
   /**
@@ -639,7 +690,9 @@ class APIService {
       throw new Error('批量出售装备失败');
     }
 
-    return response.json();
+    const data = await response.json();
+    // 统一转换后端返回的数据字段为小驼峰命名法
+    return convertToCamelCase(data);
   }
 
   // 灵宠系统相关方法
@@ -663,7 +716,9 @@ class APIService {
       throw new Error('出战灵宠失败');
     }
     
-    return response.json();
+    const data = await response.json();
+    // 统一转换后端返回的数据字段为小驼峰命名法
+    return convertToCamelCase(data);
   }
   
   /**
@@ -685,7 +740,9 @@ class APIService {
       throw new Error('召回灵宠失败');
     }
     
-    return response.json();
+    const data = await response.json();
+    // 统一转换后端返回的数据字段为小驼峰命名法
+    return convertToCamelCase(data);
   }
   
   /**
@@ -709,7 +766,9 @@ class APIService {
       throw new Error('升级灵宠失败');
     }
     
-    return response.json();
+    const data = await response.json();
+    // 统一转换后端返回的数据字段为小驼峰命名法
+    return convertToCamelCase(data);
   }
   
   /**
@@ -733,7 +792,9 @@ class APIService {
       throw new Error('升星灵宠失败');
     }
     
-    return response.json();
+    const data = await response.json();
+    // 统一转换后端返回的数据字段为小驼峰命名法
+    return convertToCamelCase(data);
   }
   
   /**
@@ -756,7 +817,9 @@ class APIService {
       throw new Error('批量放生灵宠失败');
     }
     
-    return response.json();
+    const data = await response.json();
+    // 统一转换后端返回的数据字段为小驼峰命名法
+    return convertToCamelCase(data);
   }
   
   // 排行榜相关方法
@@ -767,7 +830,9 @@ class APIService {
    */
   static async getLeaderboard() {
     const response = await fetch(`${API_BASE_URL}/player/leaderboard`);
-    return response.json();
+    const data = await response.json();
+    // 统一转换后端返回的数据字段为小驼峰命名法
+    return convertToCamelCase(data);
   }
   
   // 抽奖系统相关方法
@@ -792,7 +857,9 @@ class APIService {
       throw new Error('抽奖失败');
     }
     
-    return response.json();
+    const data = await response.json();
+    // 统一转换后端返回的数据字段为小驼峰命名法
+    return convertToCamelCase(data);
   }
   
   /**
@@ -815,7 +882,9 @@ class APIService {
       throw new Error('自动处理失败');
     }
     
-    return response.json();
+    const data = await response.json();
+    // 统一转换后端返回的数据字段为小驼峰命名法
+    return convertToCamelCase(data);
   }
 }
 

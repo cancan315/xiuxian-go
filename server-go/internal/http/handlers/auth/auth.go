@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/datatypes"
 
 	"xiuxian/server-go/internal/db"
 	"xiuxian/server-go/internal/models"
@@ -66,10 +67,22 @@ func Register(c *gin.Context) {
 	}
 
 	user := models.User{
-		Username:     req.Username,
-		Password:     string(hashed),
-		Level:        1,
-		SpiritStones: 20000,
+		Username:         req.Username,
+		Password:         string(hashed),
+		PlayerName:       "无名修士",
+		Level:            1,
+		Realm:            "练气期一层",
+		Cultivation:      0,
+		MaxCultivation:   100,
+		Spirit:           0,
+		SpiritStones:     20000,
+		ReinforceStones:  0,
+		RefinementStones: 0,
+		PetEssence:       0,
+		BaseAttributes:   datatypes.JSON([]byte("{\"attack\":10,\"health\":100,\"defense\":5,\"speed\":10}")),
+		CombatAttributes: datatypes.JSON([]byte("{\"critRate\":0,\"comboRate\":0,\"counterRate\":0,\"stunRate\":0,\"dodgeRate\":0,\"vampireRate\":0}")),
+		CombatResistance: datatypes.JSON([]byte("{\"critResist\":0,\"comboResist\":0,\"counterResist\":0,\"stunResist\":0,\"dodgeResist\":0,\"vampireResist\":0}")),
+		SpecialAttributes: datatypes.JSON([]byte("{\"healBoost\":0,\"critDamageBoost\":0,\"critDamageReduce\":0,\"finalDamageBoost\":0,\"finalDamageReduce\":0,\"combatBoost\":0,\"resistanceBoost\":0}")),
 	}
 	if err := db.DB.Create(&user).Error; err != nil {
 		fmt.Printf("[注册] 创建用户失败，用户名: %s, 错误: %v\n", req.Username, err)

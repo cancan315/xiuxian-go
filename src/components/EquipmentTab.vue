@@ -397,20 +397,7 @@
       
       // 保存装备列表到本地变量
       if (data.equipment) {
-        // 映射后端字段名到前端期望的字段名
-        localEquipmentList.value = data.equipment.map(e => ({
-          id: e.ID,
-          name: e.Name,
-          type: e.Type,
-          quality: e.Quality,
-          enhanceLevel: e.EnhanceLevel,
-          equipped: e.Equipped,
-          equipType: e.EquipType,
-          stats: e.Stats,
-          level: e.Level,
-          requiredRealm: e.RequiredRealm,
-          description: e.Description
-        }));
+        localEquipmentList.value = data.equipment;
         
         console.log(`[Inventory] 成功获取装备列表，共${data.equipment.length}件装备`, {
           equipmentCount: data.equipment.length,
@@ -454,6 +441,7 @@
   // 显示装备详情
   const showEquipmentDetails = async (equipment) => {
     try {
+      console.log('[Inventory] 查看装备详情，传入的装备参数:', equipment);
       const token = getAuthToken()
       if (!token) {
         message.error('未找到认证令牌')
@@ -461,7 +449,7 @@
         return
       }
       
-      const itemId = equipment?.id || selectedEquipment.value?.id
+      const itemId = equipment?.id
       if (!itemId) {
         message.error('无效的装备ID')
         console.error('[Inventory] 无效的装备ID，无法获取装备详情', { 
