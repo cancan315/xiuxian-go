@@ -2,22 +2,26 @@ package gacha
 
 // ---------- 概率与配置，与 Node gachaController.js 保持一致 ----------
 
+// EquipmentQualityProbabilities 装备品质固定概率配置
+// 所有玩家无论等级如何，都使用相同的概率抽取各品质装备
 var EquipmentQualityProbabilities = map[string]float64{
-	"mythic":    0.001,
-	"legendary": 0.003,
-	"epic":      0.016,
-	"rare":      0.03,
-	"uncommon":  0.15,
-	"common":    0.80,
+	"mythic":    0.001,    // 仙器 - 0.1%
+	"legendary": 0.003,    // 伪仙器 - 0.3%
+	"epic":      0.016,    // 灵器 - 1.6%
+	"rare":      0.03,     // 魔器 - 3%
+	"uncommon":  0.15,     // 法器 - 15%
+	"common":    0.80,     // 凡器 - 80%
 }
 
+// PetRarityProbabilities 灵宠稀有度固定概率配置
+// 所有玩家无论等级如何，都使用相同的概率抽取各稀有度灵宠
 var PetRarityProbabilities = map[string]float64{
-	"mythic":    0.001,
-	"legendary": 0.003,
-	"epic":      0.016,
-	"rare":      0.03,
-	"uncommon":  0.15,
-	"common":    0.80,
+	"mythic":    0.001,    // 仙兽 - 0.1%
+	"legendary": 0.003,    // 瑞兽 - 0.3%
+	"epic":      0.016,    // 上古异兽 - 1.6%
+	"rare":      0.03,     // 灵兽 - 3%
+	"uncommon":  0.15,     // 妖兽 - 15%
+	"common":    0.80,     // 凡兽 - 80%
 }
 
 var AttributeTypes = struct {

@@ -1,11 +1,13 @@
 package player
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
+	"gorm.io/datatypes"
 
 	"xiuxian/server-go/internal/db"
 	"xiuxian/server-go/internal/models"
@@ -53,23 +55,58 @@ func assembleFullPlayerData(userID uint) (gin.H, error) {
 		return nil, err
 	}
 
+	// 将装备、草药和丹药合并到物品列表中
+	for _, equipment := range equipments {
+		items = append(items, models.Item{
+			ID:       equipment.ID,
+			UserID:   equipment.UserID,
+			ItemID:   equipment.EquipmentID,
+			Name:     equipment.Name,
+			Type:     equipment.Type,
+			Slot:     equipment.Slot,
+			Stats:    equipment.Stats,
+			Quality:  equipment.Quality,
+			Equipped: equipment.Equipped,
+		})
+	}
+
+	for _, herb := range herbs {
+		items = append(items, models.Item{
+			ID:     fmt.Sprintf("herb_%d", herb.ID),
+			UserID: herb.UserID,
+			ItemID: herb.HerbID,
+			Name:   herb.Name,
+			Type:   "herb",
+			Details: datatypes.JSON(fmt.Sprintf("{\"count\": %d}", herb.Count)),
+		})
+	}
+
+	for _, pill := range pills {
+		items = append(items, models.Item{
+			ID:     fmt.Sprintf("pill_%d", pill.ID),
+			UserID: pill.UserID,
+			ItemID: pill.PillID,
+			Name:   pill.Name,
+			Type:   "pill",
+			Details: pill.Effect,
+			// Description: pill.Description, // 如果需要可以添加额外字段
+		})
+	}
+
 	// artifacts 目前 Node 版固定为空数组
 	artifacts := []interface{}{}
 
 	data := gin.H{
 		"user":      user,
 		"items":     items,
-		"equipments": equipments,
 		"pets":      pets,
-		"herbs":     herbs,
-		"pills":     pills,
 		"artifacts": artifacts,
 	}
 	
 	return data, nil
 }
 
-// GetPlayerData 对应 GET /api/player/data （已弃用，但前端仍在使用）
+// GetPlayerData 对应 GET /api/player/data 获取玩家完整数据
 func GetPlayerData(c *gin.Context) {
 	userID, ok := currentUserID(c)
 	if !ok {
@@ -94,45 +131,9 @@ func GetPlayerData(c *gin.Context) {
 	}
 
 	// 记录出参
-	items, _ := data["items"].([]interface{})
+	items, _ := data["items"].([]models.Item)
 	pets, _ := data["pets"].([]models.Pet)
 	zapLogger.Info("GetPlayerData 出参",
-		zap.Uint("userID", userID),
-		zap.Int("itemsCount", len(items)),
-		zap.Int("petsCount", len(pets)),
-		zap.Any("responseData", data))
-
-	c.JSON(http.StatusOK, data)
-}
-
-// InitializePlayer 对应 GET /api/player/init
-func InitializePlayer(c *gin.Context) {
-	userID, ok := currentUserID(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"message": "用户未授权"})
-		return
-	}
-
-	// 记录入参
-	logger, _ := c.Get("zap_logger")
-	zapLogger := logger.(*zap.Logger)
-	zapLogger.Info("InitializePlayer 入参",
-		zap.Uint("userID", userID))
-
-	data, err := assembleFullPlayerData(userID)
-	if err != nil {
-		// log.Printf("initialize player failed: %v", err)
-		zapLogger.Error("initialize player failed",
-			zap.Uint("userID", userID),
-			zap.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
-		return
-	}
-
-	// 记录出参
-	items, _ := data["items"].([]interface{})
-	pets, _ := data["pets"].([]models.Pet)
-	zapLogger.Info("InitializePlayer 出参",
 		zap.Uint("userID", userID),
 		zap.Int("itemsCount", len(items)),
 		zap.Int("petsCount", len(pets)),

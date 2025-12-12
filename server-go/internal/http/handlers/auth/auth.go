@@ -1,13 +1,13 @@
 package auth
 
 import (
-	"fmt"
 	"net/http"
 	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/datatypes"
 
@@ -49,19 +49,28 @@ func Register(c *gin.Context) {
 		return
 	}
 
-	fmt.Printf("[注册] 收到注册请求，用户名: %s\n", req.Username)
+	// 获取zap logger
+	logger, _ := c.Get("zap_logger")
+	zapLogger := logger.(*zap.Logger)
+	
+	// 记录注册请求日志
+	zapLogger.Info("[注册] 收到注册请求",
+		zap.String("username", req.Username))
 
 	// 检查用户是否存在
 	var existing models.User
 	if err := db.DB.Where("username = ?", req.Username).First(&existing).Error; err == nil {
-		fmt.Printf("[注册] 用户名已存在: %s\n", req.Username)
+		zapLogger.Warn("[注册] 用户名已存在",
+			zap.String("username", req.Username))
 		c.JSON(http.StatusBadRequest, gin.H{"message": "用户名已存在"})
 		return
 	}
 
 	hashed, err := bcrypt.GenerateFromPassword([]byte(req.Password), 10)
 	if err != nil {
-		fmt.Printf("[注册] 密码加密失败，用户名: %s, 错误: %v\n", req.Username, err)
+		zapLogger.Error("[注册] 密码加密失败",
+			zap.String("username", req.Username),
+			zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
 		return
 	}
@@ -85,21 +94,30 @@ func Register(c *gin.Context) {
 		SpecialAttributes: datatypes.JSON([]byte("{\"healBoost\":0,\"critDamageBoost\":0,\"critDamageReduce\":0,\"finalDamageBoost\":0,\"finalDamageReduce\":0,\"combatBoost\":0,\"resistanceBoost\":0}")),
 	}
 	if err := db.DB.Create(&user).Error; err != nil {
-		fmt.Printf("[注册] 创建用户失败，用户名: %s, 错误: %v\n", req.Username, err)
+		zapLogger.Error("[注册] 创建用户失败",
+			zap.String("username", req.Username),
+			zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
 		return
 	}
 
-	fmt.Printf("[注册] 用户创建成功，用户ID: %d, 用户名: %s\n", user.ID, user.Username)
+	zapLogger.Info("[注册] 用户创建成功,玩家数据初始化完成",
+		zap.Uint("userID", user.ID),
+		zap.String("username", user.Username),
+		zap.Int("spirit_stones", user.SpiritStones))
 
 	token, err := generateToken(user.ID)
 	if err != nil {
-		fmt.Printf("[注册] 生成令牌失败，用户ID: %d, 错误: %v\n", user.ID, err)
+		zapLogger.Error("[注册] 生成令牌失败",
+			zap.Uint("userID", user.ID),
+			zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
 		return
 	}
 
-	fmt.Printf("[注册] 用户注册完成，用户ID: %d, 用户名: %s\n", user.ID, user.Username)
+	zapLogger.Info("[注册] 用户注册完成",
+		zap.Uint("userID", user.ID),
+		zap.String("username", user.Username))
 	c.JSON(http.StatusCreated, gin.H{
 		"id":       user.ID,
 		"username": user.Username,
@@ -119,29 +137,41 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	fmt.Printf("[登录] 收到登录请求，用户名: %s\n", req.Username)
+	// 获取zap logger
+	logger, _ := c.Get("zap_logger")
+	zapLogger := logger.(*zap.Logger)
+	
+	// 记录登录请求日志
+	zapLogger.Info("[登录] 收到登录请求",
+		zap.String("username", req.Username))
 
 	var user models.User
 	if err := db.DB.Where("username = ?", req.Username).First(&user).Error; err != nil {
-		fmt.Printf("[登录] 用户不存在，用户名: %s\n", req.Username)
+		zapLogger.Warn("[登录] 用户不存在",
+			zap.String("username", req.Username))
 		c.JSON(http.StatusBadRequest, gin.H{"message": "用户名或密码错误"})
 		return
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
-		fmt.Printf("[登录] 密码错误，用户名: %s\n", req.Username)
+		zapLogger.Warn("[登录] 密码错误",
+			zap.String("username", req.Username))
 		c.JSON(http.StatusBadRequest, gin.H{"message": "用户名或密码错误"})
 		return
 	}
 
 	token, err := generateToken(user.ID)
 	if err != nil {
-		fmt.Printf("[登录] 生成令牌失败，用户ID: %d, 错误: %v\n", user.ID, err)
+		zapLogger.Error("[登录] 生成令牌失败",
+			zap.Uint("userID", user.ID),
+			zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
 		return
 	}
 
-	fmt.Printf("[登录] 用户登录成功，用户ID: %d, 用户名: %s\n", user.ID, user.Username)
+	zapLogger.Info("[登录] 用户登录成功",
+		zap.Uint("userID", user.ID),
+		zap.String("username", user.Username))
 	c.JSON(http.StatusOK, gin.H{
 		"id":       user.ID,
 		"username": user.Username,
@@ -163,12 +193,25 @@ func GetUser(c *gin.Context) {
 		return
 	}
 
+	// 获取zap logger
+	logger, _ := c.Get("zap_logger")
+	zapLogger := logger.(*zap.Logger)
+	
+	// 记录获取用户信息请求日志
+	zapLogger.Info("[获取用户信息] 收到请求",
+		zap.Uint("userID", userID))
+
 	var user models.User
 	if err := db.DB.Select("id", "username").First(&user, userID).Error; err != nil {
+		zapLogger.Warn("[获取用户信息] 用户不存在",
+			zap.Uint("userID", userID))
 		c.JSON(http.StatusNotFound, gin.H{"message": "用户不存在"})
 		return
 	}
 
+	zapLogger.Info("[获取用户信息] 成功",
+		zap.Uint("userID", user.ID),
+		zap.String("username", user.Username))
 	c.JSON(http.StatusOK, gin.H{
 		"id":       user.ID,
 		"username": user.Username,

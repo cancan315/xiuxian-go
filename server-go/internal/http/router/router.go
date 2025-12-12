@@ -32,7 +32,6 @@ func RegisterRoutes(r *gin.Engine) {
 
 		// 其余接口需要认证
 		playerGroup.Use(middleware.Protect())
-		playerGroup.GET("/init", player.InitializePlayer)
 		playerGroup.GET("/data", player.GetPlayerData)
 		playerGroup.GET("/spirit", player.GetPlayerSpirit)
 		playerGroup.PUT("/spirit", player.UpdateSpirit)

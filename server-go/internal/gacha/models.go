@@ -9,37 +9,45 @@ import (
 
 // ---------- 随机生成逻辑 ----------
 
+// GachaEquipment 抽卡获得的装备数据结构
+// 用于在抽卡过程中临时存储生成的装备信息
 type GachaEquipment struct {
-	ID            string                 `json:"id"`
-	Name          string                 `json:"name"`
-	Type          string                 `json:"type"`
-	Quality       string                 `json:"quality"`
-	EquipType     string                 `json:"equip_type"`
-	Level         int                    `json:"level"`
-	RequiredRealm int                    `json:"required_realm"`
-	EnhanceLevel  int                    `json:"enhance_level"`
-	Stats         map[string]float64     `json:"stats"`
-	ExtraAttrs    map[string]interface{} `json:"extra_attributes"`
+	ID            string                 `json:"id"`             // 装备唯一标识符
+	Name          string                 `json:"name"`           // 装备名称
+	Type          string                 `json:"type"`           // 装备类型
+	Quality       string                 `json:"quality"`        // 装备品质
+	EquipType     string                 `json:"equip_type"`     // 装备类型
+	Slot          string                 `json:"slot"`           // 装备槽位
+	Level         int                    `json:"level"`          // 装备等级
+	RequiredRealm int                    `json:"required_realm"` // 需要境界等级
+	EnhanceLevel  int                    `json:"enhance_level"`  // 强化等级
+	Stats         map[string]float64     `json:"stats"`          // 装备基础属性
+	ExtraAttrs    map[string]interface{} `json:"extra_attributes"` // 装备额外属性
 }
 
+// GachaPet 抽卡获得的灵宠数据结构
+// 用于在抽卡过程中临时存储生成的灵宠信息
 type GachaPet struct {
-	ID              string             `json:"id"`
-	Name            string             `json:"name"`
-	Type            string             `json:"type"`
-	Rarity          string             `json:"rarity"`
-	Level           int                `json:"level"`
-	Star            int                `json:"star"`
-	Exp             int                `json:"exp"`
-	Description     string             `json:"description"`
-	CombatAttrs     map[string]float64 `json:"combat_attributes"`
-	AttackBonus     float64            `json:"attack_bonus"`
-	DefenseBonus    float64            `json:"defense_bonus"`
-	HealthBonus     float64            `json:"health_bonus"`
-	CreatedAtMillis int64              `json:"created_at"`
+	ID              string             `json:"id"`               // 灵宠唯一标识符
+	Name            string             `json:"name"`             // 灵宠名称
+	Type            string             `json:"type"`             // 类型（固定为"pet"）
+	Rarity          string             `json:"rarity"`           // 稀有度
+	Level           int                `json:"level"`            // 等级
+	Star            int                `json:"star"`             // 星级
+	Exp             int                `json:"exp"`              // 经验值
+	Description     string             `json:"description"`      // 描述信息
+	CombatAttrs     map[string]float64 `json:"combat_attributes"` // 战斗属性
+	AttackBonus     float64            `json:"attack_bonus"`     // 攻击加成
+	DefenseBonus    float64            `json:"defense_bonus"`    // 防御加成
+	HealthBonus     float64            `json:"health_bonus"`     // 生命加成
+	CreatedAtMillis int64              `json:"created_at"`       // 创建时间戳
 }
 
+// GenerateRandomEquipment 生成随机装备（使用固定概率）
+// 参数: level - 玩家当前等级（此参数现在仅用于装备等级，不影响品质概率）
+// 返回: 生成的装备对象
 func GenerateRandomEquipment(level int) GachaEquipment {
-	// i) 选择品质
+	// i) 选择品质（使用固定概率）
 	qualities := []string{"mythic", "legendary", "epic", "rare", "uncommon", "common"}
 	weights := make([]float64, len(qualities))
 	for i, q := range qualities {
@@ -116,6 +124,9 @@ func GenerateRandomEquipment(level int) GachaEquipment {
 	}
 }
 
+// GenerateRandomPet 生成随机灵宠（使用固定概率）
+// 参数: level - 玩家当前等级（此参数现在仅用于灵宠等级，不影响稀有度概率）
+// 返回: 生成的灵宠对象
 func GenerateRandomPet(level int) GachaPet {
 	rarities := []string{"mythic", "legendary", "epic", "rare", "uncommon", "common"}
 	weights := make([]float64, len(rarities))
