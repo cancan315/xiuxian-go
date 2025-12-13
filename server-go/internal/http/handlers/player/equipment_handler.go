@@ -448,6 +448,14 @@ func EquipEquipment(c *gin.Context) {
 	}
 	_ = c.ShouldBindJSON(&req)
 
+	// 获取zap logger
+	logger, exists := c.Get("zap_logger")
+	if !exists {
+		// 如果无法获取logger，创建一个默认的
+		logger, _ = zap.NewProduction()
+	}
+	zapLogger := logger.(*zap.Logger)
+
 	// 查找装备
 	var equipment models.Equipment
 	if err := db.DB.Where("id = ? AND user_id = ?", id, userID).First(&equipment).Error; err != nil {
@@ -462,6 +470,20 @@ func EquipEquipment(c *gin.Context) {
 	// 解析装备属性
 	equipStats := jsonToFloatMap(equipment.Stats)
 
+	// 打印穿戴前装备的属性
+	zapLogger.Info("穿戴装备前的装备属性",
+		zap.Uint("userID", userID),
+		zap.String("equipmentID", equipment.ID),
+		zap.String("equipmentName", equipment.Name),
+		zap.String("equipType", func() string {
+			if equipment.EquipType != nil {
+				return *equipment.EquipType
+			}
+			return "nil"
+		}()),
+		zap.String("quality", equipment.Quality),
+		zap.Any("equipmentStats", equipStats))
+
 	// 检查装备类型是否存在
 	var equipTypeForQuery string
 	if equipment.EquipType != nil {
@@ -472,9 +494,50 @@ func EquipEquipment(c *gin.Context) {
 		return
 	}
 
+	// 获取用户信息
+	var user models.User
+	if err := db.DB.First(&user, userID).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "服务器错误", "error": err.Error()})
+		return
+	}
+
+	// 解析用户属性
+	baseAttrs := jsonToFloatMap(user.BaseAttributes)
+	combatAttrs := jsonToFloatMap(user.CombatAttributes)
+	combatRes := jsonToFloatMap(user.CombatResistance)
+	specialAttrs := jsonToFloatMap(user.SpecialAttributes)
+
+	// 打印穿戴前玩家属性
+	zapLogger.Info("穿戴装备前的玩家属性",
+		zap.Uint("userID", userID),
+		zap.Any("baseAttributes", baseAttrs),
+		zap.Any("combatAttributes", combatAttrs),
+		zap.Any("combatResistance", combatRes),
+		zap.Any("specialAttributes", specialAttrs))
+
+	// 处理灵宠属性（如果有出战灵宠）
+	var activePet models.Pet
+	hasActivePet := db.DB.Where("user_id = ? AND is_active = ?", userID, true).First(&activePet).Error == nil
+	petCombat := jsonToFloatMap(activePet.CombatAttributes)
+
+	// 如果有出战灵宠，先移除灵宠加成
+	if hasActivePet {
+		removePetBonuses(baseAttrs, combatAttrs, combatRes, specialAttrs, &activePet, petCombat)
+	}
+
+	// 查找同类型已装备的装备，移除其属性
+	var oldEquipment []models.Equipment
+	if err := db.DB.Where("user_id = ? AND equip_type = ? AND id != ? AND equipped = ?",
+		userID, equipTypeForQuery, id, true).Find(&oldEquipment).Error; err == nil {
+		for _, old := range oldEquipment {
+			oldEquipStats := jsonToFloatMap(old.Stats)
+			removeEquipmentStats(baseAttrs, combatAttrs, combatRes, specialAttrs, oldEquipStats)
+		}
+	}
+
 	// 卸下同类型已装备的装备
 	if err := db.DB.Model(&models.Equipment{}).
-		Where("user_id = ? AND equip_type = ?", userID, equipTypeForQuery).
+		Where("user_id = ? AND equip_type = ? AND id != ?", userID, equipTypeForQuery, id).
 		Update("equipped", false).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "服务器错误", "error": err.Error()})
 		return
@@ -495,29 +558,6 @@ func EquipEquipment(c *gin.Context) {
 		return
 	}
 
-	// 获取用户信息
-	var user models.User
-	if err := db.DB.First(&user, userID).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "服务器错误", "error": err.Error()})
-		return
-	}
-
-	// 解析用户属性
-	baseAttrs := jsonToFloatMap(user.BaseAttributes)
-	combatAttrs := jsonToFloatMap(user.CombatAttributes)
-	combatRes := jsonToFloatMap(user.CombatResistance)
-	specialAttrs := jsonToFloatMap(user.SpecialAttributes)
-
-	// 处理灵宠属性（如果有出战灵宠）
-	var activePet models.Pet
-	hasActivePet := db.DB.Where("user_id = ? AND is_active = ?", userID, true).First(&activePet).Error == nil
-	petCombat := jsonToFloatMap(activePet.CombatAttributes)
-
-	// 如果有出战灵宠，先移除灵宠加成
-	if hasActivePet {
-		removePetBonuses(baseAttrs, combatAttrs, combatRes, specialAttrs, &activePet, petCombat)
-	}
-
 	// 应用装备属性加成
 	applyEquipmentStats(baseAttrs, combatAttrs, combatRes, specialAttrs, equipStats)
 
@@ -525,6 +565,14 @@ func EquipEquipment(c *gin.Context) {
 	if hasActivePet {
 		applyPetBonuses(baseAttrs, combatAttrs, combatRes, specialAttrs, &activePet, petCombat)
 	}
+
+	// 打印穿戴后玩家属性
+	zapLogger.Info("穿戴装备后的玩家属性",
+		zap.Uint("userID", userID),
+		zap.Any("baseAttributes", baseAttrs),
+		zap.Any("combatAttributes", combatAttrs),
+		zap.Any("combatResistance", combatRes),
+		zap.Any("specialAttributes", specialAttrs))
 
 	// 更新用户属性
 	updates := map[string]interface{}{
@@ -626,10 +674,10 @@ func UnequipEquipment(c *gin.Context) {
 
 	// 更新用户属性
 	updates := map[string]interface{}{
-		"base_Attributes":    toJSON(baseAttrs),
-		"combat_Attributes":  toJSON(combatAttrs),
-		"combat_Resistance":  toJSON(combatRes),
-		"special_Attributes": toJSON(specialAttrs),
+		"base_attributes":    toJSON(baseAttrs),
+		"combat_attributes":  toJSON(combatAttrs),
+		"combat_resistance":  toJSON(combatRes),
+		"special_attributes": toJSON(specialAttrs),
 	}
 	if err := db.DB.Model(&models.User{}).Where("id = ?", userID).Updates(updates).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "服务器错误", "error": err.Error()})

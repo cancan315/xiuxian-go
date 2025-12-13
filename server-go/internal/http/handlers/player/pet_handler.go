@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 
 	"xiuxian/server-go/internal/db"
@@ -23,6 +24,14 @@ func DeployPet(c *gin.Context) {
 		return
 	}
 
+	// 获取zap logger
+	logger, exists := c.Get("zap_logger")
+	if !exists {
+		// 如果无法获取logger，创建一个默认的
+		logger, _ = zap.NewProduction()
+	}
+	zapLogger := logger.(*zap.Logger)
+
 	petID := c.Param("id")
 	var pet models.Pet
 	if err := db.DB.Where("user_id = ? AND (pet_id = ? OR id = ?)", userID, petID, petID).First(&pet).Error; err != nil {
@@ -34,6 +43,39 @@ func DeployPet(c *gin.Context) {
 		return
 	}
 
+	// 打印出战前灵宠的属性
+	petCombat := jsonToFloatMap(pet.CombatAttributes)
+	zapLogger.Info("灵宠出战前的灵宠属性",
+		zap.Uint("userID", userID),
+		zap.String("petID", pet.ID),
+		zap.String("petName", pet.Name),
+		zap.String("rarity", pet.Rarity),
+		zap.Int("level", pet.Level),
+		zap.Int("star", pet.Star),
+		zap.Float64("attackBonus", pet.AttackBonus),
+		zap.Float64("defenseBonus", pet.DefenseBonus),
+		zap.Float64("healthBonus", pet.HealthBonus),
+		zap.Any("combatAttributes", petCombat))
+
+	// 读取玩家属性
+	var user models.User
+	if err := db.DB.First(&user, userID).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
+		return
+	}
+	baseAttrs := jsonToFloatMap(user.BaseAttributes)
+	combatAttrs := jsonToFloatMap(user.CombatAttributes)
+	combatRes := jsonToFloatMap(user.CombatResistance)
+	specialAttrs := jsonToFloatMap(user.SpecialAttributes)
+
+	// 打印出战前玩家属性
+	zapLogger.Info("灵宠出战前的玩家属性",
+		zap.Uint("userID", userID),
+		zap.Any("baseAttributes", baseAttrs),
+		zap.Any("combatAttributes", combatAttrs),
+		zap.Any("combatResistance", combatRes),
+		zap.Any("specialAttributes", specialAttrs))
+
 	// 检查是否已有出战灵宠
 	var activePet models.Pet
 	if err := db.DB.Where("user_id = ? AND is_active = ?", userID, true).First(&activePet).Error; err == nil {
@@ -42,6 +84,67 @@ func DeployPet(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{"success": true, "message": "灵宠已经出战"})
 			return
 		}
+
+		// 召回当前出战灵宠并移除其属性
+		activePetCombat := jsonToFloatMap(activePet.CombatAttributes)
+
+		// 先移除基础属性百分比加成
+		if activePet.AttackBonus != 0 {
+			baseAttrs["attack"] = baseAttrs["attack"] / (1 + activePet.AttackBonus)
+		}
+		if activePet.DefenseBonus != 0 {
+			baseAttrs["defense"] = baseAttrs["defense"] / (1 + activePet.DefenseBonus)
+		}
+		if activePet.HealthBonus != 0 {
+			baseAttrs["health"] = baseAttrs["health"] / (1 + activePet.HealthBonus)
+		}
+
+		// 再移除 combatAttributes 数值
+		if v, ok := activePetCombat["attack"]; ok {
+			baseAttrs["attack"] = baseAttrs["attack"] - v
+		}
+		if v, ok := activePetCombat["defense"]; ok {
+			baseAttrs["defense"] = baseAttrs["defense"] - v
+		}
+		if v, ok := activePetCombat["health"]; ok {
+			baseAttrs["health"] = baseAttrs["health"] - v
+		}
+		if v, ok := activePetCombat["speed"]; ok {
+			baseAttrs["speed"] = baseAttrs["speed"] - v
+		}
+
+		clampZero := func(m map[string]float64, key string, delta float64) {
+			if delta == 0 {
+				return
+			}
+			m[key] = m[key] - delta
+			if m[key] < 0 {
+				m[key] = 0
+			}
+		}
+		clampZero(combatAttrs, "critRate", activePetCombat["critRate"])
+		clampZero(combatAttrs, "comboRate", activePetCombat["comboRate"])
+		clampZero(combatAttrs, "counterRate", activePetCombat["counterRate"])
+		clampZero(combatAttrs, "stunRate", activePetCombat["stunRate"])
+		clampZero(combatAttrs, "dodgeRate", activePetCombat["dodgeRate"])
+		clampZero(combatAttrs, "vampireRate", activePetCombat["vampireRate"])
+
+		clampZero(combatRes, "critResist", activePetCombat["critResist"])
+		clampZero(combatRes, "comboResist", activePetCombat["comboResist"])
+		clampZero(combatRes, "counterResist", activePetCombat["counterResist"])
+		clampZero(combatRes, "stunResist", activePetCombat["stunResist"])
+		clampZero(combatRes, "dodgeResist", activePetCombat["dodgeResist"])
+		clampZero(combatRes, "vampireResist", activePetCombat["vampireResist"])
+
+		for _, key := range []string{"healBoost", "critDamageBoost", "critDamageReduce", "finalDamageBoost", "finalDamageReduce", "combatBoost", "resistanceBoost"} {
+			if v, ok := activePetCombat[key]; ok {
+				specialAttrs[key] = specialAttrs[key] - v
+				if specialAttrs[key] < 0 {
+					specialAttrs[key] = 0
+				}
+			}
+		}
+
 		// 召回当前出战灵宠
 		if err := db.DB.Model(&models.Pet{}).Where("user_id = ? AND is_active = ?", userID, true).
 			Update("is_active", false).Error; err != nil {
@@ -64,19 +167,8 @@ func DeployPet(c *gin.Context) {
 		return
 	}
 
-	// 读取玩家属性
-	var user models.User
-	if err := db.DB.First(&user, userID).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
-		return
-	}
-	baseAttrs := jsonToFloatMap(user.BaseAttributes)
-	combatAttrs := jsonToFloatMap(user.CombatAttributes)
-	combatRes := jsonToFloatMap(user.CombatResistance)
-	specialAttrs := jsonToFloatMap(user.SpecialAttributes)
-
 	// 解析灵宠 combatAttributes
-	petCombat := jsonToFloatMap(pet.CombatAttributes)
+	petCombat = jsonToFloatMap(pet.CombatAttributes)
 
 	// 按 Node 逻辑：先累加 combatAttributes 中的数值
 	if v, ok := petCombat["attack"]; ok {
@@ -133,6 +225,14 @@ func DeployPet(c *gin.Context) {
 	if pet.HealthBonus != 0 {
 		baseAttrs["health"] = baseAttrs["health"] * (1 + pet.HealthBonus)
 	}
+
+	// 打印出战后玩家属性
+	zapLogger.Info("灵宠出战后的玩家属性",
+		zap.Uint("userID", userID),
+		zap.Any("baseAttributes", baseAttrs),
+		zap.Any("combatAttributes", combatAttrs),
+		zap.Any("combatResistance", combatRes),
+		zap.Any("specialAttributes", specialAttrs))
 
 	// 写回用户属性
 	updates := map[string]interface{}{
