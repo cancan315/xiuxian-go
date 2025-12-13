@@ -46,8 +46,6 @@
       :spirit-stones="inventoryStore.spiritStones"
       :wishlist-enabled="inventoryStore.wishlistEnabled"
       :is-drawing="gachaStore.isDrawing"
-      :current-page-results="gachaStore.currentPageResults"
-      :total-pages="gachaStore.totalPages"
       :page-size="gachaStore.pageSize"
       :selected-wish-equip-quality="inventoryStore.selectedWishEquipQuality"
       :selected-wish-pet-rarity="inventoryStore.selectedWishPetRarity"
@@ -218,6 +216,7 @@
   // 处理抽卡
   const performGacha = async (count = 1) => {
     console.log(`[GachaMain] 用户开始抽卡，次数: ${count}`);
+    console.log(`[GachaMain] 抽卡前灵石数量: ${inventoryStore.spiritStones}`);
     if (gachaStore.isDrawing) {
       console.warn('[GachaMain] 抽卡正在进行中，忽略重复请求');
       return;
@@ -243,11 +242,18 @@
         throw new Error(response.message || '抽卡失败')
       }
 
-      // 更新灵石数量（从后端返回的数据中获取）
+      // 记录抽卡前后的灵石数量
+      console.log(`[GachaMain] 抽卡后检查response:`, response);
       if (response.spiritStones !== undefined) {
-        console.log(`[GachaMain] 更新灵石数量: ${response.spiritStones}`);
-        inventoryStore.spiritStones = response.spiritStones
+        console.log(`[GachaMain] 抽卡后灵石数量 (spiritStones): ${response.spiritStones}`);
+        inventoryStore.spiritStones = response.spiritStones;
+      } else if (response.spirit_stones !== undefined) {
+        console.log(`[GachaMain] 抽卡后灵石数量 (spirit_stones): ${response.spirit_stones}`);
+        inventoryStore.spiritStones = response.spirit_stones;
+      } else {
+        console.log(`[GachaMain] response.spiritStones 和 response.spirit_stones 都不存在`);
       }
+      console.log(`[GachaMain] 灵石数量更新完成`);
 
       // 显示抽卡动画
       console.log('[GachaMain] 显示抽卡动画');
@@ -292,11 +298,21 @@
       gachaStore.setGachaResults(processedItems)
       gachaStore.toggleResultModal(true)
       gachaStore.resetPagination()
-
+      
+      // 打印 gachaStore 中的数据日志
+      console.log('[GachaMain] gachaStore 数据:', {
+        gachaResults: gachaStore.gachaResults,
+        showResultModal: gachaStore.showResultModal,
+        currentPage: gachaStore.currentPage,
+        pageSize: gachaStore.pageSize,
+        totalPages: gachaStore.totalPages,
+        currentPageResults: gachaStore.currentPageResults
+      })
+      
       // 重新获取玩家完整数据以同步数据库中的最新数据
       console.log('[GachaMain] 重新获取玩家完整数据以同步数据');
       try {
-        const playerDataResponse = await APIService.initializePlayer(token);
+        const playerDataResponse = await APIService.getPlayerData(token);
         if (playerDataResponse.items) {
           console.log(`[GachaMain] 成功获取玩家物品列表，物品数量: ${playerDataResponse.items.length}`);
           inventoryStore.items = playerDataResponse.items;
@@ -318,7 +334,8 @@
       // 处理自动操作（如果后端也支持的话）
 
       // 显示自动操作结果
-
+      // 更新灵石数量（从后端返回的数据中获取）
+      
       message.success(`抽卡完成，获得了${count}件物品！`)
       console.log(`[GachaMain] 抽卡完成，获得了${count}件物品！`);
     } catch (error) {
@@ -329,6 +346,7 @@
       gachaStore.setDrawingState(false)
       console.log('[GachaMain] 抽卡流程结束');
     }
+    
   }
   
   // 显示宠物详情

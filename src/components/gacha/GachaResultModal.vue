@@ -45,7 +45,7 @@
       </n-space>
       
       <ResultGrid 
-        :current-page-results="currentPageResults"
+        :current-page-results="gachaStore.currentPageResults"
         :wishlist-enabled="wishlistEnabled"
         :selected-wish-equip-quality="selectedWishEquipQuality"
         :selected-wish-pet-rarity="selectedWishPetRarity"
@@ -60,7 +60,7 @@
           <n-pagination
             v-model:page="currentPage"
             :page-slot="6"
-            :page-count="totalPages"
+            :page-count="gachaStore.totalPages"
             :page-size="pageSize"
           />
         </n-space>
@@ -72,6 +72,9 @@
 <script setup>
   import { ref, computed, defineProps, defineEmits } from 'vue'
   import ResultGrid from './ResultGrid.vue'
+  import { useGachaStore } from '../../stores/gacha'
+
+  const gachaStore = useGachaStore()
 
   const props = defineProps({
     show: {
@@ -164,11 +167,15 @@
   const handleQualityChange = (value) => {
     localSelectedQuality.value = value
     currentPage.value = 1
+    // 同步到 store
+    gachaStore.setSelectedQuality(value)
   }
 
   const handleRarityChange = (value) => {
     localSelectedRarity.value = value
     currentPage.value = 1
+    // 同步到 store
+    gachaStore.setSelectedRarity(value)
   }
 
   const handlePerformGacha = (count) => {

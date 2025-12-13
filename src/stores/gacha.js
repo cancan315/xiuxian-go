@@ -116,15 +116,35 @@ export const useGachaStore = defineStore('gacha', {
     // 获取当前页结果
     currentPageResults: (state) => {
       if (!state.gachaResults) return []
+      
+      // 添加筛选逻辑
+      let filteredResults = state.gachaResults
+      if (state.selectedQuality && state.selectedQuality !== 'all') {
+        filteredResults = filteredResults.filter(item => item.quality === state.selectedQuality)
+      }
+      if (state.selectedRarity && state.selectedRarity !== 'all') {
+        filteredResults = filteredResults.filter(item => item.rarity === state.selectedRarity)
+      }
+      
       const start = (state.currentPage - 1) * state.pageSize
       const end = start + state.pageSize
-      return state.gachaResults.slice(start, end)
+      return filteredResults.slice(start, end)
     },
     
-    // 获取总页数
+    // 获取总页数（需要考虑筛选后的结果）
     totalPages: (state) => {
       if (!state.gachaResults) return 0
-      return Math.ceil(state.gachaResults.length / state.pageSize)
+      
+      // 添加筛选逻辑
+      let filteredResults = state.gachaResults
+      if (state.selectedQuality && state.selectedQuality !== 'all') {
+        filteredResults = filteredResults.filter(item => item.quality === state.selectedQuality)
+      }
+      if (state.selectedRarity && state.selectedRarity !== 'all') {
+        filteredResults = filteredResults.filter(item => item.rarity === state.selectedRarity)
+      }
+      
+      return Math.ceil(filteredResults.length / state.pageSize)
     }
   }
 })

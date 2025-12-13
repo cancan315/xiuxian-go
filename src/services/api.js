@@ -178,32 +178,6 @@ class APIService {
   }
   
   /**
-   * 初始化玩家数据
-   * @param {string} token - 认证令牌
-   * @returns {Promise<Object>} 玩家完整数据
-   */
-  static async initializePlayer(token) {
-    console.log('[API Service] 调用初始化玩家数据接口: /api/player/init');
-    const response = await fetch(`${API_BASE_URL}/player/init`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    
-    if (!response.ok) {
-      throw new Error('初始化玩家数据失败');
-    }
-    
-    const data = await response.json();
-    console.log('从后端API初始化玩家数据:', data);
-    console.log('[API Service] 初始化玩家数据接口调用完成: /api/player/init', data);
-    // 统一转换后端返回的数据字段为小驼峰命名法
-    return convertToCamelCase(data);
-  }
-  
-  /**
    * 增量更新玩家数据
    * @param {string} token - 认证令牌
    * @param {Object} data - 要更新的数据

@@ -309,11 +309,11 @@
   }
 
   // 初始化数据加载
-  const initializePlayerData = async () => {
+  const getPlayerData = async () => {
     const token = getAuthToken()
     if (token) {
       try {
-        const data = await APIService.initializePlayer(token)
+        const data = await APIService.getPlayerData(token)
         
         // Load user data
         if (data.user) {
@@ -361,7 +361,7 @@
   }
   
   // Call initialization
-  initializePlayerData()
+  getPlayerData()
 
   // 灵力获取相关配置
   const baseGainRate = 1 // 基础灵力获取率

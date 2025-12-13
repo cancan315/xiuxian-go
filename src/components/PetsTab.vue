@@ -454,7 +454,7 @@
           
           // 重新加载玩家数据以获取更新后的属性
           try {
-            const playerDataResponse = await APIService.initializePlayer(token);
+            const playerDataResponse = await APIService.getPlayerData(token);
             if (playerDataResponse.user) {
               Object.assign(props.playerInfoStore, playerDataResponse.user);
             }
@@ -489,7 +489,7 @@
           
           // 重新加载玩家数据以获取更新后的属性
           try {
-            const playerDataResponse = await APIService.initializePlayer(token);
+            const playerDataResponse = await APIService.getPlayerData(token);
             if (playerDataResponse.user) {
               Object.assign(props.playerInfoStore, playerDataResponse.user);
             }
