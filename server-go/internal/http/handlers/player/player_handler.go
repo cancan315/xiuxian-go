@@ -58,36 +58,37 @@ func assembleFullPlayerData(userID uint) (gin.H, error) {
 	// 将装备、草药和丹药合并到物品列表中
 	for _, equipment := range equipments {
 		items = append(items, models.Item{
-			ID:       equipment.ID,
-			UserID:   equipment.UserID,
-			ItemID:   equipment.EquipmentID,
-			Name:     equipment.Name,
-			Type:     equipment.Type,
-			Slot:     equipment.Slot,
-			Stats:    equipment.Stats,
-			Quality:  equipment.Quality,
-			Equipped: equipment.Equipped,
+			ID:        equipment.ID,
+			UserID:    equipment.UserID,
+			ItemID:    equipment.EquipmentID,
+			Name:      equipment.Name,
+			Type:      equipment.Type,
+			Slot:      equipment.Slot,    // 添加 Slot 字段，装备槽位
+			Stats:     equipment.Stats,   // 添加 Stats 字段，装备属性
+			Quality:   equipment.Quality, // 添加 Quality 字段，装备品质
+			Equipped:  equipment.Equipped,
+			EquipType: equipment.EquipType, // 添加 EquipType 字段，装备类型
 		})
 	}
 
 	for _, herb := range herbs {
 		items = append(items, models.Item{
-			ID:     fmt.Sprintf("herb_%d", herb.ID),
-			UserID: herb.UserID,
-			ItemID: herb.HerbID,
-			Name:   herb.Name,
-			Type:   "herb",
+			ID:      fmt.Sprintf("herb_%d", herb.ID),
+			UserID:  herb.UserID,
+			ItemID:  herb.HerbID,
+			Name:    herb.Name,
+			Type:    "herb",
 			Details: datatypes.JSON(fmt.Sprintf("{\"count\": %d}", herb.Count)),
 		})
 	}
 
 	for _, pill := range pills {
 		items = append(items, models.Item{
-			ID:     fmt.Sprintf("pill_%d", pill.ID),
-			UserID: pill.UserID,
-			ItemID: pill.PillID,
-			Name:   pill.Name,
-			Type:   "pill",
+			ID:      fmt.Sprintf("pill_%d", pill.ID),
+			UserID:  pill.UserID,
+			ItemID:  pill.PillID,
+			Name:    pill.Name,
+			Type:    "pill",
 			Details: pill.Effect,
 			// Description: pill.Description, // 如果需要可以添加额外字段
 		})
@@ -102,7 +103,7 @@ func assembleFullPlayerData(userID uint) (gin.H, error) {
 		"pets":      pets,
 		"artifacts": artifacts,
 	}
-	
+
 	return data, nil
 }
 

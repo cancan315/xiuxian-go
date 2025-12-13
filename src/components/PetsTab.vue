@@ -472,6 +472,61 @@
         message.error('召回灵宠失败: ' + error.message);
       }
     } else {
+      // 出战灵宠前打印玩家当前属性
+      console.log('出战灵宠前的玩家属性:', {
+        name: props.playerInfoStore.name,
+        level: props.playerInfoStore.level,
+        realm: props.playerInfoStore.realm,
+        baseAttributes: {
+          attack: props.playerInfoStore.baseAttributes.attack,
+          health: props.playerInfoStore.baseAttributes.health,
+          defense: props.playerInfoStore.baseAttributes.defense,
+          speed: props.playerInfoStore.baseAttributes.speed
+        },
+        combatAttributes: {
+          critRate: props.playerInfoStore.combatAttributes.critRate,
+          comboRate: props.playerInfoStore.combatAttributes.comboRate,
+          counterRate: props.playerInfoStore.combatAttributes.counterRate,
+          stunRate: props.playerInfoStore.combatAttributes.stunRate,
+          dodgeRate: props.playerInfoStore.combatAttributes.dodgeRate,
+          vampireRate: props.playerInfoStore.combatAttributes.vampireRate
+        },
+        combatResistance: {
+          critResist: props.playerInfoStore.combatResistance.critResist,
+          comboResist: props.playerInfoStore.combatResistance.comboResist,
+          counterResist: props.playerInfoStore.combatResistance.counterResist,
+          stunResist: props.playerInfoStore.combatResistance.stunResist,
+          dodgeResist: props.playerInfoStore.combatResistance.dodgeResist,
+          vampireResist: props.playerInfoStore.combatResistance.vampireResist
+        },
+        specialAttributes: {
+          healBoost: props.playerInfoStore.specialAttributes.healBoost,
+          critDamageBoost: props.playerInfoStore.specialAttributes.critDamageBoost,
+          critDamageReduce: props.playerInfoStore.specialAttributes.critDamageReduce,
+          finalDamageBoost: props.playerInfoStore.specialAttributes.finalDamageBoost,
+          finalDamageReduce: props.playerInfoStore.specialAttributes.finalDamageReduce,
+          combatBoost: props.playerInfoStore.specialAttributes.combatBoost,
+          resistanceBoost: props.playerInfoStore.specialAttributes.resistanceBoost
+        },
+        activePet: props.playerInfoStore.activePet
+      });
+
+      // 出战灵宠前打印灵宠属性
+      console.log('准备出战的灵宠属性:', {
+        id: item.id,
+        name: item.name,
+        rarity: item.rarity,
+        level: item.level,
+        star: item.star,
+        description: item.description,
+        combatAttributes: item.combatAttributes,
+        bonus: {
+          attackBonus: item.attackBonus,
+          defenseBonus: item.defenseBonus,
+          healthBonus: item.healthBonus
+        }
+      });
+      
       // 出战灵宠
       try {
         const response = await APIService.deployPet(token, item.id);
@@ -496,6 +551,45 @@
           } catch (error) {
             console.error('获取更新后的玩家数据失败:', error);
           }
+          
+          // 出战灵宠后打印玩家更新的属性
+          console.log('出战灵宠后的玩家属性:', {
+            name: props.playerInfoStore.name,
+            level: props.playerInfoStore.level,
+            realm: props.playerInfoStore.realm,
+            baseAttributes: {
+              attack: props.playerInfoStore.baseAttributes.attack,
+              health: props.playerInfoStore.baseAttributes.health,
+              defense: props.playerInfoStore.baseAttributes.defense,
+              speed: props.playerInfoStore.baseAttributes.speed
+            },
+            combatAttributes: {
+              critRate: props.playerInfoStore.combatAttributes.critRate,
+              comboRate: props.playerInfoStore.combatAttributes.comboRate,
+              counterRate: props.playerInfoStore.combatAttributes.counterRate,
+              stunRate: props.playerInfoStore.combatAttributes.stunRate,
+              dodgeRate: props.playerInfoStore.combatAttributes.dodgeRate,
+              vampireRate: props.playerInfoStore.combatAttributes.vampireRate
+            },
+            combatResistance: {
+              critResist: props.playerInfoStore.combatResistance.critResist,
+              comboResist: props.playerInfoStore.combatResistance.comboResist,
+              counterResist: props.playerInfoStore.combatResistance.counterResist,
+              stunResist: props.playerInfoStore.combatResistance.stunResist,
+              dodgeResist: props.playerInfoStore.combatResistance.dodgeResist,
+              vampireResist: props.playerInfoStore.combatResistance.vampireResist
+            },
+            specialAttributes: {
+              healBoost: props.playerInfoStore.specialAttributes.healBoost,
+              critDamageBoost: props.playerInfoStore.specialAttributes.critDamageBoost,
+              critDamageReduce: props.playerInfoStore.specialAttributes.critDamageReduce,
+              finalDamageBoost: props.playerInfoStore.specialAttributes.finalDamageBoost,
+              finalDamageReduce: props.playerInfoStore.specialAttributes.finalDamageReduce,
+              combatBoost: props.playerInfoStore.specialAttributes.combatBoost,
+              resistanceBoost: props.playerInfoStore.specialAttributes.resistanceBoost
+            },
+            activePet: props.playerInfoStore.activePet
+          });
           
           // 重新加载灵宠列表以确保数据同步
           emit('refreshPetList');

@@ -77,22 +77,13 @@ export const usePlayerInfoStore = defineStore('playerInfo', {
     
     // 退出游戏
     async logout() {
-
-      
       // 通知服务器玩家已离线
       const token = getAuthToken()
       if (token) {
         try {
-          await APIService.setPlayerOffline(token)
-          
-          // Also mark player as offline in Redis
-          try {
-            const userData = await APIService.getUser(token);
-            if (userData && userData.id) {
-              await APIService.playerOffline(userData.id);
-            }
-          } catch (error) {
-            console.error('设置玩家Redis离线状态失败:', error);
+          const userData = await APIService.getUser(token);
+          if (userData && userData.id) {
+            await APIService.playerOffline(userData.id);
           }
         } catch (error) {
           console.error('设置玩家离线状态失败:', error)

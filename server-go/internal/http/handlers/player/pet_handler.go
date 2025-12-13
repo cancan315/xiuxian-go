@@ -136,10 +136,10 @@ func DeployPet(c *gin.Context) {
 
 	// 写回用户属性
 	updates := map[string]interface{}{
-		"baseAttributes":    toJSON(baseAttrs),
-		"combatAttributes":  toJSON(combatAttrs),
-		"combatResistance":  toJSON(combatRes),
-		"specialAttributes": toJSON(specialAttrs),
+		"base_attributes":    toJSON(baseAttrs),
+		"combat_attributes":  toJSON(combatAttrs),
+		"combat_resistance":  toJSON(combatRes),
+		"special_attributes": toJSON(specialAttrs),
 	}
 	if err := db.DB.Model(&models.User{}).Where("id = ?", userID).Updates(updates).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
@@ -150,8 +150,8 @@ func DeployPet(c *gin.Context) {
 		"success": true,
 		"message": "出战成功",
 		"pet": gin.H{
-			"id":       pet.ID,
-			"name":     pet.Name,
+			"id":        pet.ID,
+			"name":      pet.Name,
 			"is_active": pet.IsActive,
 		},
 	})
@@ -258,10 +258,10 @@ func RecallPet(c *gin.Context) {
 	}
 
 	updates := map[string]interface{}{
-		"baseAttributes":    toJSON(baseAttrs),
-		"combatAttributes":  toJSON(combatAttrs),
-		"combatResistance":  toJSON(combatRes),
-		"specialAttributes": toJSON(specialAttrs),
+		"base_attributes":    toJSON(baseAttrs),
+		"combat_attributes":  toJSON(combatAttrs),
+		"combat_resistance":  toJSON(combatRes),
+		"special_attributes": toJSON(specialAttrs),
 	}
 	if err := db.DB.Model(&models.User{}).Where("id = ?", userID).Updates(updates).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
@@ -272,8 +272,8 @@ func RecallPet(c *gin.Context) {
 		"success": true,
 		"message": "召回成功",
 		"pet": gin.H{
-			"id":       pet.ID,
-			"name":     pet.Name,
+			"id":        pet.ID,
+			"name":      pet.Name,
 			"is_active": false,
 		},
 	})
@@ -351,7 +351,7 @@ func UpgradePet(c *gin.Context) {
 	if err := db.DB.Model(&models.Pet{}).
 		Where("user_id = ? AND (pet_id = ? OR id = ?)", userID, petID, petID).
 		Updates(map[string]interface{}{
-			"level":        newLevel,
+			"level":         newLevel,
 			"attack_bonus":  newBonus,
 			"defense_bonus": newBonus,
 			"health_bonus":  newBonus,
@@ -439,7 +439,7 @@ func EvolvePet(c *gin.Context) {
 		if err := db.DB.Model(&models.Pet{}).
 			Where("user_id = ? AND (pet_id = ? OR id = ?)", userID, petID, petID).
 			Updates(map[string]interface{}{
-				"star":         newStar,
+				"star":          newStar,
 				"attack_bonus":  newBonus,
 				"defense_bonus": newBonus,
 				"health_bonus":  newBonus,

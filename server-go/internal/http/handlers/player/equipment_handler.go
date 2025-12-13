@@ -68,8 +68,8 @@ func GetPlayerEquipment(c *gin.Context) {
 	// 获取zap logger并记录入参日志
 	logger, _ := c.Get("zap_logger")
 	zapLogger := logger.(*zap.Logger)
-	
-	// 记录入参信息
+
+	// �记录入参信息
 	zapLogger.Info("查询装备列表入参",
 		zap.Uint("userID", userID),
 		zap.String("type", c.Query("type")),
@@ -142,14 +142,25 @@ func GetPlayerEquipment(c *gin.Context) {
 		zap.Uint("userID", userID),
 		zap.Int("equipmentCount", len(equipment)),
 		zap.String("query", c.Request.URL.RawQuery))
-	
+
 	// 记录每个装备的详细属性用于调试
 	for _, equip := range equipment {
 		zapLogger.Debug("装备详情",
 			zap.Uint("userID", userID),
 			zap.String("equipmentID", equip.ID),
 			zap.String("equipmentName", equip.Name),
-			zap.String("equipType", *equip.EquipType),
+			zap.String("equipType", func() string {
+				if equip.EquipType != nil {
+					return *equip.EquipType
+				}
+				return "nil"
+			}()),
+			zap.String("slot", func() string {
+				if equip.Slot != nil {
+					return *equip.Slot
+				}
+				return "nil"
+			}()),
 			zap.Bool("equipped", equip.Equipped),
 			zap.Int("enhanceLevel", equip.EnhanceLevel),
 			zap.String("quality", equip.Quality),
@@ -255,7 +266,7 @@ func EnhanceEquipment(c *gin.Context) {
 	// 计算强化成本
 	currentLevel := equipment.EnhanceLevel
 	cost := 10 * (currentLevel + 1)
-	
+
 	// 检查强化石是否足够
 	if req.ReinforceStones < cost || user.ReinforceStones < cost {
 		c.JSON(http.StatusOK, gin.H{
@@ -278,7 +289,7 @@ func EnhanceEquipment(c *gin.Context) {
 	for k, v := range stats {
 		stats[k] = v * 1.1
 	}
-	
+
 	// 更新装备等级和境界要求
 	equipment.EnhanceLevel = currentLevel + 1
 	equipment.Stats = toJSON(stats)
@@ -451,9 +462,19 @@ func EquipEquipment(c *gin.Context) {
 	// 解析装备属性
 	equipStats := jsonToFloatMap(equipment.Stats)
 
+	// 检查装备类型是否存在
+	var equipTypeForQuery string
+	if equipment.EquipType != nil {
+		equipTypeForQuery = *equipment.EquipType
+	} else {
+		// 如果EquipType为nil，返回错误而不是使用Type字段作为后备
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "装备类型为空，无法穿戴"})
+		return
+	}
+
 	// 卸下同类型已装备的装备
 	if err := db.DB.Model(&models.Equipment{}).
-		Where("user_id = ? AND equip_type = ?", userID, equipment.EquipType).
+		Where("user_id = ? AND equip_type = ?", userID, equipTypeForQuery).
 		Update("equipped", false).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "服务器错误", "error": err.Error()})
 		return
@@ -507,10 +528,10 @@ func EquipEquipment(c *gin.Context) {
 
 	// 更新用户属性
 	updates := map[string]interface{}{
-		"baseAttributes":    toJSON(baseAttrs),
-		"combatAttributes":  toJSON(combatAttrs),
-		"combatResistance":  toJSON(combatRes),
-		"specialAttributes": toJSON(specialAttrs),
+		"base_attributes":    toJSON(baseAttrs),
+		"combat_attributes":  toJSON(combatAttrs),
+		"combat_resistance":  toJSON(combatRes),
+		"special_attributes": toJSON(specialAttrs),
 	}
 	if err := db.DB.Model(&models.User{}).Where("id = ?", userID).Updates(updates).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "服务器错误", "error": err.Error()})
@@ -527,8 +548,8 @@ func EquipEquipment(c *gin.Context) {
 			"combatAttributes":  combatAttrs,
 			"combatResistance":  combatRes,
 			"specialAttributes": specialAttrs,
-			"reinforce_stones":   user.ReinforceStones,
-			"refinement_stones":  user.RefinementStones,
+			"reinforce_stones":  user.ReinforceStones,
+			"refinement_stones": user.RefinementStones,
 		},
 	})
 }
@@ -543,7 +564,7 @@ func UnequipEquipment(c *gin.Context) {
 	}
 
 	id := c.Param("id")
-	
+
 	// 查找装备
 	var equipment models.Equipment
 	if err := db.DB.Where("id = ? AND user_id = ?", id, userID).First(&equipment).Error; err != nil {
@@ -605,10 +626,10 @@ func UnequipEquipment(c *gin.Context) {
 
 	// 更新用户属性
 	updates := map[string]interface{}{
-		"baseAttributes":    toJSON(baseAttrs),
-		"combatAttributes":  toJSON(combatAttrs),
-		"combatResistance":  toJSON(combatRes),
-		"specialAttributes": toJSON(specialAttrs),
+		"base_Attributes":    toJSON(baseAttrs),
+		"combat_Attributes":  toJSON(combatAttrs),
+		"combat_Resistance":  toJSON(combatRes),
+		"special_Attributes": toJSON(specialAttrs),
 	}
 	if err := db.DB.Model(&models.User{}).Where("id = ?", userID).Updates(updates).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "服务器错误", "error": err.Error()})
@@ -625,8 +646,8 @@ func UnequipEquipment(c *gin.Context) {
 			"combatAttributes":  combatAttrs,
 			"combatResistance":  combatRes,
 			"specialAttributes": specialAttrs,
-			"reinforce_stones":   user.ReinforceStones,
-			"refinement_stones":  user.RefinementStones,
+			"reinforce_stones":  user.ReinforceStones,
+			"refinement_stones": user.RefinementStones,
 		},
 	})
 }
@@ -641,7 +662,7 @@ func SellEquipment(c *gin.Context) {
 	}
 
 	id := c.Param("id")
-	
+
 	// 查找装备
 	var equipment models.Equipment
 	if err := db.DB.Where("id = ? AND user_id = ?", id, userID).First(&equipment).Error; err != nil {

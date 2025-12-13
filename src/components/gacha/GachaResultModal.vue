@@ -45,7 +45,7 @@
       </n-space>
       
       <ResultGrid 
-        :current-page-results="gachaStore.currentPageResults"
+        :current-page-results="currentPageResults"
         :wishlist-enabled="wishlistEnabled"
         :selected-wish-equip-quality="selectedWishEquipQuality"
         :selected-wish-pet-rarity="selectedWishPetRarity"
@@ -60,7 +60,7 @@
           <n-pagination
             v-model:page="currentPage"
             :page-slot="6"
-            :page-count="gachaStore.totalPages"
+            :page-count="totalPages"
             :page-size="pageSize"
           />
         </n-space>
@@ -151,12 +151,23 @@
     'show-equipment-detail'
   ])
 
-  const localSelectedQuality = ref(props.gachaType === 'equipment' ? '' : 'all')
-  const localSelectedRarity = ref(props.gachaType === 'pet' ? '' : 'all')
+  // 修改为不记录筛选状态，每次打开都重置为默认值
+  const localSelectedQuality = ref('all')
+  const localSelectedRarity = ref('all')
 
   const show = computed({
     get: () => props.show,
-    set: (value) => emit('update:show', value)
+    set: (value) => {
+      emit('update:show', value)
+      // 当关闭模态框时，重置筛选选项
+      if (!value) {
+        localSelectedQuality.value = 'all'
+        localSelectedRarity.value = 'all'
+        // 重置store中的筛选状态
+        gachaStore.setSelectedQuality('all')
+        gachaStore.setSelectedRarity('all')
+      }
+    }
   })
 
   const currentPage = computed({

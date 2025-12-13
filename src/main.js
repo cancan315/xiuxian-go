@@ -18,7 +18,8 @@ window.addEventListener('beforeunload', async (event) => {
     if (token) {
       const userData = await APIService.getUser(token);
       if (userData && userData.id) {
-        await handleBeforeUnload(userData.id);
+        // 直接调用离线接口，避免调用未定义的函数
+        await APIService.playerOffline(userData.id);
       }
     }
   } catch (error) {

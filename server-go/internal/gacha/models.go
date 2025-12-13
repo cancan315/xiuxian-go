@@ -12,35 +12,35 @@ import (
 // GachaEquipment 抽卡获得的装备数据结构
 // 用于在抽卡过程中临时存储生成的装备信息
 type GachaEquipment struct {
-	ID            string                 `json:"id"`             // 装备唯一标识符
-	Name          string                 `json:"name"`           // 装备名称
-	Type          string                 `json:"type"`           // 装备类型
-	Quality       string                 `json:"quality"`        // 装备品质
-	EquipType     string                 `json:"equip_type"`     // 装备类型
-	Slot          string                 `json:"slot"`           // 装备槽位
-	Level         int                    `json:"level"`          // 装备等级
-	RequiredRealm int                    `json:"required_realm"` // 需要境界等级
-	EnhanceLevel  int                    `json:"enhance_level"`  // 强化等级
-	Stats         map[string]float64     `json:"stats"`          // 装备基础属性
+	ID            string                 `json:"id"`               // 装备唯一标识符
+	Name          string                 `json:"name"`             // 装备名称
+	Type          string                 `json:"type"`             // 装备类型
+	Quality       string                 `json:"quality"`          // 装备品质
+	EquipType     string                 `json:"equip_type"`       // 装备类型
+	Slot          string                 `json:"slot"`             // 装备槽位
+	Level         int                    `json:"level"`            // 装备等级
+	RequiredRealm int                    `json:"required_realm"`   // 需要境界等级
+	EnhanceLevel  int                    `json:"enhance_level"`    // 强化等级
+	Stats         map[string]float64     `json:"stats"`            // 装备基础属性
 	ExtraAttrs    map[string]interface{} `json:"extra_attributes"` // 装备额外属性
 }
 
 // GachaPet 抽卡获得的灵宠数据结构
 // 用于在抽卡过程中临时存储生成的灵宠信息
 type GachaPet struct {
-	ID              string             `json:"id"`               // 灵宠唯一标识符
-	Name            string             `json:"name"`             // 灵宠名称
-	Type            string             `json:"type"`             // 类型（固定为"pet"）
-	Rarity          string             `json:"rarity"`           // 稀有度
-	Level           int                `json:"level"`            // 等级
-	Star            int                `json:"star"`             // 星级
-	Exp             int                `json:"exp"`              // 经验值
-	Description     string             `json:"description"`      // 描述信息
+	ID              string             `json:"id"`                // 灵宠唯一标识符
+	Name            string             `json:"name"`              // 灵宠名称
+	Type            string             `json:"type"`              // 类型（固定为"pet"）
+	Rarity          string             `json:"rarity"`            // 稀有度
+	Level           int                `json:"level"`             // 等级
+	Star            int                `json:"star"`              // 星级
+	Exp             int                `json:"exp"`               // 经验值
+	Description     string             `json:"description"`       // 描述信息
 	CombatAttrs     map[string]float64 `json:"combat_attributes"` // 战斗属性
-	AttackBonus     float64            `json:"attack_bonus"`     // 攻击加成
-	DefenseBonus    float64            `json:"defense_bonus"`    // 防御加成
-	HealthBonus     float64            `json:"health_bonus"`     // 生命加成
-	CreatedAtMillis int64              `json:"created_at"`       // 创建时间戳
+	AttackBonus     float64            `json:"attack_bonus"`      // 攻击加成
+	DefenseBonus    float64            `json:"defense_bonus"`     // 防御加成
+	HealthBonus     float64            `json:"health_bonus"`      // 生命加成
+	CreatedAtMillis int64              `json:"created_at"`        // 创建时间戳
 }
 
 // GenerateRandomEquipment 生成随机装备（使用固定概率）
@@ -68,7 +68,7 @@ func GenerateRandomEquipment(level int) GachaEquipment {
 	prefix := prefixes[rand.Intn(len(prefixes))]
 	name := prefix + et.Name
 
-	stats := GenerateQualityBasedAttributes("equipment", quality)
+	stats := GenerateQualityBasedAttributes("equipment", quality, etypeKey)
 
 	numericLevel := level
 	if numericLevel <= 0 {
@@ -141,7 +141,7 @@ func GenerateRandomPet(level int) GachaPet {
 	descs := PetDescriptionsByRarity[rarity]
 	desc := descs[rand.Intn(len(descs))]
 
-	combatAttrs := GenerateQualityBasedAttributes("pet", rarity)
+	combatAttrs := GenerateQualityBasedAttributes("pet", rarity, "")
 
 	qualityBonusMap := map[string]float64{
 		"mythic":    0.15,

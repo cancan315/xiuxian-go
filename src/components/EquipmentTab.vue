@@ -522,6 +522,25 @@
       return
     }
     
+    // 在穿戴装备前打印装备属性
+    console.log('[Equipment Stats Before Equip] Equipment attributes before equipping:', {
+      equipmentId: equipment.id,
+      equipmentName: equipment.name,
+      equipmentType: equipment.type,
+      equipmentQuality: equipment.quality,
+      equipmentStats: equipment.stats,
+      equipmentEnhanceLevel: equipment.enhanceLevel,
+      equipmentRequiredRealm: equipment.requiredRealm
+    });
+    
+    // 在穿戴装备前打印玩家属性
+    console.log('[Player Stats Before Equip] Player attributes before equipping:', {
+      baseAttributes: props.playerInfoStore.baseAttributes,
+      combatAttributes: props.playerInfoStore.combatAttributes,
+      combatResistance: props.playerInfoStore.combatResistance,
+      specialAttributes: props.playerInfoStore.specialAttributes
+    });
+    
     const result = await props.equipmentStore.equipArtifact(
       equipment,
       equipment.equipType || equipment.EquipType,
@@ -549,6 +568,14 @@
           specialAttributes: result.user.specialAttributes
         });
       }
+      
+      // 在穿戴装备后打印玩家属性
+      console.log('[Player Stats After Equip] Player attributes after equipping:', {
+        baseAttributes: props.playerInfoStore.baseAttributes,
+        combatAttributes: props.playerInfoStore.combatAttributes,
+        combatResistance: props.playerInfoStore.combatResistance,
+        specialAttributes: props.playerInfoStore.specialAttributes
+      });
       
       // 更新选中的装备信息
       if (result.equipment) {

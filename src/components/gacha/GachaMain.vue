@@ -46,6 +46,8 @@
       :spirit-stones="inventoryStore.spiritStones"
       :wishlist-enabled="inventoryStore.wishlistEnabled"
       :is-drawing="gachaStore.isDrawing"
+      :current-page-results="gachaStore.currentPageResults"
+      :total-pages="gachaStore.totalPages"
       :page-size="gachaStore.pageSize"
       :selected-wish-equip-quality="inventoryStore.selectedWishEquipQuality"
       :selected-wish-pet-rarity="inventoryStore.selectedWishPetRarity"

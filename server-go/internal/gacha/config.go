@@ -5,54 +5,99 @@ package gacha
 // EquipmentQualityProbabilities 装备品质固定概率配置
 // 所有玩家无论等级如何，都使用相同的概率抽取各品质装备
 var EquipmentQualityProbabilities = map[string]float64{
-	"mythic":    0.001,    // 仙器 - 0.1%
-	"legendary": 0.003,    // 伪仙器 - 0.3%
-	"epic":      0.016,    // 灵器 - 1.6%
-	"rare":      0.03,     // 魔器 - 3%
-	"uncommon":  0.15,     // 法器 - 15%
-	"common":    0.80,     // 凡器 - 80%
+	"mythic":    0.001, // 仙器 - 0.1%
+	"legendary": 0.003, // 伪仙器 - 0.3%
+	"epic":      0.016, // 灵器 - 1.6%
+	"rare":      0.03,  // 魔器 - 3%
+	"uncommon":  0.15,  // 法器 - 15%
+	"common":    0.80,  // 凡器 - 80%
 }
 
 // PetRarityProbabilities 灵宠稀有度固定概率配置
 // 所有玩家无论等级如何，都使用相同的概率抽取各稀有度灵宠
 var PetRarityProbabilities = map[string]float64{
-	"mythic":    0.001,    // 仙兽 - 0.1%
-	"legendary": 0.003,    // 瑞兽 - 0.3%
-	"epic":      0.016,    // 上古异兽 - 1.6%
-	"rare":      0.03,     // 灵兽 - 3%
-	"uncommon":  0.15,     // 妖兽 - 15%
-	"common":    0.80,     // 凡兽 - 80%
+	"mythic":    0.001, // 仙兽 - 0.1%
+	"legendary": 0.003, // 瑞兽 - 0.3%
+	"epic":      0.016, // 上古异兽 - 1.6%
+	"rare":      0.03,  // 灵兽 - 3%
+	"uncommon":  0.15,  // 妖兽 - 15%
+	"common":    0.80,  // 凡兽 - 80%
 }
 
-var AttributeTypes = struct {
-	BaseAttributes    []string
-	CombatAttributes  []string
-	CombatResistance  []string
-	SpecialAttributes []string
-}{
-	BaseAttributes:   []string{"attack", "health", "defense", "speed"},
-	CombatAttributes: []string{"critRate", "comboRate", "counterRate", "stunRate", "dodgeRate", "vampireRate"},
-	CombatResistance: []string{"critResist", "comboResist", "counterResist", "stunResist", "dodgeResist", "vampireResist"},
-	SpecialAttributes: []string{
-		"healBoost", "critDamageBoost", "critDamageReduce",
-		"finalDamageBoost", "finalDamageReduce",
-		"combatBoost", "resistanceBoost",
+// AttributePool 属性池结构
+type AttributePool struct {
+	Base       []string
+	Combat     []string
+	Resistance []string
+	Special    []string
+}
+
+// AttributesByType 按属性类型分组的属性池
+// 攻击相关、生命相关、防御相关、速度相关、通用属性
+var AttributesByType = map[string]AttributePool{
+	"attack": {
+		Base:    []string{"attack"},                              // 攻击力
+		Combat:  []string{"critRate", "stunRate", "vampireRate"}, // 暴击率、眩晕率、吸血率
+		Special: []string{"critDamageBoost", "finalDamageBoost"}, // 强化爆伤、最终增伤
+	},
+	"health": {
+		Base:       []string{"health"},        // 生命值
+		Resistance: []string{"vampireResist"}, // 抗吸血
+		Special:    []string{"healBoost"},     // 强化治疗
+	},
+	"defense": {
+		Base:       []string{"defense"},                                   // 防御力
+		Combat:     []string{"counterRate"},                               // 反击率
+		Resistance: []string{"critResist", "counterResist", "stunResist"}, // 抗暴击、抗反击、抗眩晕
+		Special:    []string{"critDamageReduce", "finalDamageReduce"},     // 弱化爆伤、最终减伤
+	},
+	"speed": {
+		Base:       []string{"speed"},                      // 速度
+		Combat:     []string{"comboRate", "dodgeRate"},     // 连击率、闪避率
+		Resistance: []string{"comboResist", "dodgeResist"}, // 抗连击、抗闪避
+	},
+	"common": {
+		Special: []string{"combatBoost", "resistanceBoost"}, // 战斗强化、抗性强化
 	},
 }
 
-var QualityAttributeRules = map[string]map[string]struct {
+// EquipTypeAttributeMapping 装备类型对应的属性类型映射
+// faqi生成攻击相关属性
+// guanjin生成生命和防御类属性
+// daopao生成生命和防御相关属性
+// yunlv生成速度相关属性
+// fabao生成攻击、生命、防御、速度相关属性及通用属性
+var EquipTypeAttributeMapping = map[string][]string{
+	"faqi":    {"attack"},
+	"guanjin": {"health", "defense"},
+	"daopao":  {"health", "defense"},
+	"yunlv":   {"speed"},
+	"fabao":   {"attack", "health", "defense", "speed", "common"},
+}
+
+// QualityAttributeCount 品质对应的属性条数结构
+type QualityAttributeCount struct {
 	Base       int
 	Combat     int
 	Resistance int
 	Special    int
-}{
+}
+
+// QualityAttributeRules 装备品质对应的属性条数规则
+// common:    1条基础属性
+// uncommon:  1条基础属性，1条战斗属性
+// rare:      1条基础属性，1条战斗属性，1条战斗抗性
+// epic:      1条基础属性，2条战斗属性，2条战斗抗性
+// legendary: 1条基础属性，2条战斗属性，2条战斗抗性，1条特殊属性
+// mythic:    1条基础属性，2条战斗属性，2条战斗抗性，2条特殊属性
+var QualityAttributeRules = map[string]map[string]QualityAttributeCount{
 	"equipment": {
 		"common":    {Base: 1},
-		"uncommon":  {Base: 2},
-		"rare":      {Base: 3},
-		"epic":      {Base: 4, Combat: 1},
-		"legendary": {Base: 4, Combat: 6, Resistance: 6},
-		"mythic":    {Base: 4, Combat: 6, Resistance: 6, Special: 7},
+		"uncommon":  {Base: 1, Combat: 1},
+		"rare":      {Base: 1, Combat: 1, Resistance: 1},
+		"epic":      {Base: 1, Combat: 2, Resistance: 2},
+		"legendary": {Base: 1, Combat: 2, Resistance: 2, Special: 1},
+		"mythic":    {Base: 1, Combat: 2, Resistance: 2, Special: 2},
 	},
 	"pet": {
 		"common":    {Base: 1},
@@ -83,15 +128,15 @@ var PetDescriptionsByRarity = map[string][]string{
 	"mythic":    {"超越凡俗的仙界仙兽，几近传说"},
 }
 
-// 装备类型配置（名称/slot 与 Node 对齐）
+// 装备类型配置 EquipType字段是装备类型
 var EquipmentTypes = map[string]struct {
-	Name     string
-	Slot     string
-	Prefixes map[string][]string
+	Name      string
+	EquipType string
+	Prefixes  map[string][]string
 }{
 	"faqi": {
-		Name: "法宝",
-		Slot: "faqi",
+		Name:      "法宝",
+		EquipType: "faqi",
 		Prefixes: map[string][]string{
 			"common":    {"粗制", "劣质", "破损", "锈蚀"},
 			"uncommon":  {"精制", "优质", "改良", "强化"},
@@ -102,8 +147,8 @@ var EquipmentTypes = map[string]struct {
 		},
 	},
 	"guanjin": {
-		Name: "冠巾",
-		Slot: "guanjin",
+		Name:      "冠巾",
+		EquipType: "guanjin",
 		Prefixes: map[string][]string{
 			"common":    {"布制", "麻织", "粗布", "素巾"},
 			"uncommon":  {"丝织", "锦制", "绣冠", "轻纱"},
@@ -114,8 +159,8 @@ var EquipmentTypes = map[string]struct {
 		},
 	},
 	"daopao": {
-		Name: "道袍",
-		Slot: "daopao",
+		Name:      "道袍",
+		EquipType: "daopao",
 		Prefixes: map[string][]string{
 			"common":    {"粗布", "麻衣", "布衣", "素袍"},
 			"uncommon":  {"丝绸", "锦袍", "绣衣", "轻衫"},
@@ -126,8 +171,8 @@ var EquipmentTypes = map[string]struct {
 		},
 	},
 	"yunlv": {
-		Name: "云履",
-		Slot: "yunlv",
+		Name:      "云履",
+		EquipType: "yunlv",
 		Prefixes: map[string][]string{
 			"common":    {"布鞋", "草鞋", "麻鞋", "木屐"},
 			"uncommon":  {"皮靴", "丝履", "锦履", "绣鞋"},
@@ -138,8 +183,8 @@ var EquipmentTypes = map[string]struct {
 		},
 	},
 	"fabao": {
-		Name: "本命法宝",
-		Slot: "fabao",
+		Name:      "本命法宝",
+		EquipType: "fabao",
 		Prefixes: map[string][]string{
 			"common":    {"粗制", "劣质", "仿制", "赝品"},
 			"uncommon":  {"精制", "良品", "上品", "优质"},
