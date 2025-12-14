@@ -29,7 +29,7 @@
       <n-divider>修炼详情</n-divider>
       <n-descriptions bordered>
         <n-descriptions-item label="灵力获取速率">{{ baseGainRate * playerInfoStore.spiritRate }} / 秒</n-descriptions-item>
-        <n-descriptions-item label="修炼效率">{{ cultivationGain }} 修为 / 次</n-descriptions-item>
+        <n-descriptions-item label="修炼效率">{{ playerInfoStore.cultivationGain }} 修为 / 次</n-descriptions-item>
         <n-descriptions-item label="突破所需修为">
           {{ playerInfoStore.maxCultivation }}
         </n-descriptions-item>
@@ -53,7 +53,8 @@
   import { useMessage } from 'naive-ui'
   import { BookOutline } from '@vicons/ionicons5' // 导入图标组件
   import LogPanel from '../components/LogPanel.vue'
-  import { apiClient } from '../services/api'
+  import APIService from '../services/api'
+  import { getAuthToken } from '../stores/db'
 
   const playerInfoStore = usePlayerInfoStore()
   const inventoryStore = useInventoryStore()
@@ -68,14 +69,16 @@
   const isAutoCultivating = ref(false)
   const logRef = ref(null)
 
-  // 修炼消耗
+  // 修炼消耗和获得（从后端获取准确数据）
   const cultivationCost = computed(() => {
-    return 1 // 每次修炼消耗1点灵力
+    // 从后端获取准确的修炼消耗数据
+    return playerInfoStore.cultivationCost || 1
   })
 
   // 修炼获得的修为
   const cultivationGain = computed(() => {
-    return 1 // 每次修炼获得1点修为
+    // 从后端获取准确的修炼获得数据
+    return playerInfoStore.cultivationGain || 1
   })
 
   // 基础灵力获取速率
@@ -86,10 +89,12 @@
     return playerInfoStore.maxCultivation - playerInfoStore.cultivation
   }
 
-  // 打坐修炼方法
+  // 打坐修练方法
   const cultivate = async () => {
     try {
-      const response = await apiClient.post('/api/cultivation/single', {})
+      // ✅ 使用正确的URL（不需要前面的 /api）
+      const token = getAuthToken();
+      const response = await APIService.post('/cultivation/single', {}, token)
       
       if (response.success) {
         // 后端返回的数据字段名
@@ -138,14 +143,16 @@
       return
     }
     
-    // 开始自动修炼
+    // 开始自动修练
     isAutoCultivating.value = true
-    message.success('开始自动修炼（10秒）')
-    
+    message.success('开始自动修练（10秒）')
+          
     try {
-      const response = await apiClient.post('/api/cultivation/auto', {
+      // ✅ 使用正确的URL
+      const token = getAuthToken();
+      const response = await APIService.post('/cultivation/auto', {
         duration: 10000
-      })
+      }, token)
       
       if (response.success) {
         // 更新玩家数据 - 同步最新数据
@@ -181,7 +188,8 @@
   // 一键突破
   const cultivateUntilBreakthrough = async () => {
     try {
-      const response = await apiClient.post('/api/cultivation/breakthrough', {})
+      const token = getAuthToken();
+      const response = await APIService.post('/cultivation/breakthrough', {}, token)
       
       if (response.success) {
         // 同步最新数据
@@ -209,19 +217,31 @@
   // 从后端获取最新修炼数据
   const syncCultivationData = async () => {
     try {
-      const response = await apiClient.get('/api/cultivation/data')
-      if (response.success && response.data) {
-        const data = response.data
-        playerInfoStore.level = data.level
-        playerInfoStore.realm = data.realm
-        playerInfoStore.cultivation = data.cultivation
-        playerInfoStore.maxCultivation = data.maxCultivation
-        playerInfoStore.spirit = data.spirit
-        playerInfoStore.cultivationRate = data.cultivationRate
-        playerInfoStore.spiritRate = data.spiritRate
+      const token = getAuthToken();
+      
+      // 获取玩家基本数据
+      const playerResponse = await APIService.getPlayerData(token)
+      if (playerResponse.success) {
+        // 从玩家数据中提取修炼相关的字段
+        playerInfoStore.level = playerResponse.level
+        playerInfoStore.realm = playerResponse.realm
+        playerInfoStore.cultivation = playerResponse.cultivation
+        playerInfoStore.maxCultivation = playerResponse.maxCultivation
+        playerInfoStore.spirit = playerResponse.spirit
+        playerInfoStore.cultivationRate = playerResponse.cultivationRate || 1
+        playerInfoStore.spiritRate = playerResponse.spiritRate || 1
+      }
+      
+      // 获取修炼消耗和获得数据
+      const response = await APIService.getCultivationData(token)
+      if (response.success) {
+        console.log('[Cultivation] 修炼消耗:', response.data.spiritCost, '获得:', response.data.cultivationGain)
+        playerInfoStore.cultivationCost = response.data.spiritCost || 1      // 修炼消耗灵力
+        playerInfoStore.cultivationGain = response.data.cultivationGain || 1 // 修炼获得修为
+        
       }
     } catch (error) {
-      console.error('Failed to sync cultivation data:', error)
+      console.error('同步修为数据失败:', error)
     }
   }
 

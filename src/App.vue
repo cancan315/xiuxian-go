@@ -185,7 +185,7 @@
   import { useSettingsStore } from './stores/settings'
   import { useStatsStore } from './stores/stats'
   import { usePersistenceStore } from './stores/persistence'
-  import { h, onMounted, onUnmounted, ref, computed } from 'vue'
+  import { h, onMounted, onUnmounted, ref, computed, watch } from 'vue'
   import { NIcon, darkTheme } from 'naive-ui'
   import { 
     BookOutline,
@@ -201,6 +201,7 @@
   import { getRealmName } from './plugins/realm'
   import { getAuthToken, clearAuthToken } from './stores/db'
   import APIService from './services/api'
+  import { useWebSocket, useSpiritGrowth } from './composables/useWebSocket'
 
   // 导入各视图组件
   import Cultivation from './views/Cultivation.vue'
@@ -360,32 +361,89 @@
     }
   }
   
-  // Call initialization
-  getPlayerData()
-
   // 灵力获取相关配置
   const baseGainRate = 1 // 基础灵力获取率
   const spiritWorker = ref(null)
+  const ws = useWebSocket()
+  const spirit = useSpiritGrowth()
+  let handleBeforeUnload = null  // ⋆⋆ 先定义引用以便卸载时离检
 
-  onMounted(() => {
-    getMenuOptions() // 获取菜单选项
+  onMounted(async () => {
+    // 获取菜单选项和玩家数据
+    getMenuOptions()
+    getPlayerData()
     
     // 监听页面刷新/关闭事件，执行退出游戏操作
-    const handleBeforeUnload = (event) => {
+    handleBeforeUnload = (event) => {
       // 执行退出游戏操作
       logout()
     }
     
     // 添加事件监听器
     window.addEventListener('beforeunload', handleBeforeUnload)
-    
-    // 在组件卸载时移除事件监听器
-    onUnmounted(() => {
-      window.removeEventListener('beforeunload', handleBeforeUnload)
-    })
 
     // 自动获取灵力
     startAutoGain()
+  })
+
+  // 监听 playerInfoStore.id 的变化，当玩家登录成功后初始化 WebSocket
+  let wsInitialized = false
+  let previousId = 0  // 追踪前一个id，判断是ID变更还是退出
+  let heartbeatTimer = null  // 心跳定时器
+  
+  watch(() => playerInfoStore.id, async (newId) => {
+    // 判断是ID从有值变成0 (退出场景)
+    if (previousId > 0 && newId === 0) {
+      console.log('[App.vue] 检测到玩家登出, playerInfoStore.id置为0')
+      wsInitialized = false
+      // 退出宜在logout中已经调用了ws.disconnect()，此处不需要重复
+      previousId = newId
+      return
+    }
+    
+    // ID变更场景 (例如切换账户)
+    if (previousId > 0 && newId !== previousId && newId > 0) {
+      console.log('[App.vue] 检测到玩家ID变更', { previousId, newId })
+      // 先断开旧的连接
+      ws.disconnect()
+      wsInitialized = false
+    }
+    
+    previousId = newId
+    
+    // 不处理ID为0的场景 (退出场景)
+    if (newId && !wsInitialized) {
+      wsInitialized = true
+      const token = getAuthToken()
+      console.log('[App.vue] 监测到playerInfoStore.id变化，WebSocket初始化检查', { token: !!token, playerId: newId })
+      if (token && newId) {
+        try {
+          console.log('[App.vue] 开始连接WebSocket', { userId: newId })
+          await ws.initWebSocket(token, newId)
+          console.log('[App.vue] WebSocket连接成功', { wsInstance: !!ws })
+          // 重新订阅灵力增长事件
+          reSubscribeSpiritGrowth()
+          
+          // 启动心跳定时器（每3秒发送一次心跳）
+          startHeartbeatTimer(newId, token)
+        } catch (error) {
+          console.error('[App.vue] WebSocket初始化失败:', error)
+          wsInitialized = false
+        }
+      }
+    }
+  })
+
+  // 注册卸载钩子在顶级作用域
+  onUnmounted(() => {
+    // 清理事件监听器
+    if (handleBeforeUnload) {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+    // 断开WebSocket连接
+    ws.disconnect()
+    // 停止心跳定时器
+    stopHeartbeatTimer()
   })
 
   // 菜单点击事件
@@ -393,22 +451,82 @@
     currentView.value = key
   }
 
+  // 重新订阅灵力增长事件
+  let spiritUnsubscribe = null
+  const reSubscribeSpiritGrowth = () => {
+    // 如果已有订阅，先取消
+    if (spiritUnsubscribe) {
+      spiritUnsubscribe()
+    }
+    
+    // 重新订阅
+    console.log('[App.vue] 重新订阅灵力增长事件')
+    spiritUnsubscribe = ws.subscribeSpiritGrowthData((data) => {
+      //onsole.log('[App.vue] 收到灵力增长消息', {
+      // gainAmount: data.gainAmount?.toFixed(2),
+      // newSpirit: data.newSpirit?.toFixed(2),
+      // oldSpirit: data.oldSpirit?.toFixed(2)
+      //)
+      //spirit.handleSpiritGrowth(data)
+      // 更新playerInfoStore中的灵力值
+      playerInfoStore.spirit = data.newSpirit
+      //console.log(`灵力自动增长: +${data.gainAmount.toFixed(2)}, 当前灵力: ${data.newSpirit.toFixed(2)}`)
+    })
+    console.log('[App.vue] 灵力增长事件重新订阅完成')
+  }
+  
+  // 启动心跳定时器
+  const startHeartbeatTimer = (playerId, token) => {
+    console.log('[App.vue] 启动心跳定时器', { playerId, tokenAvailable: !!token });
+    // 先清除已有的定时器
+    if (heartbeatTimer) {
+      clearInterval(heartbeatTimer)
+    }
+    
+    // 每3秒发送一次心跳
+    heartbeatTimer = setInterval(async () => {
+      try {
+        console.log('[App.vue] 发送心跳', { playerId });
+        await APIService.playerHeartbeat(playerId, token)
+        // console.log('[App.vue] 心跳发送成功')
+      } catch (error) {
+        console.error('[App.vue] 心跳发送失败:', error)
+      }
+    }, 3000)
+  }
+  
+  // 停止心跳定时器
+  const stopHeartbeatTimer = () => {
+    if (heartbeatTimer) {
+      clearInterval(heartbeatTimer)
+      heartbeatTimer = null
+    }
+  }
+
   // 退出游戏
   const logout = async () => {
     // 设置登出状态
     isLoggingOut.value = true
     
+    // ✅ 需要在接下来的操作之前，先保存玩家ID
+    const playerId = playerInfoStore.id
+    
+    // ✅ 需要立即断开WebSocket连接，避免watch监听到playerInfoStore.id变化后进行重连
+    ws.disconnect()
+    // 停止心跳定时器
+    stopHeartbeatTimer()
+    
     // 通知后端玩家已离线
     try {
-      if (playerInfoStore.id) {
+      if (playerId) {
         // 调用API通知后端玩家离线
-        await APIService.playerOffline(playerInfoStore.id)
+        await APIService.playerOffline(String(playerId))  // ✅ 转换为字符串，与后端一致
       }
     } catch (error) {
       console.error('通知后端玩家离线失败:', error)
     }
     
-    // 清除认证令牌
+    // ✅ 清除认证令牌
     clearAuthToken()
     // 重置玩家状态
     playerInfoStore.$reset()

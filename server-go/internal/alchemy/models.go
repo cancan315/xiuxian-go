@@ -4,11 +4,11 @@ import "gorm.io/datatypes"
 
 // 丹方请求
 type AlchemyRequest struct {
-	Action        string `json:"action"`         // 操作: list_recipes, get_recipe, calculate_effect, craft_pill, buy_fragment
-	RecipeID      string `json:"recipeId,omitempty"`
-	Grade         string `json:"grade,omitempty"`
-	Type          string `json:"type,omitempty"`
-	PlayerLevel   int    `json:"playerLevel,omitempty"`
+	Action      string `json:"action"` // 操作: list_recipes, get_recipe, calculate_effect, craft_pill, buy_fragment
+	RecipeID    string `json:"recipeId,omitempty"`
+	Grade       string `json:"grade,omitempty"`
+	Type        string `json:"type,omitempty"`
+	PlayerLevel int    `json:"playerLevel,omitempty"`
 }
 
 // 丹方响应
@@ -21,17 +21,17 @@ type AlchemyResponse struct {
 
 // 丹方品阶配置
 type PillGrade struct {
-	ID           string  `json:"id"`           // grade1-grade9
-	Name         string  `json:"name"`         // 一品-九品
-	Difficulty   float64 `json:"difficulty"`   // 难度系数
-	SuccessRate  float64 `json:"successRate"`  // 基础成功率
-	FragmentsNeeded int  `json:"fragmentsNeeded"` // 所需残页数
+	ID              string  `json:"id"`              // grade1-grade9
+	Name            string  `json:"name"`            // 一品-九品
+	Difficulty      float64 `json:"difficulty"`      // 难度系数
+	SuccessRate     float64 `json:"successRate"`     // 基础成功率
+	FragmentsNeeded int     `json:"fragmentsNeeded"` // 所需残页数
 }
 
 // 丹药类型倍数
 type PillType struct {
-	ID              string  `json:"id"`             // spirit, cultivation, attribute, special
-	Name            string  `json:"name"`           // 灵力类、修炼类、属性类、特殊类
+	ID               string  `json:"id"`               // spirit, cultivation, attribute, special
+	Name             string  `json:"name"`             // 灵力类、修炼类、属性类、特殊类
 	EffectMultiplier float64 `json:"effectMultiplier"` // 效果倍数
 }
 
@@ -44,22 +44,22 @@ type HerbQuality struct {
 
 // 灵草配置
 type HerbConfig struct {
-	ID          string `json:"id"`          // herb_id
-	Name        string `json:"name"`        // 灵草名称
+	ID          string `json:"id"`   // herb_id
+	Name        string `json:"name"` // 灵草名称
 	Description string `json:"description"`
-	Price       int    `json:"price"`       // 灵石价格
+	Price       int    `json:"price"` // 灵石价格
 }
 
 // 丹方配置
 type RecipeConfig struct {
-	ID              string            `json:"id"`               // recipe_id
-	Name            string            `json:"name"`             // 丹药名称
-	Description     string            `json:"description"`      // 描述
-	Grade           string            `json:"grade"`            // grade1-grade9
-	Type            string            `json:"type"`             // spirit, cultivation, attribute, special
-	Materials       []MaterialRequire  `json:"materials"`        // 材料需求
-	BaseEffect      PillEffect         `json:"baseEffect"`       // 基础效果
-	FragmentsNeeded int               `json:"fragmentsNeeded"`  // 所需残页数量
+	ID              string            `json:"id"`              // recipe_id
+	Name            string            `json:"name"`            // 丹药名称
+	Description     string            `json:"description"`     // 描述
+	Grade           string            `json:"grade"`           // grade1-grade9
+	Type            string            `json:"type"`            // spirit, cultivation, attribute, special
+	Materials       []MaterialRequire `json:"materials"`       // 材料需求
+	BaseEffect      PillEffect        `json:"baseEffect"`      // 基础效果
+	FragmentsNeeded int               `json:"fragmentsNeeded"` // 所需残页数量
 }
 
 // 材料需求
@@ -77,16 +77,16 @@ type PillEffect struct {
 
 // 丹方学习响应
 type RecipeInfo struct {
-	ID              string            `json:"id"`
-	Name            string            `json:"name"`
-	Description     string            `json:"description"`
-	Grade           string            `json:"grade"`
-	GradeName       string            `json:"gradeName"`
-	Type            string            `json:"type"`
-	TypeName        string            `json:"typeName"`
-	Materials       []MaterialInfo     `json:"materials"`
-	FragmentsNeeded int               `json:"fragmentsNeeded"`
-	CurrentEffect   PillEffectResult   `json:"currentEffect"`
+	ID              string           `json:"id"`
+	Name            string           `json:"name"`
+	Description     string           `json:"description"`
+	Grade           string           `json:"grade"`
+	GradeName       string           `json:"gradeName"`
+	Type            string           `json:"type"`
+	TypeName        string           `json:"typeName"`
+	Materials       []MaterialInfo   `json:"materials"`
+	FragmentsNeeded int              `json:"fragmentsNeeded"`
+	CurrentEffect   PillEffectResult `json:"currentEffect"`
 }
 
 // 材料信息
@@ -107,21 +107,21 @@ type PillEffectResult struct {
 
 // 炼制请求
 type CraftRequest struct {
-	RecipeID         string            `json:"recipeId"`
-	PlayerLevel      int               `json:"playerLevel"`
-	UnlockedRecipes  []string          `json:"unlockedRecipes"`  // 已掌握的丹方ID列表
-	InventoryHerbs   map[string]int    `json:"inventoryHerbs"`   // 灵草库存 {herbId: count}
-	Luck             float64           `json:"luck"`             // 幸运值
-	AlchemyRate      float64           `json:"alchemyRate"`      // 炼丹加成率
+	RecipeID        string         `json:"recipeId"`
+	PlayerLevel     int            `json:"playerLevel"`
+	UnlockedRecipes []string       `json:"unlockedRecipes"` // 已掌握的丹方ID列表
+	InventoryHerbs  map[string]int `json:"inventoryHerbs"`  // 灵草库存 {herbId: count}
+	Luck            float64        `json:"luck"`            // 幸运值
+	AlchemyRate     float64        `json:"alchemyRate"`     // 炼丹加成率
 }
 
 // 炼制响应
 type CraftResult struct {
 	Success       bool              `json:"success"`
 	Message       string            `json:"message"`
-	PillID        string            `json:"pillId,omitempty"`         // 新创建的丹药ID
-	PillName      string            `json:"pillName,omitempty"`       // 丹药名称
-	SuccessRate   float64           `json:"successRate,omitempty"`    // 成功率
+	PillID        string            `json:"pillId,omitempty"`        // 新创建的丹药ID
+	PillName      string            `json:"pillName,omitempty"`      // 丹药名称
+	SuccessRate   float64           `json:"successRate,omitempty"`   // 成功率
 	ConsumedHerbs map[string]int    `json:"consumedHerbs,omitempty"` // 消耗的灵草
 	PillEffect    *PillEffectResult `json:"pillEffect,omitempty"`    // 丹药效果
 }
@@ -136,62 +136,62 @@ type BuyFragmentRequest struct {
 
 // 购买残页响应
 type BuyFragmentResult struct {
-	Success      bool   `json:"success"`
-	Message      string `json:"message"`
-	RecipeID     string `json:"recipeId,omitempty"`
-	FragmentsOwned int  `json:"fragmentsOwned,omitempty"`
-	RecipeUnlocked bool `json:"recipeUnlocked,omitempty"` // 是否合成完整丹方
+	Success        bool   `json:"success"`
+	Message        string `json:"message"`
+	RecipeID       string `json:"recipeId,omitempty"`
+	FragmentsOwned int    `json:"fragmentsOwned,omitempty"`
+	RecipeUnlocked bool   `json:"recipeUnlocked,omitempty"` // 是否合成完整丹方
 }
 
 // 丹方列表响应
 type RecipeListResponse struct {
-	Unlocked   []RecipeInfo `json:"unlocked"`   // 已掌握的丹方
-	Locked     []RecipeInfo `json:"locked"`     // 未掌握的丹方（显示残页进度）
+	Unlocked []RecipeInfo `json:"unlocked"` // 已掌握的丹方
+	Locked   []RecipeInfo `json:"locked"`   // 未掌握的丹方（显示残页进度）
 }
 
 // 用户炼丹状态
 type UserAlchemyData struct {
-	RecipesUnlocked map[string]bool   `json:"recipesUnlocked"`  // {recipeId: true}
-	Fragments       map[string]int    `json:"fragments"`        // {recipeId: count}
-	Pills           []UserPill        `json:"pills"`            // 拥有的丹药
-	PillsCrafted    int               `json:"pillsCrafted"`     // 总炼制次数
-	PillsConsumed   int               `json:"pillsConsumed"`    // 总服用次数
-	AlchemyLevel    int               `json:"alchemyLevel"`     // 炼丹等级
-	AlchemyRate     float64           `json:"alchemyRate"`      // 炼丹加成率
+	RecipesUnlocked map[string]bool `json:"recipesUnlocked"` // {recipeId: true}
+	Fragments       map[string]int  `json:"fragments"`       // {recipeId: count}
+	Pills           []UserPill      `json:"pills"`           // 拥有的丹药
+	PillsCrafted    int             `json:"pillsCrafted"`    // 总炼制次数
+	PillsConsumed   int             `json:"pillsConsumed"`   // 总服用次数
+	AlchemyLevel    int             `json:"alchemyLevel"`    // 炼丹等级
+	AlchemyRate     float64         `json:"alchemyRate"`     // 炼丹加成率
 }
 
 // 用户拥有的丹药
 type UserPill struct {
-	ID          string                 `json:"id"`          // 丹药实例ID
-	RecipeID    string                 `json:"recipeId"`
-	Name        string                 `json:"name"`
-	Description string                 `json:"description"`
-	Effect      datatypes.JSON         `json:"effect"`
-	CreatedAt   int64                  `json:"createdAt"`
+	ID          string         `json:"id"` // 丹药实例ID
+	RecipeID    string         `json:"recipeId"`
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
+	Effect      datatypes.JSON `json:"effect"`
+	CreatedAt   int64          `json:"createdAt"`
 }
 
 // 获取丹方详情响应
 type RecipeDetailResponse struct {
-	ID              string            `json:"id"`
-	Name            string            `json:"name"`
-	Description     string            `json:"description"`
-	Grade           string            `json:"grade"`
-	GradeName       string            `json:"gradeName"`
-	Type            string            `json:"type"`
-	TypeName        string            `json:"typeName"`
-	SuccessRate     float64           `json:"successRate"`
-	Materials       []MaterialInfo     `json:"materials"`
-	FragmentsNeeded int               `json:"fragmentsNeeded"`
+	ID               string           `json:"id"`
+	Name             string           `json:"name"`
+	Description      string           `json:"description"`
+	Grade            string           `json:"grade"`
+	GradeName        string           `json:"gradeName"`
+	Type             string           `json:"type"`
+	TypeName         string           `json:"typeName"`
+	SuccessRate      float64          `json:"successRate"`
+	Materials        []MaterialInfo   `json:"materials"`
+	FragmentsNeeded  int              `json:"fragmentsNeeded"`
 	CurrentFragments int              `json:"currentFragments"` // 用户当前拥有的残页
-	IsUnlocked      bool              `json:"isUnlocked"`
-	CurrentEffect   PillEffectResult   `json:"currentEffect"`
+	IsUnlocked       bool             `json:"isUnlocked"`
+	CurrentEffect    PillEffectResult `json:"currentEffect"`
 	PillsInInventory int              `json:"pillsInInventory"` // 用户背包中该丹药数量
 }
 
 // 所有丹方列表响应
 type AllRecipesResponse struct {
-	Grades    map[string]PillGrade   `json:"grades"`    // 品阶配置
-	Types     map[string]PillType    `json:"types"`     // 类型配置
-	Recipes   []RecipeDetailResponse `json:"recipes"`   // 丹方列表
-	PlayerStats UserAlchemyData      `json:"playerStats"` // 玩家统计
+	Grades      map[string]PillGrade   `json:"grades"`      // 品阶配置
+	Types       map[string]PillType    `json:"types"`       // 类型配置
+	Recipes     []RecipeDetailResponse `json:"recipes"`     // 丹方列表
+	PlayerStats UserAlchemyData        `json:"playerStats"` // 玩家统计
 }

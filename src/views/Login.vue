@@ -38,7 +38,7 @@ const rules = {
 const handleLogin = async (e) => {
   e.preventDefault();
   loading.value = true;
-  
+
   try {
     // 使用 await 确保验证完成后再执行后续操作
     await new Promise((resolve, reject) => {
@@ -50,18 +50,27 @@ const handleLogin = async (e) => {
         }
       });
     });
-    
+
     const response = await APIService.login(formValue.value.username, formValue.value.password);
-    
+
     if (response.token) {
       // 保存令牌
       setAuthToken(response.token);
       
-      // 初始化玩家数据
-      // 由于 persistenceStore.initializePlayer() 不存在，我们将依赖 App.vue 在挂载时初始化数据
-      
-      
-      
+      // ✅ 立即设置玩家ID到Store，确保WebSocket初始化时能使用
+      const playerStore = usePlayerInfoStore()
+      playerStore.id = response.id  // ✅ 改为 response.id（后端返回的字段名）
+      console.log('[Login.vue] 用户登录成功，已设置playerInfoStore.id:', playerStore.id)
+
+      // 标记玩家上线
+      await APIService.playerOnline(String(response.id))  // ✅ 改为 response.id
+      // 在浏览器控制台执行
+      console.log('WebSocket状态:', window.wsManager?.getConnectionStatus())
+      // 预期输出：{ isConnected: true, url: "ws://localhost:2025/ws?...", reconnectAttempts: 0 }
+
+      // 检查玩家ID
+      console.log('玩家ID:', window.$pinia?.state.value?.playerInfo?.id)
+      // 预期输出：玩家的数字ID，例如 1
       message.success('登录成功');
       // 登录成功后跳转到游戏主界面
       router.push('/home');
@@ -91,7 +100,7 @@ const handleLogin = async (e) => {
 const handleRegister = async (e) => {
   e.preventDefault();
   loading.value = true;
-  
+
   try {
     // 使用 await 确保验证完成后再执行后续操作
     await new Promise((resolve, reject) => {
@@ -103,21 +112,26 @@ const handleRegister = async (e) => {
         }
       });
     });
-    
+
     const response = await APIService.register(formValue.value.username, formValue.value.password);
-    
+
     if (response.token) {
       // 保存令牌
       setAuthToken(response.token);
       
-      // 初始化玩家数据
-      // 由于 persistenceStore.initializePlayer() 不存在，我们将依赖 App.vue 在挂载时初始化数据
-      
-      
-      
+      // ✅ 立即设置玩家ID到Store，确保WebSocket初始化时能使用
+      const playerStore = usePlayerInfoStore()
+      playerStore.id = response.id
+      console.log('[Login.vue] 用户注册成功，已设置playerInfoStore.id:', playerStore.id)
+
+      // 标记新玩家上线，启动灵力增长任务
+      if (response.id) {
+        await APIService.playerOnline(String(response.id))  // 转换为字符串
+      }
+
       message.success('注册成功');
-      // 注册成功后跳转到首页，确保能触发新手礼包等流程
-      router.push('/');
+      // 注册成功后跳转到游戏主界面，确保流程各璶须预美第一时间执行
+      router.push('/home');
     } else {
       message.error(response.message || '注册失败');
     }

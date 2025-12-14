@@ -4,8 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+
 	"xiuxian/server-go/internal/db"
 	"xiuxian/server-go/internal/models"
+
+	"gorm.io/gorm"
 )
 
 // AlchemyService 炼丹服务
@@ -43,21 +46,21 @@ var pillTypes = map[string]PillType{
 
 // 灵草配置
 var herbConfigs = map[string]HerbConfig{
-	"spirit_grass":        {ID: "spirit_grass", Name: "灵精草"},
-	"cloud_flower":        {ID: "cloud_flower", Name: "云雾花"},
-	"thunder_root":        {ID: "thunder_root", Name: "雷击根"},
-	"dragon_breath_herb":  {ID: "dragon_breath_herb", Name: "龙息草"},
-	"immortal_jade_grass": {ID: "immortal_jade_grass", Name: "仙玉草"},
-	"dark_yin_grass":      {ID: "dark_yin_grass", Name: "玄阴草"},
-	"nine_leaf_lingzhi":   {ID: "nine_leaf_lingzhi", Name: "九叶灵芝"},
-	"purple_ginseng":      {ID: "purple_ginseng", Name: "紫金参"},
-	"frost_lotus":         {ID: "frost_lotus", Name: "寒霜莲"},
-	"fire_heart_flower":   {ID: "fire_heart_flower", Name: "火心花"},
-	"moonlight_orchid":    {ID: "moonlight_orchid", Name: "月华兰"},
-	"sun_essence_flower":  {ID: "sun_essence_flower", Name: "日精花"},
-	"five_elements_grass": {ID: "five_elements_grass", Name: "五行草"},
+	"spirit_grass":         {ID: "spirit_grass", Name: "灵精草"},
+	"cloud_flower":         {ID: "cloud_flower", Name: "云雾花"},
+	"thunder_root":         {ID: "thunder_root", Name: "雷击根"},
+	"dragon_breath_herb":   {ID: "dragon_breath_herb", Name: "龙息草"},
+	"immortal_jade_grass":  {ID: "immortal_jade_grass", Name: "仙玉草"},
+	"dark_yin_grass":       {ID: "dark_yin_grass", Name: "玄阴草"},
+	"nine_leaf_lingzhi":    {ID: "nine_leaf_lingzhi", Name: "九叶灵芝"},
+	"purple_ginseng":       {ID: "purple_ginseng", Name: "紫金参"},
+	"frost_lotus":          {ID: "frost_lotus", Name: "寒霜莲"},
+	"fire_heart_flower":    {ID: "fire_heart_flower", Name: "火心花"},
+	"moonlight_orchid":     {ID: "moonlight_orchid", Name: "月华兰"},
+	"sun_essence_flower":   {ID: "sun_essence_flower", Name: "日精花"},
+	"five_elements_grass":  {ID: "five_elements_grass", Name: "五行草"},
 	"phoenix_feather_herb": {ID: "phoenix_feather_herb", Name: "凤羽草"},
-	"celestial_dew_grass": {ID: "celestial_dew_grass", Name: "天露草"},
+	"celestial_dew_grass":  {ID: "celestial_dew_grass", Name: "天露草"},
 }
 
 // 丹方配置 (12个丹方)
@@ -73,7 +76,7 @@ var recipes = []RecipeConfig{
 			{HerbID: "cloud_flower", Count: 1},
 		},
 		FragmentsNeeded: 10,
-		BaseEffect:     PillEffect{Type: "spiritRate", Value: 0.2, Duration: 3600},
+		BaseEffect:      PillEffect{Type: "spiritRate", Value: 0.2, Duration: 3600},
 	},
 	{
 		ID:          "cultivation_boost",
@@ -86,7 +89,7 @@ var recipes = []RecipeConfig{
 			{HerbID: "thunder_root", Count: 1},
 		},
 		FragmentsNeeded: 15,
-		BaseEffect:     PillEffect{Type: "cultivationRate", Value: 0.3, Duration: 1800},
+		BaseEffect:      PillEffect{Type: "cultivationRate", Value: 0.3, Duration: 1800},
 	},
 	{
 		ID:          "thunder_power",
@@ -99,7 +102,7 @@ var recipes = []RecipeConfig{
 			{HerbID: "dragon_breath_herb", Count: 1},
 		},
 		FragmentsNeeded: 20,
-		BaseEffect:     PillEffect{Type: "combatBoost", Value: 0.4, Duration: 900},
+		BaseEffect:      PillEffect{Type: "combatBoost", Value: 0.4, Duration: 900},
 	},
 	{
 		ID:          "immortal_essence",
@@ -112,7 +115,7 @@ var recipes = []RecipeConfig{
 			{HerbID: "immortal_jade_grass", Count: 1},
 		},
 		FragmentsNeeded: 25,
-		BaseEffect:     PillEffect{Type: "allAttributes", Value: 0.5, Duration: 600},
+		BaseEffect:      PillEffect{Type: "allAttributes", Value: 0.5, Duration: 600},
 	},
 	{
 		ID:          "five_elements_pill",
@@ -125,7 +128,7 @@ var recipes = []RecipeConfig{
 			{HerbID: "phoenix_feather_herb", Count: 1},
 		},
 		FragmentsNeeded: 30,
-		BaseEffect:     PillEffect{Type: "allAttributes", Value: 0.8, Duration: 1200},
+		BaseEffect:      PillEffect{Type: "allAttributes", Value: 0.8, Duration: 1200},
 	},
 	{
 		ID:          "celestial_essence_pill",
@@ -138,7 +141,7 @@ var recipes = []RecipeConfig{
 			{HerbID: "moonlight_orchid", Count: 1},
 		},
 		FragmentsNeeded: 35,
-		BaseEffect:     PillEffect{Type: "cultivationRate", Value: 1.0, Duration: 1800},
+		BaseEffect:      PillEffect{Type: "cultivationRate", Value: 1.0, Duration: 1800},
 	},
 	{
 		ID:          "sun_moon_pill",
@@ -151,7 +154,7 @@ var recipes = []RecipeConfig{
 			{HerbID: "moonlight_orchid", Count: 2},
 		},
 		FragmentsNeeded: 40,
-		BaseEffect:     PillEffect{Type: "spiritCap", Value: 1.5, Duration: 2400},
+		BaseEffect:      PillEffect{Type: "spiritCap", Value: 1.5, Duration: 2400},
 	},
 	{
 		ID:          "phoenix_rebirth_pill",
@@ -164,7 +167,7 @@ var recipes = []RecipeConfig{
 			{HerbID: "celestial_dew_grass", Count: 1},
 		},
 		FragmentsNeeded: 45,
-		BaseEffect:     PillEffect{Type: "autoHeal", Value: 0.1, Duration: 3600},
+		BaseEffect:      PillEffect{Type: "autoHeal", Value: 0.1, Duration: 3600},
 	},
 	{
 		ID:          "spirit_recovery",
@@ -177,7 +180,7 @@ var recipes = []RecipeConfig{
 			{HerbID: "frost_lotus", Count: 1},
 		},
 		FragmentsNeeded: 15,
-		BaseEffect:     PillEffect{Type: "spiritRecovery", Value: 0.4, Duration: 1200},
+		BaseEffect:      PillEffect{Type: "spiritRecovery", Value: 0.4, Duration: 1200},
 	},
 	{
 		ID:          "essence_condensation",
@@ -190,7 +193,7 @@ var recipes = []RecipeConfig{
 			{HerbID: "purple_ginseng", Count: 1},
 		},
 		FragmentsNeeded: 20,
-		BaseEffect:     PillEffect{Type: "cultivationEfficiency", Value: 0.5, Duration: 1500},
+		BaseEffect:      PillEffect{Type: "cultivationEfficiency", Value: 0.5, Duration: 1500},
 	},
 	{
 		ID:          "mind_clarity",
@@ -203,7 +206,7 @@ var recipes = []RecipeConfig{
 			{HerbID: "fire_heart_flower", Count: 1},
 		},
 		FragmentsNeeded: 20,
-		BaseEffect:     PillEffect{Type: "comprehension", Value: 0.3, Duration: 2400},
+		BaseEffect:      PillEffect{Type: "comprehension", Value: 0.3, Duration: 2400},
 	},
 	{
 		ID:          "fire_essence",
@@ -216,7 +219,7 @@ var recipes = []RecipeConfig{
 			{HerbID: "dragon_breath_herb", Count: 1},
 		},
 		FragmentsNeeded: 25,
-		BaseEffect:     PillEffect{Type: "fireAttribute", Value: 0.6, Duration: 1800},
+		BaseEffect:      PillEffect{Type: "fireAttribute", Value: 0.6, Duration: 1800},
 	},
 }
 
@@ -309,19 +312,19 @@ func (s *AlchemyService) buildRecipeDetail(recipe *RecipeConfig, user *models.Us
 	effect := s.calculatePillEffect(recipe, playerLevel)
 
 	return RecipeDetailResponse{
-		ID:              recipe.ID,
-		Name:            recipe.Name,
-		Description:     recipe.Description,
-		Grade:           recipe.Grade,
-		GradeName:       grade.Name,
-		Type:            recipe.Type,
-		TypeName:        recipeType.Name,
-		SuccessRate:     grade.SuccessRate,
-		Materials:       materials,
-		FragmentsNeeded: recipe.FragmentsNeeded,
+		ID:               recipe.ID,
+		Name:             recipe.Name,
+		Description:      recipe.Description,
+		Grade:            recipe.Grade,
+		GradeName:        grade.Name,
+		Type:             recipe.Type,
+		TypeName:         recipeType.Name,
+		SuccessRate:      grade.SuccessRate,
+		Materials:        materials,
+		FragmentsNeeded:  recipe.FragmentsNeeded,
 		CurrentFragments: fragmentsOwned,
-		IsUnlocked:      isUnlocked,
-		CurrentEffect:   effect,
+		IsUnlocked:       isUnlocked,
+		CurrentEffect:    effect,
 		PillsInInventory: 0, // 从前端库存获取
 	}
 }
@@ -377,7 +380,7 @@ func (s *AlchemyService) CraftPill(recipeID string, playerLevel int, unlockedRec
 
 	// 计算成功率
 	grade := pillGrades[recipe.Grade]
-	
+
 	// 确保 luck 和 alchemyRate 有效
 	if luck <= 0 {
 		luck = 1.0
@@ -385,7 +388,7 @@ func (s *AlchemyService) CraftPill(recipeID string, playerLevel int, unlockedRec
 	if alchemyRate <= 0 {
 		alchemyRate = 1.0
 	}
-	
+
 	successRate := grade.SuccessRate * luck * alchemyRate
 
 	// 尝试炼制
@@ -401,6 +404,14 @@ func (s *AlchemyService) CraftPill(recipeID string, playerLevel int, unlockedRec
 	consumedHerbs := make(map[string]int)
 	for _, material := range recipe.Materials {
 		consumedHerbs[material.HerbID] = material.Count
+	}
+
+	// 从数据库扣除灵草材料
+	for herbID, count := range consumedHerbs {
+		if err := db.DB.Model(&models.Herb{}).Where("user_id = ? AND herb_id = ?", s.userID, herbID).
+			Update("count", gorm.Expr("count - ?", count)).Error; err != nil {
+			return nil, fmt.Errorf("扣除材料失败: %w", err)
+		}
 	}
 
 	// 创建丹药记录 (保存到数据库)
@@ -420,12 +431,16 @@ func (s *AlchemyService) CraftPill(recipeID string, playerLevel int, unlockedRec
 		return nil, fmt.Errorf("创建丹药失败: %w", err)
 	}
 
-	// TODO: 从数据库扣除灵草材料
-	// 需要实现的逻辑：
-	// for herbID, count := range consumedHerbs {
-	//     db.DB.Model(&models.Herb{}).Where("user_id = ? AND herb_id = ?", s.userID, herbID).
-	//         Update("count", gorm.Expr("count - ?", count))
-	// }
+	// 更新用户炼丹统计数据
+	var userAlchemyData models.UserAlchemyDataDB
+	if err := db.DB.Where("user_id = ?", s.userID).First(&userAlchemyData).Error; err != nil {
+		return nil, fmt.Errorf("获取用户炼丹数据失败: %w", err)
+	}
+
+	userAlchemyData.PillsCrafted++
+	if err := db.DB.Save(&userAlchemyData).Error; err != nil {
+		return nil, fmt.Errorf("更新用户炼丹数据失败: %w", err)
+	}
 
 	return &CraftResult{
 		Success:       true,
@@ -480,16 +495,40 @@ func (s *AlchemyService) BuyFragment(recipeID string, quantity int, currentFragm
 		return nil, fmt.Errorf("更新灵石失败: %w", err)
 	}
 
-	// 更新残页数量
-	newFragmentCount := currentFragments + quantity
+	// 更新残页数量到数据库
+	var fragment models.PillFragment
+	if err := db.DB.Where("user_id = ? AND recipe_id = ?", s.userID, recipeID).First(&fragment).Error; err != nil {
+		// 如果不存在，则创建新记录
+		fragment = models.PillFragment{
+			UserID:   s.userID,
+			RecipeID: recipeID,
+			Count:    quantity,
+		}
+		if err := db.DB.Create(&fragment).Error; err != nil {
+			return nil, fmt.Errorf("创建残页记录失败: %w", err)
+		}
+	} else {
+		// 更新现有记录
+		fragment.Count += quantity
+		if err := db.DB.Save(&fragment).Error; err != nil {
+			return nil, fmt.Errorf("更新残页记录失败: %w", err)
+		}
+	}
+
+	// 检查是否可以合成完整丹方
+	newFragmentCount := fragment.Count
 	recipeUnlocked := false
 	newFragmentsAfterCraft := newFragmentCount
 
-	// 检查是否可以合成完整丹方
 	if newFragmentCount >= recipe.FragmentsNeeded && !unlockedRecipes[recipeID] {
 		newFragmentsAfterCraft = newFragmentCount - recipe.FragmentsNeeded
 		recipeUnlocked = true
-		// 实际应该更新数据库中的unlocked状态
+
+		// 更新残页数量（扣除用于合成的数量）
+		fragment.Count = newFragmentsAfterCraft
+		if err := db.DB.Save(&fragment).Error; err != nil {
+			return nil, fmt.Errorf("更新残页记录失败: %w", err)
+		}
 	}
 
 	return &BuyFragmentResult{
@@ -570,4 +609,61 @@ func GetAllTypes() map[string]PillType {
 // GetAllHerbs 获取所有灵草配置
 func GetAllHerbs() map[string]HerbConfig {
 	return herbConfigs
+}
+
+// GetUserAlchemyData 获取用户炼丹数据
+func (s *AlchemyService) GetUserAlchemyData() (*UserAlchemyData, error) {
+	var user models.User
+	if err := db.DB.First(&user, s.userID).Error; err != nil {
+		return nil, fmt.Errorf("用户不存在: %w", err)
+	}
+
+	// 获取用户的丹方残页数据
+	var fragments []models.PillFragment
+	if err := db.DB.Where("user_id = ?", s.userID).Find(&fragments).Error; err != nil {
+		return nil, fmt.Errorf("获取残页数据失败: %w", err)
+	}
+
+	// 获取用户的炼丹统计数据
+	var userAlchemyData models.UserAlchemyDataDB
+	if err := db.DB.Where("user_id = ?", s.userID).First(&userAlchemyData).Error; err != nil {
+		// 如果不存在，则创建默认数据
+		userAlchemyData = models.UserAlchemyDataDB{
+			UserID:        s.userID,
+			PillsCrafted:  0,
+			PillsConsumed: 0,
+			AlchemyLevel:  1,
+			AlchemyRate:   1.0,
+		}
+		db.DB.Create(&userAlchemyData)
+	}
+
+	// 构建fragments map
+	fragmentsMap := make(map[string]int)
+	for _, fragment := range fragments {
+		fragmentsMap[fragment.RecipeID] = fragment.Count
+	}
+
+	// 构建已解锁的丹方map
+	unlockedRecipes := make(map[string]bool)
+	// 从数据库中获取已解锁的丹方（这里简单处理，实际应该从recipes_unlocked字段解析）
+	// 临时方案：根据残页数量判断是否解锁
+	for recipeID, count := range fragmentsMap {
+		// 查找对应的丹方配置
+		for _, recipe := range recipes {
+			if recipe.ID == recipeID && count >= recipe.FragmentsNeeded {
+				unlockedRecipes[recipeID] = true
+				break
+			}
+		}
+	}
+
+	return &UserAlchemyData{
+		RecipesUnlocked: unlockedRecipes,
+		Fragments:       fragmentsMap,
+		PillsCrafted:    userAlchemyData.PillsCrafted,
+		PillsConsumed:   userAlchemyData.PillsConsumed,
+		AlchemyLevel:    userAlchemyData.AlchemyLevel,
+		AlchemyRate:     userAlchemyData.AlchemyRate,
+	}, nil
 }

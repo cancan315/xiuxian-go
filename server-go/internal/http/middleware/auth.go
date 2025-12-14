@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"go.uber.org/zap"
 )
 
 type Claims struct {
@@ -21,7 +22,17 @@ type Claims struct {
 func Protect() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
+		// ✅ 添加认证请求日志
+		zap.L().Info("认证中间件处理请求",
+			zap.String("path", c.Request.URL.Path),
+			zap.String("method", c.Request.Method),
+			zap.String("authHeader", authHeader))
+
 		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+			// ✅ 记录认证失败原因
+			zap.L().Warn("认证失败：缺少或无效的认证头",
+				zap.String("path", c.Request.URL.Path),
+				zap.String("authHeader", authHeader))
 			c.JSON(http.StatusUnauthorized, gin.H{"message": "用户未授权，没有令牌"})
 			c.Abort()
 			return
@@ -39,6 +50,12 @@ func Protect() gin.HandlerFunc {
 			return []byte(secret), nil
 		})
 		if err != nil || !token.Valid {
+			// ✅ 记录JWT验证失败原因
+			zap.L().Warn("认证失败：JWT验证失败",
+				zap.String("path", c.Request.URL.Path),
+				zap.String("tokenString", tokenString),
+				zap.Error(err),
+				zap.Bool("tokenValid", token != nil && token.Valid))
 			c.JSON(http.StatusUnauthorized, gin.H{"message": "用户未授权"})
 			c.Abort()
 			return

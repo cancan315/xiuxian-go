@@ -89,7 +89,7 @@
   import { ref, computed, onMounted } from 'vue'
   import { useMessage } from 'naive-ui'
   import LogPanel from '../components/LogPanel.vue'
-  import { apiCall } from '../api'
+  import APIService from '../services/api'
 
   const playerInfoStore = usePlayerInfoStore()
   const inventoryStore = useInventoryStore()
@@ -113,7 +113,7 @@
   const initAlchemy = async () => {
     try {
       loading.value = true
-      const response = await apiCall('/api/alchemy/recipes', {
+      const response = await APIService.apiCall('/api/alchemy/recipes', {
         method: 'GET',
         params: {
           playerLevel: playerInfoStore.level
@@ -200,7 +200,7 @@
         }
       })
       
-      const response = await apiCall('/api/alchemy/craft', {
+      const response = await APIService.apiCall('/api/alchemy/craft', {
         method: 'POST',
         data: {
           recipeId: recipe.id,
@@ -256,7 +256,7 @@
     
     try {
       loading.value = true
-      const response = await apiCall('/api/alchemy/buy-fragment', {
+      const response = await APIService.apiCall('/api/alchemy/buy-fragment', {
         method: 'POST',
         data: {
           recipeId: recipeId,

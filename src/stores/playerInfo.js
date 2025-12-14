@@ -6,6 +6,7 @@ import router from '../router'
 export const usePlayerInfoStore = defineStore('playerInfo', {
   state: () => ({
     // 基础属性
+    id: 0, // 玩家ID（来自后端，用于WebSocket连接）
     name: '无名修士',
     nameChangeCount: 0, // 道号修改次数
     level: 1, // 境界等级
@@ -16,6 +17,9 @@ export const usePlayerInfoStore = defineStore('playerInfo', {
     spiritRate: 1, // 灵力获取倍率
     luck: 1, // 幸运值
     cultivationRate: 1, // 修炼速率
+    cultivationCost: 1, // 修炼消耗灵力
+    cultivationGain: 1, // 修炼获得修为
+    
     herbRate: 1, // 灵草获取倍率
     alchemyRate: 1, // 炼丹成功率加成
     

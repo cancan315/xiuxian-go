@@ -4,19 +4,20 @@ import (
 	"net/http"
 	"strconv"
 
+	alchemySvc "xiuxian/server-go/internal/alchemy"
+
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
-	alchemySvc "xiuxian/server-go/internal/alchemy"
 )
 
 // 请求/响应类型别名
 type (
-	AlchemyRequest      = alchemySvc.AlchemyRequest
-	CraftRequest        = alchemySvc.CraftRequest
-	BuyFragmentRequest  = alchemySvc.BuyFragmentRequest
-	CraftResult         = alchemySvc.CraftResult
-	BuyFragmentResult   = alchemySvc.BuyFragmentResult
-	AllRecipesResponse  = alchemySvc.AllRecipesResponse
+	AlchemyRequest       = alchemySvc.AlchemyRequest
+	CraftRequest         = alchemySvc.CraftRequest
+	BuyFragmentRequest   = alchemySvc.BuyFragmentRequest
+	CraftResult          = alchemySvc.CraftResult
+	BuyFragmentResult    = alchemySvc.BuyFragmentResult
+	AllRecipesResponse   = alchemySvc.AllRecipesResponse
 	RecipeDetailResponse = alchemySvc.RecipeDetailResponse
 )
 
@@ -45,13 +46,15 @@ func GetAllRecipes(c *gin.Context) {
 
 	service := alchemySvc.NewAlchemyService(uid)
 
-	// TODO: 从前端状态获取以下数据
-	unlockedRecipes := make(map[string]bool)
-	fragments := make(map[string]int)
-
-	// 为了演示，假设一个丹方已解锁
-	unlockedRecipes["spirit_gathering"] = true
-	fragments["spirit_gathering"] = 5
+	// 从数据库获取用户真实的炼丹数据
+	userAlchemyData, err := service.GetUserAlchemyData()
+	if err != nil {
+		zapLogger.Error("获取用户炼丹数据失败",
+			zap.Uint("userID", uid),
+			zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "获取用户数据失败", "error": err.Error()})
+		return
+	}
 
 	allRecipes, err := service.GetAllRecipes(playerLevel)
 	if err != nil {
@@ -61,6 +64,9 @@ func GetAllRecipes(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "获取丹方列表失败", "error": err.Error()})
 		return
 	}
+
+	// 更新返回数据，包含真实的用户炼丹数据
+	allRecipes.PlayerStats = *userAlchemyData
 
 	zapLogger.Info("GetAllRecipes 出参",
 		zap.Uint("userID", uid),
@@ -100,13 +106,17 @@ func GetRecipeDetail(c *gin.Context) {
 
 	service := alchemySvc.NewAlchemyService(uid)
 
-	// TODO: 从前端状态获取以下数据
-	unlockedRecipes := make(map[string]bool)
-	fragments := make(map[string]int)
-	unlockedRecipes["spirit_gathering"] = true
-	fragments["spirit_gathering"] = 5
+	// 从数据库获取用户真实的炼丹数据
+	userAlchemyData, err := service.GetUserAlchemyData()
+	if err != nil {
+		zapLogger.Error("获取用户炼丹数据失败",
+			zap.Uint("userID", uid),
+			zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "获取用户数据失败", "error": err.Error()})
+		return
+	}
 
-	detail, err := service.GetRecipeDetail(recipeID, playerLevel, unlockedRecipes, fragments)
+	detail, err := service.GetRecipeDetail(recipeID, playerLevel, userAlchemyData.RecipesUnlocked, userAlchemyData.Fragments)
 	if err != nil {
 		zapLogger.Error("获取丹方详情失败",
 			zap.Uint("userID", uid),
@@ -153,12 +163,16 @@ func CraftPill(c *gin.Context) {
 
 	service := alchemySvc.NewAlchemyService(uid)
 
-	// 从请求体获取用户状态数据
-	unlockedRecipes := make(map[string]bool)
-	for _, recipeID := range req.UnlockedRecipes {
-		unlockedRecipes[recipeID] = true
+	// 从数据库获取用户真实的炼丹数据
+	userAlchemyData, err := service.GetUserAlchemyData()
+	if err != nil {
+		zapLogger.Error("获取用户炼丹数据失败",
+			zap.Uint("userID", uid),
+			zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "获取用户数据失败", "error": err.Error()})
+		return
 	}
-	
+
 	// 默认值处理
 	playerLevel := req.PlayerLevel
 	if playerLevel <= 0 {
@@ -173,7 +187,7 @@ func CraftPill(c *gin.Context) {
 		alchemyRate = 1.0
 	}
 
-	result, err := service.CraftPill(req.RecipeID, playerLevel, unlockedRecipes, req.InventoryHerbs, luck, alchemyRate)
+	result, err := service.CraftPill(req.RecipeID, playerLevel, userAlchemyData.RecipesUnlocked, req.InventoryHerbs, luck, alchemyRate)
 	if err != nil {
 		zapLogger.Error("炼制丹药失败",
 			zap.Uint("userID", uid),
@@ -181,6 +195,13 @@ func CraftPill(c *gin.Context) {
 			zap.Error(err))
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
 		return
+	}
+
+	// 更新用户炼丹统计数据
+	if result.Success {
+		userAlchemyData.PillsCrafted++
+		// 这里应该更新数据库中的统计数据
+		// 暂时省略具体实现
 	}
 
 	zapLogger.Info("CraftPill 出参",
@@ -222,13 +243,17 @@ func BuyFragment(c *gin.Context) {
 
 	service := alchemySvc.NewAlchemyService(uid)
 
-	// 从请求体获取用户状态数据
-	unlockedRecipes := make(map[string]bool)
-	for _, recipeID := range req.UnlockedRecipes {
-		unlockedRecipes[recipeID] = true
+	// 从数据库获取用户真实的炼丹数据
+	userAlchemyData, err := service.GetUserAlchemyData()
+	if err != nil {
+		zapLogger.Error("获取用户炼丹数据失败",
+			zap.Uint("userID", uid),
+			zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "获取用户数据失败", "error": err.Error()})
+		return
 	}
 
-	result, err := service.BuyFragment(req.RecipeID, req.Quantity, req.CurrentFragments, unlockedRecipes)
+	result, err := service.BuyFragment(req.RecipeID, req.Quantity, req.CurrentFragments, userAlchemyData.RecipesUnlocked)
 	if err != nil {
 		zapLogger.Error("购买残页失败",
 			zap.Uint("userID", uid),
@@ -269,10 +294,10 @@ func GetConfigs(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data": gin.H{
-			"grades":       alchemySvc.GetAllGrades(),
-			"types":        alchemySvc.GetAllTypes(),
-			"recipes":      alchemySvc.GetAllRecipeConfigs(),
-			"herbs":        alchemySvc.GetAllHerbs(),
+			"grades":  alchemySvc.GetAllGrades(),
+			"types":   alchemySvc.GetAllTypes(),
+			"recipes": alchemySvc.GetAllRecipeConfigs(),
+			"herbs":   alchemySvc.GetAllHerbs(),
 		},
 		"message": "获取配置成功",
 	})

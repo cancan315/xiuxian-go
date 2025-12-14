@@ -11,7 +11,7 @@
   import { ref, computed, onMounted, onUnmounted } from 'vue'
   import { useMessage } from 'naive-ui'
   import LogPanel from '../components/LogPanel.vue'
-  import { apiClient } from '../services/api'
+  import APIService from '../services/api'
 
   const playerInfoStore = usePlayerInfoStore()
   const inventoryStore = useInventoryStore()

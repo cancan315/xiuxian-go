@@ -6,9 +6,10 @@ import (
 	"math"
 	"math/rand"
 
-	"gorm.io/datatypes"
 	"xiuxian/server-go/internal/db"
 	"xiuxian/server-go/internal/models"
+
+	"gorm.io/datatypes"
 )
 
 // CultivationService 修炼服务
@@ -323,6 +324,10 @@ func (s *CultivationService) GetCultivationData() (*CultivationData, error) {
 	cultivationRate := attrs["cultivationRate"].(float64)
 	spiritRate := attrs["spiritRate"].(float64)
 
+	// 计算修炼消耗和获得
+	spiritCost := getCurrentCultivationCost(user.Level)
+	cultivationGain := getCurrentCultivationGain(user.Level)
+
 	// 解析已解锁的境界
 	unlockedRealms := []string{}
 	if v, ok := attrs["unlockedRealms"]; ok {
@@ -336,14 +341,16 @@ func (s *CultivationService) GetCultivationData() (*CultivationData, error) {
 	}
 
 	return &CultivationData{
-		Level:          user.Level,
-		Realm:          user.Realm,
-		Cultivation:    user.Cultivation,
-		MaxCultivation: user.MaxCultivation,
-		Spirit:         user.Spirit,
+		Level:           user.Level,
+		Realm:           user.Realm,
+		Cultivation:     user.Cultivation,
+		MaxCultivation:  user.MaxCultivation,
+		Spirit:          user.Spirit,
+		SpiritCost:      spiritCost,
+		CultivationGain: cultivationGain,
 		CultivationRate: cultivationRate,
-		SpiritRate:     spiritRate,
-		UnlockedRealms: unlockedRealms,
+		SpiritRate:      spiritRate,
+		UnlockedRealms:  unlockedRealms,
 	}, nil
 }
 

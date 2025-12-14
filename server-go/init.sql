@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS "users" (
     combat_attributes JSONB,
     combat_resistance JSONB,
     special_attributes JSONB,
+    last_spirit_gain_time TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -70,6 +71,17 @@ CREATE TABLE IF NOT EXISTS "pill_fragments" (
     count INTEGER DEFAULT 0
 );
 
+-- user_alchemy_data 表
+CREATE TABLE IF NOT EXISTS "user_alchemy_data" (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER UNIQUE REFERENCES "users"(id),
+    recipes_unlocked JSONB,  -- 已解锁的丹方ID列表
+    pills_crafted INTEGER DEFAULT 0,   -- 总炼制次数
+    pills_consumed INTEGER DEFAULT 0,  -- 总服用次数
+    alchemy_level INTEGER DEFAULT 1,   -- 炼丹等级
+    alchemy_rate DOUBLE PRECISION DEFAULT 1.0  -- 炼丹加成率
+);
+
 -- pets 表
 CREATE TABLE IF NOT EXISTS "pets" (
     id UUID PRIMARY KEY,
@@ -110,11 +122,45 @@ CREATE TABLE IF NOT EXISTS "equipment" (
     level INTEGER DEFAULT 1
 );
 
+-- dungeon_progress 表 (秘境进度追踪)
+CREATE TABLE IF NOT EXISTS "dungeon_progress" (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES "users"(id) ON DELETE CASCADE,
+    current_floor INTEGER DEFAULT 1,
+    max_floor_reached INTEGER DEFAULT 1,
+    current_difficulty VARCHAR(50),
+    total_runs INTEGER DEFAULT 0,
+    total_victories INTEGER DEFAULT 0,
+    total_losses INTEGER DEFAULT 0,
+    total_rewards_earned JSONB DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id)
+);
+
+-- dungeon_buffs 表 (翔义选择记录)
+CREATE TABLE IF NOT EXISTS "dungeon_buffs" (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES "users"(id) ON DELETE CASCADE,
+    dungeon_run_id VARCHAR(255),
+    floor INTEGER,
+    buff_id VARCHAR(255),
+    buff_name VARCHAR(255),
+    buff_type VARCHAR(50),
+    buff_effects JSONB,
+    selected_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- 创建索引以提高查询性能
 CREATE INDEX IF NOT EXISTS idx_users_username ON "users"(username);
+CREATE INDEX IF NOT EXISTS idx_users_last_spirit_gain_time ON "users"(last_spirit_gain_time);
 CREATE INDEX IF NOT EXISTS idx_items_user_id ON "items"(user_id);
 CREATE INDEX IF NOT EXISTS idx_herbs_user_id ON "herbs"(user_id);
 CREATE INDEX IF NOT EXISTS idx_pills_user_id ON "pills"(user_id);
 CREATE INDEX IF NOT EXISTS idx_pill_fragments_user_id ON "pill_fragments"(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_alchemy_data_user_id ON "user_alchemy_data"(user_id);
 CREATE INDEX IF NOT EXISTS idx_pets_user_id ON "pets"(user_id);
 CREATE INDEX IF NOT EXISTS idx_equipment_user_id ON "equipment"(user_id);
+CREATE INDEX IF NOT EXISTS idx_dungeon_progress_user_id ON "dungeon_progress"(user_id);
+CREATE INDEX IF NOT EXISTS idx_dungeon_buffs_user_id ON "dungeon_buffs"(user_id);
+CREATE INDEX IF NOT EXISTS idx_dungeon_buffs_run_id ON "dungeon_buffs"(dungeon_run_id);

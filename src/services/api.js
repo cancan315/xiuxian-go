@@ -860,6 +860,272 @@ class APIService {
     // 统一转换后端返回的数据字段为小驼峰命名法
     return convertToCamelCase(data);
   }
+  
+  /**
+   * 通用API调用方法（用于Alchemy等模块）
+   * @param {string} url - API端点
+   * @param {Object} options - 请求选项 {method, headers, params, body}
+   * @returns {Promise<Object>} 响应数据
+   */
+  static async apiCall(url, options = {}) {
+    const { method = 'GET', headers = {}, params = {}, body = null } = options;
+    
+    let fetchUrl = url;
+    if (method === 'GET' && Object.keys(params).length > 0) {
+      const searchParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        searchParams.append(key, value);
+      });
+      fetchUrl += `?${searchParams.toString()}`;
+    }
+
+    const fetchOptions = {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...headers
+      }
+    };
+
+    if (body && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
+      fetchOptions.body = JSON.stringify(body);
+    }
+
+    const response = await fetch(fetchUrl, fetchOptions);
+    
+    if (!response.ok) {
+      throw new Error(`API调用失败: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return convertToCamelCase(data);
+  }
+  
+  /**
+   * 发送POST请求
+   * @param {string} url - API端点
+   * @param {Object} data - 请求体数据
+   * @param {string} token - 认证令牌（可选）
+   * @returns {Promise<Object>} 响应数据
+   */
+  static async post(url, data = {}, token = null) {
+    const headers = {
+      'Content-Type': 'application/json'
+    };
+    
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    } else {
+      // 尝试从存储中获取token
+      const storedToken = localStorage.getItem('authToken');
+      if (storedToken) {
+        headers['Authorization'] = `Bearer ${storedToken}`;
+      }
+    }
+    
+    const response = await fetch(`${API_BASE_URL}${url}`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(data)
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `请求失败 (${response.status})`);
+    }
+    
+    const responseData = await response.json();
+    return convertToCamelCase(responseData);
+  }
+  
+  /**
+   * 发送GET请求
+   * @param {string} url - API端点
+   * @param {Object} params - 查询参数
+   * @param {string} token - 认证令牌（可选）
+   * @returns {Promise<Object>} 响应数据
+   */
+  static async get(url, params = {}, token = null) {
+    let fetchUrl = `${API_BASE_URL}${url}`;
+    
+    if (Object.keys(params).length > 0) {
+      const searchParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        searchParams.append(key, value);
+      });
+      fetchUrl += `?${searchParams.toString()}`;
+    }
+    
+    const headers = {
+      'Content-Type': 'application/json'
+    };
+    
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    } else {
+      const storedToken = localStorage.getItem('authToken');
+      if (storedToken) {
+        headers['Authorization'] = `Bearer ${storedToken}`;
+      }
+    }
+    
+    const response = await fetch(fetchUrl, {
+      method: 'GET',
+      headers
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `请求失败 (${response.status})`);
+    }
+    
+    const responseData = await response.json();
+    return convertToCamelCase(responseData);
+  }
+  
+  /**
+   * 发送PUT请求
+   * @param {string} url - API端点
+   * @param {Object} data - 请求体数据
+   * @param {string} token - 认证令牌（可选）
+   * @returns {Promise<Object>} 响应数据
+   */
+  static async put(url, data = {}, token = null) {
+    const headers = {
+      'Content-Type': 'application/json'
+    };
+    
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    } else {
+      const storedToken = localStorage.getItem('authToken');
+      if (storedToken) {
+        headers['Authorization'] = `Bearer ${storedToken}`;
+      }
+    }
+    
+    const response = await fetch(`${API_BASE_URL}${url}`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify(data)
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `请求失败 (${response.status})`);
+    }
+    
+    const responseData = await response.json();
+    return convertToCamelCase(responseData);
+  }
+  
+  /**
+   * 发送DELETE请求
+   * @param {string} url - API端点
+   * @param {Object} params - 查询参数
+   * @param {string} token - 认证令牌（可选）
+   * @returns {Promise<Object>} 响应数据
+   */
+  static async delete(url, params = {}, token = null) {
+    let fetchUrl = `${API_BASE_URL}${url}`;
+    
+    if (Object.keys(params).length > 0) {
+      const searchParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        searchParams.append(key, value);
+      });
+      fetchUrl += `?${searchParams.toString()}`;
+    }
+    
+    const headers = {
+      'Content-Type': 'application/json'
+    };
+    
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    } else {
+      const storedToken = localStorage.getItem('authToken');
+      if (storedToken) {
+        headers['Authorization'] = `Bearer ${storedToken}`;
+      }
+    }
+    
+    const response = await fetch(fetchUrl, {
+      method: 'DELETE',
+      headers
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `请求失败 (${response.status})`);
+    }
+    
+    const responseData = await response.json();
+    return convertToCamelCase(responseData);
+  }
+  
+  /**
+   * 获取修炼数据
+   * @param {string} token - 认证令牌
+   * @returns {Promise<Object>} 修炼数据
+   */
+  static async getCultivationData(token) {
+    const response = await fetch(`${API_BASE_URL}/cultivation/data`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error('获取修炼数据失败');
+    }
+    
+    const data = await response.json();
+    return convertToCamelCase(data);
+  }
+  
+  /**
+   * 发送玩家心跳
+   * @param {string} playerId - 玩家ID
+   * @param {string} token - 认证令牌
+   * @returns {Promise<Object>} 心跳响应
+   */
+  static async playerHeartbeat(playerId, token) {
+    console.log('[API Service] 发送心跳请求', { playerId, tokenAvailable: !!token, tokenLength: token ? token.length : 0 });
+    
+    // 确保playerId是字符串类型
+    const requestData = { playerId: String(playerId) };
+    console.log('[API Service] 心跳请求数据', requestData);
+    
+    const response = await fetch(`${API_BASE_URL}/online/heartbeat`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(requestData)
+    });
+    
+    console.log('[API Service] 心跳响应状态', { status: response.status, statusText: response.statusText });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[API Service] 心跳发送失败详情', { 
+        status: response.status, 
+        statusText: response.statusText,
+        errorText,
+        url: response.url,
+        headers: [...response.headers.entries()]
+      });
+      throw new Error(`心跳发送失败: ${response.status} ${response.statusText} - ${errorText}`);
+    }
+    
+    const data = await response.json();
+    console.log('[API Service] 心跳响应数据', data);
+    return convertToCamelCase(data);
+  }
 }
 
 export default APIService;

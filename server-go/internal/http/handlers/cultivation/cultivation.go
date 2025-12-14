@@ -3,9 +3,10 @@ package cultivation
 import (
 	"net/http"
 
+	cultivationSvc "xiuxian/server-go/internal/cultivation"
+
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
-	cultivationSvc "xiuxian/server-go/internal/cultivation"
 )
 
 // 请求/响应类型别名
@@ -106,8 +107,10 @@ func AutoCultivate(c *gin.Context) {
 		req.Duration = 10000
 	}
 
+	// ✅ 添加详细的入参日志
 	zapLogger.Info("AutoCultivate 入参",
 		zap.Uint("userID", uid),
+		zap.String("cultivationType", req.CultivationType),
 		zap.Int("duration", req.Duration))
 
 	service := cultivationSvc.NewCultivationService(uid)
