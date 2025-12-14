@@ -62,6 +62,14 @@ CREATE TABLE IF NOT EXISTS "pills" (
     effect JSONB
 );
 
+-- pill_fragments 表
+CREATE TABLE IF NOT EXISTS "pill_fragments" (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES "users"(id),
+    recipe_id VARCHAR(255),
+    count INTEGER DEFAULT 0
+);
+
 -- pets 表
 CREATE TABLE IF NOT EXISTS "pets" (
     id UUID PRIMARY KEY,
@@ -107,5 +115,6 @@ CREATE INDEX IF NOT EXISTS idx_users_username ON "users"(username);
 CREATE INDEX IF NOT EXISTS idx_items_user_id ON "items"(user_id);
 CREATE INDEX IF NOT EXISTS idx_herbs_user_id ON "herbs"(user_id);
 CREATE INDEX IF NOT EXISTS idx_pills_user_id ON "pills"(user_id);
+CREATE INDEX IF NOT EXISTS idx_pill_fragments_user_id ON "pill_fragments"(user_id);
 CREATE INDEX IF NOT EXISTS idx_pets_user_id ON "pets"(user_id);
 CREATE INDEX IF NOT EXISTS idx_equipment_user_id ON "equipment"(user_id);

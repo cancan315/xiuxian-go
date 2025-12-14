@@ -300,7 +300,6 @@
   import { ref, computed, onMounted, onUnmounted } from 'vue'
   import { useMessage } from 'naive-ui'
   import LogPanel from '../components/LogPanel.vue'
-  import { difficultyModifiers, roguelikeOptions, getRandomOptions } from '../plugins/dungeon'
 
   const playerInfoStore = usePlayerInfoStore()
   const inventoryStore = useInventoryStore()
@@ -596,79 +595,215 @@
   }
 
   // 开始秘境探索
-  const startDungeon = () => {
-    dungeonState.value.floor = 1
-    dungeonState.value.showingOptions = true
-    refreshNumber.value = 3
-    generateOptions()
+  const startDungeon = async () => {
+    try {
+      const response = await fetch('/api/dungeon/start', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          difficulty: statsStore.dungeonDifficulty
+        })
+      })
+      const data = await response.json()
+      if (data.success) {
+        dungeonState.value.floor = data.data.floor
+        dungeonState.value.showingOptions = true
+        refreshNumber.value = data.data.refreshCount
+        generateOptions()
+        message.success('秘境已开启')
+      } else {
+        message.error(data.message || '开启秘境失败')
+      }
+    } catch (error) {
+      message.error('网络错误：' + error.message)
+    }
   }
 
-  // 生成选项
-  const generateOptions = () => {
-    dungeonState.value.currentOptions = getRandomOptions(dungeonState.value.floor)
+  // 生成选项（调用后端API）
+  const generateOptions = async () => {
+    try {
+      const response = await fetch(`/api/dungeon/buffs/${dungeonState.value.floor}`, {
+        method: 'GET'
+      })
+      const data = await response.json()
+      if (data.success) {
+        dungeonState.value.currentOptions = data.data.options.map(opt => ({
+          ...opt,
+          type: opt.Type || 'common'
+        }))
+      } else {
+        message.error('获取增益失败')
+      }
+    } catch (error) {
+      message.error('网络错误：' + error.message)
+    }
   }
 
   // 刷新选项
-  const handleRefreshOptions = () => {
+  const handleRefreshOptions = async () => {
     if (refreshNumber.value > 0) {
       refreshNumber.value--
-      generateOptions()
+      await generateOptions()
     }
   }
 
   // 选择选项
-  const selectOption = (option) => {
-    // 应用选项效果
-    if (typeof option.effect === 'function') {
-      option.effect(playerStats.value)
-    }
-    
-    // 进入下一层或者开始战斗
-    dungeonState.value.showingOptions = false
-    dungeonState.value.floor++
-    
-    // 简单模拟进入战斗
-    setTimeout(() => {
-      dungeonState.value.inCombat = true
-      dungeonState.value.combatManager = {
-        round: 1,
-        maxRounds: 10,
-        player: {
-          name: playerInfoStore.name,
-          currentHealth: playerStats.value.health,
-          stats: playerStats.value
+  const selectOption = async (option) => {
+    try {
+      const response = await fetch('/api/dungeon/select-buff', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
         },
-        enemy: {
-          name: '秘境守卫',
-          currentHealth: 100,
-          stats: {
-            maxHealth: 100,
-            damage: 20,
-            defense: 10,
-            speed: 15,
-            critRate: 0.1,
-            comboRate: 0.1,
-            counterRate: 0.1,
-            stunRate: 0.1,
-            dodgeRate: 0.1,
-            vampireRate: 0.1,
-            critResist: 0.1,
-            comboResist: 0.1,
-            counterResist: 0.1,
-            stunResist: 0.1,
-            dodgeResist: 0.1,
-            vampireResist: 0.1,
-            healBoost: 0,
-            critDamageBoost: 0,
-            critDamageReduce: 0,
-            finalDamageBoost: 0,
-            finalDamageReduce: 0,
-            combatBoost: 0,
-            resistanceBoost: 0
+        body: JSON.stringify({
+          buffID: option.id
+        })
+      })
+      const data = await response.json()
+      if (data.success) {
+        message.success(`已选择增益：${option.name}`)
+        
+        // 进入下一层或者开始战斗
+        dungeonState.value.showingOptions = false
+        dungeonState.value.floor++
+        
+        // 自动开始战斗
+        setTimeout(() => {
+          startFight()
+        }, 1000)
+      } else {
+        message.error(data.message || '选择增益失败')
+      }
+    } catch (error) {
+      message.error('网络错误：' + error.message)
+    }
+  }
+
+  // 开始战斗（调用后端API）
+  const startFight = async () => {
+    try {
+      const response = await fetch('/api/dungeon/fight', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          floor: dungeonState.value.floor,
+          difficulty: statsStore.dungeonDifficulty
+        })
+      })
+      const data = await response.json()
+      if (data.success) {
+        const result = data.data
+        dungeonState.value.inCombat = true
+        dungeonState.value.combatManager = {
+          round: 1,
+          maxRounds: 10,
+          player: {
+            name: playerInfoStore.name,
+            currentHealth: playerStats.value.health,
+            stats: playerStats.value
+          },
+          enemy: {
+            name: '秘境守卫',
+            currentHealth: 100,
+            stats: {
+              maxHealth: 100,
+              damage: 20,
+              defense: 10,
+              speed: 15,
+              critRate: 0.1,
+              comboRate: 0.1,
+              counterRate: 0.1,
+              stunRate: 0.1,
+              dodgeRate: 0.1,
+              vampireRate: 0.1,
+              critResist: 0.1,
+              comboResist: 0.1,
+              counterResist: 0.1,
+              stunResist: 0.1,
+              dodgeResist: 0.1,
+              vampireResist: 0.1,
+              healBoost: 0,
+              critDamageBoost: 0,
+              critDamageReduce: 0,
+              finalDamageBoost: 0,
+              finalDamageReduce: 0,
+              combatBoost: 0,
+              resistanceBoost: 0
+            }
           }
         }
+        
+        // 处理战斗结果
+        if (result.Victory) {
+          addBattleLog('战斗胜利！')
+          if (result.Rewards) {
+            gainBattleReward(result.Rewards)
+          }
+        } else {
+          addBattleLog('战斗失败！')
+        }
+        
+        // 结束战斗
+        setTimeout(() => {
+          dungeonState.value.inCombat = false
+          if (result.Victory) {
+            message.success('战斗胜利')
+            // 一段时间后会自动生成新的增益选项
+            setTimeout(() => {
+              dungeonState.value.showingOptions = true
+              generateOptions()
+            }, 2000)
+          } else {
+            message.error('战斗失败。懂悲，秘境探索结束')
+            // 结束秘境
+            endDungeon(false)
+          }
+        }, 3000)
+      } else {
+        message.error(data.message || '开始战斗失败')
       }
-    }, 1000)
+    } catch (error) {
+      message.error('网络错误：' + error.message)
+    }
+  }
+
+  // 结束秘境
+  const endDungeon = async (victory) => {
+    try {
+      const response = await fetch('/api/dungeon/end', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          floor: dungeonState.value.floor,
+          victory: victory
+        })
+      })
+      const data = await response.json()
+      if (data.success) {
+        // 重置秘境状态
+        dungeonState.value.floor = 1
+        dungeonState.value.inCombat = false
+        dungeonState.value.showingOptions = false
+        dungeonState.value.currentOptions = []
+        refreshNumber.value = 3
+        
+        if (victory) {
+          message.success(`成功探索到第${data.data.floor}层，获得${data.data.totalReward}个灵石`)
+          // 更新上u云数据
+          playerInfoStore.spiritStones = data.data.spiritStones
+        }
+      } else {
+        message.error(data.message || '结束秘境失败')
+      }
+    } catch (error) {
+      message.error('网络错误：' + error.message)
+    }
   }
 
   // 获取选项颜色

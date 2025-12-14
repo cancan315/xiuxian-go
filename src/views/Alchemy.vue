@@ -10,8 +10,8 @@
               <n-space vertical>
                 <n-text depth="3">{{ recipe.description }}</n-text>
                 <n-space>
-                  <n-tag type="info">{{ pillGrades[recipe.grade].name }}</n-tag>
-                  <n-tag type="warning">{{ pillTypes[recipe.type].name }}</n-tag>
+                  <n-tag type="info">{{ recipe.gradeName }}</n-tag>
+                  <n-tag type="warning">{{ recipe.typeName }}</n-tag>
                 </n-space>
                 <n-button
                   @click="selectRecipe(recipe)"
@@ -32,10 +32,10 @@
       <template v-if="selectedRecipe">
         <n-divider>材料需求</n-divider>
         <n-list>
-          <n-list-item v-for="material in selectedRecipe.materials" :key="material.herb">
+          <n-list-item v-for="material in selectedRecipe.materials" :key="material.herbId">
             <n-space justify="space-between">
               <n-space>
-                <span>{{ getHerbName(material.herb) }}</span>
+                <span>{{ material.herbName }}</span>
                 <n-tag size="small">需要数量: {{ material.count }}</n-tag>
               </n-space>
               <n-tag
@@ -65,7 +65,8 @@
         type="primary"
         block
         v-if="selectedRecipe"
-        :disabled="!selectedRecipe || !checkMaterials(selectedRecipe)"
+        :disabled="!selectedRecipe || !checkMaterials(selectedRecipe) || loading"
+        :loading="loading"
         @click="craftPill"
       >
         {{ !checkMaterials(selectedRecipe) ? '材料不足' : '开始炼制' }}
@@ -87,8 +88,8 @@
   import { usePersistenceStore } from '../stores/persistence'
   import { ref, computed, onMounted } from 'vue'
   import { useMessage } from 'naive-ui'
-  import { pillRecipes, tryCreatePill, calculatePillEffect, pillGrades, pillTypes } from '../plugins/pills'
   import LogPanel from '../components/LogPanel.vue'
+  import { apiCall } from '../api'
 
   const playerInfoStore = usePlayerInfoStore()
   const inventoryStore = useInventoryStore()
@@ -104,22 +105,40 @@
   const showRecipeDetail = ref(false)
   const recipeDetail = ref(null)
   const logRef = ref(null)
+  const loading = ref(false)
+  const allRecipes = ref([])
+  const configs = ref(null)
+
+  // 初始化：获取后端配置
+  const initAlchemy = async () => {
+    try {
+      loading.value = true
+      const response = await apiCall('/api/alchemy/recipes', {
+        method: 'GET',
+        params: {
+          playerLevel: playerInfoStore.level
+        }
+      })
+      if (response.success) {
+        allRecipes.value = response.data.recipes
+      }
+    } catch (error) {
+      console.error('初始化炼丹系统失败:', error)
+      message.error('初始化炼丹系统失败')
+    } finally {
+      loading.value = false
+    }
+  }
 
   // 解锁的丹方列表
   const unlockedRecipes = computed(() => {
-    return pillRecipes.filter(recipe => pillsStore.pillRecipes.includes(recipe.id))
+    return allRecipes.value.filter(recipe => recipe.isUnlocked)
   })
 
   // 当前选中丹方的效果
   const currentEffect = computed(() => {
     if (!selectedRecipe.value) return { value: 0, duration: 0, successRate: 0 }
-    const recipe = selectedRecipe.value
-    const grade = pillGrades[recipe.grade]
-    const effect = calculatePillEffect(recipe, playerInfoStore.level)
-    return {
-      ...effect,
-      successRate: grade.successRate
-    }
+    return selectedRecipe.value.currentEffect || { value: 0, duration: 0, successRate: 0 }
   })
 
   // 选择丹方
@@ -129,38 +148,24 @@
 
   // 获取灵草名称
   const getHerbName = (herbId) => {
-    const herbs = [
-      { id: 'spirit_grass', name: '灵精草' },
-      { id: 'cloud_flower', name: '云雾花' },
-      { id: 'thunder_root', name: '雷击根' },
-      { id: 'dragon_breath_herb', name: '龙息草' },
-      { id: 'immortal_jade_grass', name: '仙玉草' },
-      { id: 'dark_yin_grass', name: '玄阴草' },
-      { id: 'nine_leaf_lingzhi', name: '九叶灵芝' },
-      { id: 'purple_ginseng', name: '紫金参' },
-      { id: 'frost_lotus', name: '寒霜莲' },
-      { id: 'fire_heart_flower', name: '火心花' },
-      { id: 'moonlight_orchid', name: '月华兰' },
-      { id: 'sun_essence_flower', name: '日精花' },
-      { id: 'five_elements_grass', name: '五行草' },
-      { id: 'phoenix_feather_herb', name: '凤羽草' },
-      { id: 'celestial_dew_grass', name: '天露草' }
-    ]
-    
-    const herb = herbs.find(h => h.id === herbId)
-    return herb ? herb.name : herbId
+    const material = selectedRecipe.value?.materials?.find(m => m.herbId === herbId)
+    if (material) {
+      return material.herbName
+    }
+    return herbId
   }
 
   // 获取材料状态（拥有数量/需要数量）
   const getMaterialStatus = (material) => {
-    const ownedCount = inventoryStore.herbs.filter(h => h.id === material.herb).length
+    const ownedCount = inventoryStore.herbs.filter(h => h.id === material.herbId).length
     return `${ownedCount}/${material.count}`
   }
 
   // 检查材料是否充足
   const checkMaterials = (recipe) => {
+    if (!recipe || !recipe.materials) return false
     for (const material of recipe.materials) {
-      const ownedCount = inventoryStore.herbs.filter(h => h.id === material.herb).length
+      const ownedCount = inventoryStore.herbs.filter(h => h.id === material.herbId).length
       if (ownedCount < material.count) {
         return false
       }
@@ -168,33 +173,10 @@
     return true
   }
 
-  // 分组的丹方列表
-  const groupedRecipes = computed(() => {
-    const complete = []
-    const incomplete = []
-    
-    pillRecipes.forEach(recipe => {
-      const fragments = pillsStore.pillFragments[recipe.id] || 0
-      if (pillsStore.pillRecipes.includes(recipe.id)) {
-        complete.push({ ...recipe, fragments, fragmentsNeeded: recipe.fragmentsNeeded })
-      } else {
-        incomplete.push({ ...recipe, fragments, fragmentsNeeded: recipe.fragmentsNeeded })
-      }
-    })
-    
-    return { complete, incomplete }
-  })
-
-  // 显示丹方详情
-  const showRecipeDetails = (recipe) => {
-    recipeDetail.value = recipe
-    showRecipeDetail.value = true
-  }
-
   // 炼制丹药
-  const craftPill = () => {
+  const craftPill = async () => {
     const recipe = selectedRecipe.value
-    if (!recipe || !pillsStore.pillRecipes.includes(recipe.id)) {
+    if (!recipe || !recipe.isUnlocked) {
       message.error('未掌握该丹方')
       return
     }
@@ -205,80 +187,116 @@
       return
     }
     
-    // 计算成功率（受幸运值影响）
-    const grade = pillGrades[recipe.grade]
-    const successRate = grade.successRate * playerInfoStore.luck * playerInfoStore.alchemyRate
-    
-    // 尝试炼制
-    if (Math.random() > successRate) {
-      message.error('炼制失败')
-      if (logRef.value) {
-        logRef.value.addLog(`炼制${recipe.name}失败`)
-      }
-      return
-    }
-    
-    // 消耗材料
-    recipe.materials.forEach(material => {
-      for (let i = 0; i < material.count; i++) {
-        const index = inventoryStore.herbs.findIndex(h => h.id === material.herb)
-        if (index > -1) {
-          inventoryStore.herbs.splice(index, 1)
+    try {
+      loading.value = true
+      
+      // 构建灵草库存数据
+      const inventoryHerbs = {}
+      inventoryStore.herbs.forEach(h => {
+        if (inventoryHerbs[h.id]) {
+          inventoryHerbs[h.id]++
+        } else {
+          inventoryHerbs[h.id] = 1
+        }
+      })
+      
+      const response = await apiCall('/api/alchemy/craft', {
+        method: 'POST',
+        data: {
+          recipeId: recipe.id,
+          playerLevel: playerInfoStore.level || 1,
+          unlockedRecipes: pillsStore.pillRecipes || [],
+          inventoryHerbs: inventoryHerbs,
+          luck: playerInfoStore.luck || 1.0,
+          alchemyRate: playerInfoStore.alchemyRate || 1.0
+        }
+      })
+      
+      if (response.success && response.data.success) {
+        message.success(`炼制成功！成功率: ${(response.data.successRate * 100).toFixed(1)}%`)
+        if (logRef.value) {
+          logRef.value.addLog(`成功炼制${recipe.name}`)
+        }
+        
+        // 根据后端返回的消耗材料从前端库存扣除
+        if (response.data.consumedHerbs) {
+          Object.entries(response.data.consumedHerbs).forEach(([herbId, count]) => {
+            for (let i = 0; i < count; i++) {
+              const index = inventoryStore.herbs.findIndex(h => h.id === herbId)
+              if (index > -1) {
+                inventoryStore.herbs.splice(index, 1)
+              }
+            }
+          })
+        }
+        
+        // 更新炼制次数统计
+        pillsStore.pillsCrafted++
+        
+        // 刷新丹方列表
+        await initAlchemy()
+      } else {
+        message.error(response.data?.message || '炼制失败')
+        if (logRef.value) {
+          logRef.value.addLog(`炼制${recipe.name}失败: ${response.data?.message || '成功率不足'}`)
         }
       }
-    })
-    
-    // 创建丹药
-    const effect = calculatePillEffect(recipe, playerInfoStore.level)
-    const pill = {
-      id: `${recipe.id}_${Date.now()}`,
-      name: recipe.name,
-      description: recipe.description,
-      type: 'pill',
-      effect
-    }
-    
-    inventoryStore.items.push(pill)
-    pillsStore.pillsCrafted++
-    message.success('炼制成功')
-    if (logRef.value) {
-      logRef.value.addLog(`成功炼制${recipe.name}`)
+    } catch (error) {
+      console.error('炼制失败:', error)
+      message.error('炼制失败')
+    } finally {
+      loading.value = false
     }
   }
 
   // 购买丹方残页
-  const buyFragment = (recipeId) => {
-    const recipe = pillRecipes.find(r => r.id === recipeId)
+  const buyFragment = async (recipeId) => {
+    const recipe = allRecipes.value.find(r => r.id === recipeId)
     if (!recipe) return
     
-    const fragmentPrice = recipe.grade * 100 // 根据丹方等级定价
-    if (inventoryStore.spiritStones < fragmentPrice) {
-      message.error('灵石不足')
-      return
-    }
-    
-    // 扣除灵石
-    inventoryStore.spiritStones -= fragmentPrice
-    
-    // 获得残页
-    if (!pillsStore.pillFragments[recipeId]) {
-      pillsStore.pillFragments[recipeId] = 0
-    }
-    pillsStore.pillFragments[recipeId]++
-    
-    // 检查是否可以合成完整丹方
-    if (pillsStore.pillFragments[recipeId] >= recipe.fragmentsNeeded) {
-      pillsStore.pillFragments[recipeId] -= recipe.fragmentsNeeded
-      if (!pillsStore.pillRecipes.includes(recipeId)) {
-        pillsStore.pillRecipes.push(recipeId)
-        statsStore.unlockedPillRecipes += 1
+    try {
+      loading.value = true
+      const response = await apiCall('/api/alchemy/buy-fragment', {
+        method: 'POST',
+        data: {
+          recipeId: recipeId,
+          quantity: 1,
+          currentFragments: pillsStore.pillFragments[recipeId] || 0,
+          unlockedRecipes: pillsStore.pillRecipes || []
+        }
+      })
+      
+      if (response.success && response.data.success) {
+        // 更新前端状态
+        pillsStore.pillFragments[recipeId] = response.data.fragmentsOwned
+        
+        if (response.data.recipeUnlocked) {
+          message.success(`成功合成${recipe.name}丹方！`)
+          if (!pillsStore.pillRecipes.includes(recipeId)) {
+            pillsStore.pillRecipes.push(recipeId)
+          }
+          statsStore.unlockedPillRecipes += 1
+        } else {
+          message.success(`购买成功，当前拥有${response.data.fragmentsOwned}片残页`)
+        }
+        
+        // 刷新丹方列表
+        await initAlchemy()
+      } else {
+        message.error(response.data?.message || '购买失败')
       }
-      message.success(`成功合成${recipe.name}丹方！`)
-    } else {
-      message.success(`购买成功，当前拥有${pillsStore.pillFragments[recipeId]}片残页`)
+    } catch (error) {
+      console.error('购买残页失败:', error)
+      message.error('购买残页失败')
+    } finally {
+      loading.value = false
     }
-
   }
+
+  // 生命周期：组件挂载时初始化
+  onMounted(() => {
+    initAlchemy()
+  })
 </script>
 
 <style scoped>

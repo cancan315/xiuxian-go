@@ -11,8 +11,7 @@
   import { ref, computed, onMounted, onUnmounted } from 'vue'
   import { useMessage } from 'naive-ui'
   import LogPanel from '../components/LogPanel.vue'
-  import { triggerRandomEvent, eventTypes } from '../plugins/events'
-  import { getRealmName } from '../plugins/realm'
+  import { apiClient } from '../services/api'
 
   const playerInfoStore = usePlayerInfoStore()
   const inventoryStore = useInventoryStore()
@@ -26,7 +25,7 @@
   const message = useMessage()
   const explorationLogs = ref([])
   const isExploring = ref(false)
-  const explorationWorker = ref(null)
+  const explorationWorker = ref(null) // 保留但不使用，与后端API集成
   const currentEvent = ref(null)
   const showEventModal = ref(false)
 
@@ -43,45 +42,42 @@
   }
 
   // 开始探索
-  const startExploration = () => {
+  const startExploration = async () => {
     if (isExploring.value) return
     
     isExploring.value = true
     addExplorationLog('开始探索...')
     
-    if (explorationWorker.value) {
-      explorationWorker.value.terminate()
-    }
-    
-    explorationWorker.value = new Worker(new URL('../workers/exploration.js', import.meta.url))
-    explorationWorker.value.onmessage = e => {
-      const { type, data } = e.data
-      if (type === 'exploration_update') {
-        // 更新探索状态
-        addExplorationLog(data.log)
-      } else if (type === 'exploration_event') {
-        // 触发事件
-        triggerEvent(data.event)
-      } else if (type === 'exploration_end') {
-        // 探索结束
-        finishExploration()
+    try {
+      const response = await apiClient.post('/api/exploration/start', {
+        duration: 10000 // 10秒探索时间
+      })
+      
+      if (response.success) {
+        // 处理返回的事件
+        if (response.events && response.events.length > 0) {
+          for (const event of response.events) {
+            triggerEvent(event)
+          }
+        } else {
+          addExplorationLog('探索了一段时间，未发生特殊事件')
+        }
+        
+        // 添加后端日志
+        if (response.log) {
+          addExplorationLog(response.log)
+        }
       }
+    } catch (error) {
+      addExplorationLog(`探索失败: ${error.message}`)
+      message.error('探索失败')
+    } finally {
+      finishExploration()
     }
-    
-    explorationWorker.value.postMessage({
-      type: 'start',
-      explorationTime: 10000, // 10秒探索时间
-      luck: playerInfoStore.luck
-    })
   }
 
   // 停止探索
   const stopExploration = () => {
-    if (explorationWorker.value) {
-      explorationWorker.value.terminate()
-      explorationWorker.value = null
-    }
-    
     isExploring.value = false
     addExplorationLog('停止探索')
   }
@@ -94,89 +90,61 @@
     
     // 根据事件类型添加日志
     switch (event.type) {
-      case eventTypes.ITEM_FOUND:
-        addExplorationLog(`发现了${event.item.name}！`)
+      case 'item_found':
+        addExplorationLog('发现了物品！')
         break
-      case eventTypes.SPIRIT_STONE_FOUND:
+      case 'spirit_stone_found':
         addExplorationLog(`发现了${event.amount}灵石！`)
         break
-      case eventTypes.HERB_FOUND:
-        addExplorationLog(`发现了${event.herb.name}！`)
+      case 'herb_found':
+        addExplorationLog('发现了灵草！')
         break
-      case eventTypes.PILL_RECIPE_FRAGMENT_FOUND:
-        addExplorationLog(`发现了丹方残页！`)
+      case 'pill_recipe_fragment_found':
+        addExplorationLog('发现了丹方残页！')
         break
-      case eventTypes.BATTLE_ENCOUNTER:
-        addExplorationLog(`遭遇了${event.enemy.name}！`)
+      case 'battle_encounter':
+        addExplorationLog('遭遇了妖兽！')
         break
     }
   }
 
   // 处理事件选择
-  const handleEventChoice = (choice) => {
+  const handleEventChoice = async (choice) => {
     if (!currentEvent.value) return
     
     const event = currentEvent.value
     showEventModal.value = false
     
-    // 根据选择处理事件
-    switch (event.type) {
-      case eventTypes.ITEM_FOUND:
-        // 获得物品
-        inventoryStore.items.push(event.item)
-        statsStore.itemsFound += 1
-        addExplorationLog(`获得了${event.item.name}`)
-        break
-      case eventTypes.SPIRIT_STONE_FOUND:
-        // 获得灵石
-        inventoryStore.spiritStones += event.amount
-        addExplorationLog(`获得了${event.amount}灵石`)
-        break
-      case eventTypes.HERB_FOUND:
-        // 获得灵草
-        const existingHerb = inventoryStore.herbs.find(h => h.id === event.herb.id)
-        if (existingHerb) {
-          existingHerb.count += event.amount
-        } else {
-          inventoryStore.herbs.push({
-            ...event.herb,
-            count: event.amount
-          })
+    try {
+      // 调用后端API处理事件选择
+      const response = await apiClient.post('/api/exploration/event-choice', {
+        eventType: event.type,
+        choice: choice
+      })
+      
+      if (response.success) {
+        // 根据事件类型处理奖励
+        switch (event.type) {
+          case 'item_found':
+            addExplorationLog('获得了物品')
+            break
+          case 'spirit_stone_found':
+            addExplorationLog(`获得了${event.amount}灵石`)
+            break
+          case 'herb_found':
+            addExplorationLog(`获得了灵草`)
+            break
+          case 'pill_recipe_fragment_found':
+            addExplorationLog('获得了丹方残页')
+            break
+          case 'battle_encounter':
+            addExplorationLog('战斗结束')
+            break
         }
-        addExplorationLog(`获得了${event.amount}个${event.herb.name}`)
-        break
-      case eventTypes.PILL_RECIPE_FRAGMENT_FOUND:
-        // 获得丹方残页
-        if (!pillsStore.pillFragments[event.recipeId]) {
-          pillsStore.pillFragments[event.recipeId] = 0
-        }
-        pillsStore.pillFragments[event.recipeId] += event.fragments
-        
-        // 检查是否可以合成完整丹方
-        const recipe = pillsStore.pillRecipes.find(r => r.id === event.recipeId)
-        if (recipe && pillsStore.pillFragments[event.recipeId] >= recipe.fragmentsNeeded) {
-          pillsStore.pillFragments[event.recipeId] -= recipe.fragmentsNeeded
-          if (!pillsStore.pillRecipes.includes(event.recipeId)) {
-            pillsStore.pillRecipes.push(event.recipeId)
-            statsStore.unlockedPillRecipes += 1
-          }
-          addExplorationLog(`获得了完整的${recipe.name}丹方！`)
-        } else {
-          addExplorationLog(`获得了${event.fragments}片丹方残页`)
-        }
-        break
-      case eventTypes.BATTLE_ENCOUNTER:
-        // 战斗事件 - 这里简单处理，实际应该进入战斗界面
-        const win = Math.random() > 0.5 // 简单的胜负判定
-        if (win) {
-          addExplorationLog(`战胜了${event.enemy.name}，获得了奖励！`)
-          // 简单奖励
-          const reward = Math.floor(Math.random() * 100) + 50
-          inventoryStore.spiritStones += reward
-        } else {
-          addExplorationLog(`败给了${event.enemy.name}`)
-        }
-        break
+      }
+    } catch (error) {
+      addExplorationLog(`处理失败: ${error.message}`)
+      message.error('事件处理失败')
     }
     
     currentEvent.value = null
@@ -185,18 +153,21 @@
 
   // 结束探索
   const finishExploration = () => {
-    if (explorationWorker.value) {
-      explorationWorker.value.terminate()
-      explorationWorker.value = null
-    }
-    
     isExploring.value = false
     addExplorationLog('探索结束')
   }
 
   onUnmounted(() => {
-    if (explorationWorker.value) {
-      explorationWorker.value.terminate()
+    // Worker已移除，后端处理所有逻辑
+  })
+
+  // 从后端获取最新的玩家数据
+  onMounted(async () => {
+    try {
+      const response = await apiClient.get('/api/player/data')
+      // 同步玩家数据到store
+    } catch (error) {
+      console.error('Failed to load player data:', error)
     }
   })
 </script>

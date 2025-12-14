@@ -3,7 +3,11 @@ package router
 import (
 	"github.com/gin-gonic/gin"
 
+	"xiuxian/server-go/internal/http/handlers/alchemy"
 	"xiuxian/server-go/internal/http/handlers/auth"
+	"xiuxian/server-go/internal/http/handlers/cultivation"
+	"xiuxian/server-go/internal/http/handlers/dungeon"
+	"xiuxian/server-go/internal/http/handlers/exploration"
 	"xiuxian/server-go/internal/http/handlers/gacha"
 	"xiuxian/server-go/internal/http/handlers/online"
 	"xiuxian/server-go/internal/http/handlers/player"
@@ -78,5 +82,45 @@ func RegisterRoutes(r *gin.Engine) {
 		gachaGroup.Use(middleware.Protect())
 		gachaGroup.POST("/draw", gacha.DrawGacha)
 		gachaGroup.POST("/auto-actions", gacha.ProcessAutoActions)
+	}
+
+	// /api/exploration 路由
+	explorationGroup := r.Group("/api/exploration")
+	{
+		explorationGroup.Use(middleware.Protect())
+		explorationGroup.POST("/start", exploration.StartExploration)
+		explorationGroup.POST("/event-choice", exploration.HandleEventChoice)
+	}
+
+	// /api/cultivation 路由
+	cultivationGroup := r.Group("/api/cultivation")
+	{
+		cultivationGroup.Use(middleware.Protect())
+		cultivationGroup.POST("/single", cultivation.SingleCultivate)
+		cultivationGroup.POST("/breakthrough", cultivation.CultivateUntilBreakthrough)
+		cultivationGroup.POST("/auto", cultivation.AutoCultivate)
+		cultivationGroup.GET("/data", cultivation.GetCultivationData)
+	}
+
+	// /api/dungeon 路由
+	dungeonGroup := r.Group("/api/dungeon")
+	{
+		dungeonGroup.Use(middleware.Protect())
+		dungeonGroup.POST("/start", dungeon.StartDungeon)
+		dungeonGroup.GET("/buffs/:floor", dungeon.GetBuffOptions)
+		dungeonGroup.POST("/select-buff", dungeon.SelectBuff)
+		dungeonGroup.POST("/fight", dungeon.StartFight)
+		dungeonGroup.POST("/end", dungeon.EndDungeon)
+	}
+
+	// /api/alchemy 路由
+	alchemyGroup := r.Group("/api/alchemy")
+	{
+		alchemyGroup.Use(middleware.Protect())
+		alchemyGroup.GET("/configs", alchemy.GetConfigs)
+		alchemyGroup.GET("/recipes", alchemy.GetAllRecipes)
+		alchemyGroup.GET("/recipes/:recipeId", alchemy.GetRecipeDetail)
+		alchemyGroup.POST("/craft", alchemy.CraftPill)
+		alchemyGroup.POST("/buy-fragment", alchemy.BuyFragment)
 	}
 }
