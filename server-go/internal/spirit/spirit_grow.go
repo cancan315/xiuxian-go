@@ -97,9 +97,9 @@ func (m *SpiritGrowManager) calculateAndUpdateSpiritGain(playerID string) {
 	}
 	// 如果玩家数据不存在（已离线），直接返回
 	if exists == 0 {
-		m.logger.Info("玩家已离线，跳过灵力增长计算",
-			zap.String("playerID", playerID),
-			zap.String("reason", "player:online:{playerID} 不存在"))
+		//	m.logger.Info("玩家已离线，跳过灵力增长计算",
+		//		zap.String("playerID", playerID),
+		//		zap.String("reason", "player:online:{playerID} 不存在"))
 		return
 	}
 

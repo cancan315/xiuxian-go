@@ -16,6 +16,8 @@ import (
 	"xiuxian/server-go/internal/redis"
 	"xiuxian/server-go/internal/spirit"
 	"xiuxian/server-go/internal/websocket"
+
+	"github.com/gin-contrib/gzip"
 )
 
 // LoggerMiddleware 创建一个中间件，将zap logger添加到gin上下文中
@@ -56,6 +58,8 @@ func main() {
 	defer logger.Sync()
 
 	r := gin.New()
+	// 使用 gzip 中间件压缩响应数据
+	r.Use(gzip.Gzip(gzip.DefaultCompression))
 	// 使用 gin-zap 替换 Gin 内置的日志功能
 	r.Use(ginzap.Ginzap(logger, "2006-01-02T15:04:05.000Z0700", true))
 	r.Use(ginzap.RecoveryWithZap(logger, true))
