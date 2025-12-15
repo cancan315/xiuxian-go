@@ -83,54 +83,6 @@ func CultivateUntilBreakthrough(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
-// AutoCultivate 自动修炼
-// POST /api/cultivation/auto
-func AutoCultivate(c *gin.Context) {
-	userID, ok := c.Get("userID")
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"message": "用户未授权"})
-		return
-	}
-
-	uid := userID.(uint)
-	logger, _ := c.Get("zap_logger")
-	zapLogger := logger.(*zap.Logger)
-
-	var req CultivationRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "请求参数错误", "error": err.Error()})
-		return
-	}
-
-	// 默认自动修炼10秒
-	if req.Duration == 0 {
-		req.Duration = 10000
-	}
-
-	// ✅ 添加详细的入参日志
-	zapLogger.Info("AutoCultivate 入参",
-		zap.Uint("userID", uid),
-		zap.String("cultivationType", req.CultivationType),
-		zap.Int("duration", req.Duration))
-
-	service := cultivationSvc.NewCultivationService(uid)
-	resp, err := service.AutoCultivate(req.Duration)
-	if err != nil {
-		zapLogger.Error("auto cultivation failed",
-			zap.Uint("userID", uid),
-			zap.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "自动修炼失败", "error": err.Error()})
-		return
-	}
-
-	zapLogger.Info("AutoCultivate 出参",
-		zap.Uint("userID", uid),
-		zap.Float64("totalGain", resp.TotalCultivationGain),
-		zap.Int("breakthroughs", resp.Breakthroughs))
-
-	c.JSON(http.StatusOK, resp)
-}
-
 // GetCultivationData 获取修炼数据
 // GET /api/cultivation/data
 func GetCultivationData(c *gin.Context) {

@@ -69,7 +69,8 @@ func calculateCultivationGain(level int, luck float64, cultivationRate float64) 
 	if rand.Float64() < ExtraCultivationChance*luck {
 		gain *= 2
 	}
-	return gain
+	// 保留一位小数
+	return math.Round(gain*10) / 10
 }
 
 // SingleCultivate 单次打坐修炼
@@ -105,8 +106,7 @@ func (s *CultivationService) SingleCultivate() (*CultivationResponse, error) {
 
 	// 计算修为获得（包含幸运暴击）
 	cultivationGain := calculateCultivationGain(user.Level, luck, cultivationRate)
-	user.Cultivation += cultivationGain
-
+	user.Cultivation = math.Round((user.Cultivation+cultivationGain)*10) / 10
 	// 检查是否需要突破
 	var breakthroughResult *BreakthroughResponse
 	if user.Cultivation >= user.MaxCultivation {
@@ -195,8 +195,7 @@ func (s *CultivationService) CultivateUntilBreakthrough() (*CultivationResponse,
 
 	// 消耗灵力并达到突破条件
 	user.Spirit -= spiritCost
-	user.Cultivation = user.MaxCultivation
-
+	user.Cultivation = math.Round(user.MaxCultivation*10) / 10
 	// 执行突破
 	breakthroughResult := s.performBreakthrough(&user, &attrs)
 	if breakthroughResult == nil {
@@ -250,7 +249,7 @@ func (s *CultivationService) performBreakthrough(user *models.User, attrs *map[s
 	user.Level = nextRealm.Level
 	user.Realm = nextRealm.Name
 	user.MaxCultivation = nextRealm.MaxCultivation
-	user.Cultivation = 0 // 重置修为
+	user.Cultivation = 0.0 // 重置修为
 
 	// 突破奖励：灵力奖励
 	spiritReward := float64(BreakthroughReward * user.Level)
@@ -351,87 +350,5 @@ func (s *CultivationService) GetCultivationData() (*CultivationData, error) {
 		CultivationRate: cultivationRate,
 		SpiritRate:      spiritRate,
 		UnlockedRealms:  unlockedRealms,
-	}, nil
-}
-
-// AutoCultivate 自动修炼（模拟一段时间的修炼）
-func (s *CultivationService) AutoCultivate(durationMs int) (*AutoCultivationResponse, error) {
-	var user models.User
-	if err := db.DB.First(&user, s.userID).Error; err != nil {
-		return nil, fmt.Errorf("failed to get user: %w", err)
-	}
-
-	// 获取玩家属性
-	attrs := s.getPlayerAttributes(&user)
-	cultivationRate := attrs["cultivationRate"].(float64)
-	luck := 1.0
-	if v, ok := attrs["luck"]; ok {
-		if l, ok := v.(float64); ok && l > 0 {
-			luck = l
-		}
-	}
-
-	// 模拟修炼过程（每秒修炼一次）
-	iterations := int(math.Max(1, float64(durationMs)/1000))
-	totalCultivationGain := 0.0
-	totalSpiritCost := 0.0
-	breakthroughCount := 0
-	breakthroughDetails := []interface{}{}
-
-	for i := 0; i < iterations; i++ {
-		// 计算当前等级的修炼消耗
-		cultivationCost := getCurrentCultivationCost(user.Level)
-
-		// 检查灵力是否充足
-		if user.Spirit < cultivationCost {
-			break
-		}
-
-		// 消耗灵力和获得修为（包含幸运暴击）
-		user.Spirit -= cultivationCost
-		cultivationGain := calculateCultivationGain(user.Level, luck, cultivationRate)
-		user.Cultivation += cultivationGain
-
-		totalCultivationGain += cultivationGain
-		totalSpiritCost += cultivationCost
-
-		// 检查突破
-		if user.Cultivation >= user.MaxCultivation {
-			oldRealm := user.Realm
-			breakthroughResult := s.performBreakthrough(&user, &attrs)
-			if breakthroughResult != nil {
-				breakthroughCount++
-				breakthroughDetails = append(breakthroughDetails, map[string]interface{}{
-					"from":         oldRealm,
-					"to":           user.Realm,
-					"spiritReward": breakthroughResult.SpiritReward,
-				})
-			}
-		}
-	}
-
-	// 保存属性
-	s.setPlayerAttributes(&user, attrs)
-
-	// 保存数据
-	if err := db.DB.Model(&user).Updates(map[string]interface{}{
-		"spirit":          user.Spirit,
-		"cultivation":     user.Cultivation,
-		"level":           user.Level,
-		"realm":           user.Realm,
-		"max_cultivation": user.MaxCultivation,
-		"base_attributes": user.BaseAttributes,
-	}).Error; err != nil {
-		return nil, fmt.Errorf("failed to update user: %w", err)
-	}
-
-	return &AutoCultivationResponse{
-		Success:              true,
-		TotalCultivationGain: totalCultivationGain,
-		TotalSpiritCost:      totalSpiritCost,
-		Breakthroughs:        breakthroughCount,
-		FinalCultivation:     user.Cultivation,
-		BreakthroughDetails:  breakthroughDetails,
-		Message:              fmt.Sprintf("自动修炼完成，获得%.0f修为，突破%d次", totalCultivationGain, breakthroughCount),
 	}, nil
 }

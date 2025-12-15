@@ -2,13 +2,17 @@ package websocket
 
 import (
 	"encoding/json"
+	"math"
 	"time"
-
 	"xiuxian/server-go/internal/db"
 	"xiuxian/server-go/internal/models"
 
 	"go.uber.org/zap"
 )
+
+func round1(v float64) float64 {
+	return math.Round(v*10) / 10
+}
 
 // SpiritGrowthEvent 灵力增长事件数据
 type SpiritGrowthEvent struct {
@@ -61,12 +65,13 @@ func (sh *SpiritHandler) NotifySpiritUpdate(userID uint, oldSpirit, newSpirit, s
 	if newSpirit <= oldSpirit {
 		return nil // 没有增长，不发送消息
 	}
+	// 保留一位小数
 
 	event := SpiritGrowthEvent{
 		UserID:         userID,
-		OldSpirit:      oldSpirit,
-		NewSpirit:      newSpirit,
-		GainAmount:     newSpirit - oldSpirit,
+		OldSpirit:      round1(oldSpirit),
+		NewSpirit:      round1(newSpirit),
+		GainAmount:     round1(newSpirit - oldSpirit),
 		SpiritRate:     spiritRate,
 		ElapsedSeconds: elapsedSeconds,
 		Timestamp:      time.Now().Unix(),
@@ -91,7 +96,7 @@ func (sh *SpiritHandler) GetSpiritUpdateFromDB(userID uint) error {
 
 	event := SpiritGrowthEvent{
 		UserID:     userID,
-		NewSpirit:  user.Spirit,
+		NewSpirit:  round1(user.Spirit),
 		SpiritRate: spiritRate,
 		Timestamp:  time.Now().Unix(),
 	}

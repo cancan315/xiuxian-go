@@ -6,9 +6,10 @@ import (
 	"math"
 	"math/rand"
 
-	"gorm.io/datatypes"
 	"xiuxian/server-go/internal/db"
 	"xiuxian/server-go/internal/models"
+
+	"gorm.io/datatypes"
 )
 
 // ExplorationService 探索服务
@@ -186,8 +187,8 @@ func (s *ExplorationService) triggerRandomEvent(user *models.User, r *rand.Rand)
 
 // Event handlers
 func (s *ExplorationService) eventAncientTablet(user *models.User, r *rand.Rand) *ExplorationEvent {
-	bonus := int(math.Floor(30 * (float64(user.Level) / 5 + 1)))
-	user.Cultivation += float64(bonus)
+	bonus := int(math.Floor(30 * (float64(user.Level)/5 + 1)))
+	user.Cultivation = math.Round((user.Cultivation+float64(bonus))*10) / 10
 	db.DB.Model(user).Update("cultivation", user.Cultivation)
 
 	return &ExplorationEvent{
@@ -200,7 +201,7 @@ func (s *ExplorationService) eventAncientTablet(user *models.User, r *rand.Rand)
 }
 
 func (s *ExplorationService) eventSpiritSpring(user *models.User, r *rand.Rand) *ExplorationEvent {
-	bonus := int(math.Floor(60 * (float64(user.Level) / 3 + 1)))
+	bonus := int(math.Floor(60 * (float64(user.Level)/3 + 1)))
 	user.Spirit += float64(bonus)
 	db.DB.Model(user).Update("spirit", user.Spirit)
 
@@ -215,9 +216,9 @@ func (s *ExplorationService) eventSpiritSpring(user *models.User, r *rand.Rand) 
 }
 
 func (s *ExplorationService) eventAncientMaster(user *models.User, r *rand.Rand) *ExplorationEvent {
-	cultivationBonus := int(math.Floor(120 * (float64(user.Level) / 2 + 1)))
-	spiritBonus := int(math.Floor(180 * (float64(user.Level) / 2 + 1)))
-	user.Cultivation += float64(cultivationBonus)
+	cultivationBonus := int(math.Floor(120 * (float64(user.Level)/2 + 1)))
+	spiritBonus := int(math.Floor(180 * (float64(user.Level)/2 + 1)))
+	user.Cultivation = math.Round((user.Cultivation+float64(cultivationBonus))*10) / 10
 	user.Spirit += float64(spiritBonus)
 	db.DB.Model(user).Updates(map[string]interface{}{
 		"cultivation": user.Cultivation,
@@ -234,7 +235,7 @@ func (s *ExplorationService) eventAncientMaster(user *models.User, r *rand.Rand)
 }
 
 func (s *ExplorationService) eventMonsterAttack(user *models.User, r *rand.Rand) *ExplorationEvent {
-	damage := int(math.Floor(80 * (float64(user.Level) / 4 + 1)))
+	damage := int(math.Floor(80 * (float64(user.Level)/4 + 1)))
 	user.Spirit = math.Max(0, user.Spirit-float64(damage))
 	db.DB.Model(user).Update("spirit", user.Spirit)
 
@@ -249,8 +250,8 @@ func (s *ExplorationService) eventMonsterAttack(user *models.User, r *rand.Rand)
 }
 
 func (s *ExplorationService) eventCultivationDeviation(user *models.User, r *rand.Rand) *ExplorationEvent {
-	damage := int(math.Floor(50 * (float64(user.Level) / 3 + 1)))
-	user.Cultivation = math.Max(0, user.Cultivation-float64(damage))
+	damage := int(math.Floor(50 * (float64(user.Level)/3 + 1)))
+	user.Cultivation = math.Round(math.Max(0, user.Cultivation-float64(damage))*10) / 10
 	db.DB.Model(user).Update("cultivation", user.Cultivation)
 
 	return &ExplorationEvent{
@@ -263,7 +264,7 @@ func (s *ExplorationService) eventCultivationDeviation(user *models.User, r *ran
 }
 
 func (s *ExplorationService) eventTreasureTrove(user *models.User, r *rand.Rand) *ExplorationEvent {
-	stoneBonus := int(math.Floor(30 * (float64(user.Level) / 2 + 1)))
+	stoneBonus := int(math.Floor(30 * (float64(user.Level)/2 + 1)))
 	user.SpiritStones += stoneBonus
 	db.DB.Model(user).Update("spirit_stones", user.SpiritStones)
 
@@ -278,8 +279,8 @@ func (s *ExplorationService) eventTreasureTrove(user *models.User, r *rand.Rand)
 }
 
 func (s *ExplorationService) eventEnlightenment(user *models.User, r *rand.Rand) *ExplorationEvent {
-	bonus := int(math.Floor(50 * (float64(user.Level) / 4 + 1)))
-	user.Cultivation += float64(bonus)
+	bonus := int(math.Floor(50 * (float64(user.Level)/4 + 1)))
+	user.Cultivation = math.Round((user.Cultivation+float64(bonus))*10) / 10
 
 	// 获取玩家属性并更新 spiritRate
 	attrs := s.getPlayerAttributes(user)
@@ -302,7 +303,7 @@ func (s *ExplorationService) eventEnlightenment(user *models.User, r *rand.Rand)
 }
 
 func (s *ExplorationService) eventQiDeviation(user *models.User, r *rand.Rand) *ExplorationEvent {
-	damage := int(math.Floor(60 * (float64(user.Level) / 3 + 1)))
+	damage := int(math.Floor(60 * (float64(user.Level)/3 + 1)))
 	user.Spirit = math.Max(0, user.Spirit-float64(damage))
 	user.Cultivation = math.Max(0, user.Cultivation-float64(damage))
 	db.DB.Model(user).Updates(map[string]interface{}{
@@ -343,8 +344,8 @@ func (s *ExplorationService) eventHerbDiscovery(user *models.User, r *rand.Rand)
 	db.DB.Create(&herb)
 
 	return &ExplorationEvent{
-		Type:  EventTypeHerbFound,
-		Herb:  herb,
+		Type:   EventTypeHerbFound,
+		Herb:   herb,
 		Amount: value,
 		Choices: []EventChoice{
 			{Text: "收起灵草", Value: "collect"},
@@ -379,8 +380,8 @@ func (s *ExplorationService) eventPillRecipeFragment(user *models.User, r *rand.
 	}
 
 	return &ExplorationEvent{
-		Type:     EventTypePillRecipeFragment,
-		RecipeID: recipe.ID,
+		Type:      EventTypePillRecipeFragment,
+		RecipeID:  recipe.ID,
 		Fragments: fragment.Count,
 		Choices: []EventChoice{
 			{Text: "收起残页", Value: "collect"},

@@ -44,8 +44,7 @@ func RegisterRoutes(r *gin.Engine) {
 		playerGroup.DELETE("/pets", player.DeletePets)
 
 		// 库存/装备相关查询接口
-		
-		
+
 		playerGroup.GET("/equipment", player.GetPlayerEquipment)
 		playerGroup.GET("/equipment/details/:id", player.GetEquipmentDetails)
 
@@ -98,7 +97,7 @@ func RegisterRoutes(r *gin.Engine) {
 		cultivationGroup.Use(middleware.Protect())
 		cultivationGroup.POST("/single", cultivation.SingleCultivate)
 		cultivationGroup.POST("/breakthrough", cultivation.CultivateUntilBreakthrough)
-		cultivationGroup.POST("/auto", cultivation.AutoCultivate)
+		// cultivationGroup.POST("/auto", cultivation.AutoCultivate)
 		cultivationGroup.GET("/data", cultivation.GetCultivationData)
 	}
 
