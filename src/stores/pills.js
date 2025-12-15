@@ -14,7 +14,7 @@ export const usePillsStore = defineStore('pills', {
   
   actions: {
     // 获得丹方残页
-    gainPillFragment(recipeId, persistenceStore) {
+    gainPillFragment(recipeId) {
       if (!this.pillFragments[recipeId]) {
         this.pillFragments[recipeId] = 0
       }
@@ -32,7 +32,7 @@ export const usePillsStore = defineStore('pills', {
     },
     
     // 炼制丹药
-    craftPill(recipeId, herbsStore, playerInfoStore, persistenceStore) {
+    craftPill(recipeId, herbsStore, playerInfoStore,  ) {
       const recipe = pillRecipes.find(r => r.id === recipeId)
       if (!recipe || !this.pillRecipes.includes(recipeId)) {
         return { success: false, message: '未掌握丹方' }
@@ -66,7 +66,7 @@ export const usePillsStore = defineStore('pills', {
     },
     
     // 使用丹药
-    usePill(pill, inventoryStore, persistenceStore) {
+    usePill(pill, inventoryStore ) {
       const now = Date.now()
       // 添加效果
       this.activeEffects.push({

@@ -115,7 +115,6 @@
   import { usePillsStore } from '../../stores/pills'
   import { useSettingsStore } from '../../stores/settings'
   import { useStatsStore } from '../../stores/stats'
-  import { usePersistenceStore } from '../../stores/persistence'
   import { useGachaStore } from '../../stores/gacha'
   import GachaCard from './GachaCard.vue'
   import GachaButtons from './GachaButtons.vue'
@@ -139,7 +138,6 @@
   const pillsStore = usePillsStore()
   const settingsStore = useSettingsStore()
   const statsStore = useStatsStore()
-  const persistenceStore = usePersistenceStore()
   const gachaStore = useGachaStore()
   
   const message = useMessage()

@@ -245,10 +245,6 @@
     equipmentStore: {
       type: Object,
       required: true
-    },
-    persistenceStore: {
-      type: Object,
-      required: true
     }
   })
 
@@ -476,7 +472,7 @@
     const result = await props.equipmentStore.unequipArtifact(
       slot,
       props.inventoryStore,
-      props.persistenceStore,
+      
       token
     );
 
@@ -545,7 +541,7 @@
       equipment,
       equipment.equipType || equipment.EquipType,
       props.inventoryStore,
-      props.persistenceStore,
+      
       props.playerInfoStore,
       token
     )
@@ -597,7 +593,6 @@
       selectedQuality.value === 'all' ? null : selectedQuality.value,
       selectedEquipmentType.value,
       props.inventoryStore,
-      props.persistenceStore,
       token
     )
     
@@ -615,7 +610,7 @@
   // 卖出单件装备
   const sellEquipment = async equipment => {
     const token = getAuthToken()
-    const result = await props.equipmentStore.sellEquipment(equipment, props.inventoryStore, props.persistenceStore, token)
+    const result = await props.equipmentStore.sellEquipment(equipment, props.inventoryStore, token)
     if (result.success) {
       message.success(result.message)
       showEquipmentDetailModal.value = false

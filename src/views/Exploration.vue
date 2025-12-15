@@ -7,7 +7,6 @@
   import { usePillsStore } from '../stores/pills'
   import { useSettingsStore } from '../stores/settings'
   import { useStatsStore } from '../stores/stats'
-  import { usePersistenceStore } from '../stores/persistence'
   import { ref, computed, onMounted, onUnmounted } from 'vue'
   import { useMessage } from 'naive-ui'
   import LogPanel from '../components/LogPanel.vue'
@@ -20,7 +19,6 @@
   const pillsStore = usePillsStore()
   const settingsStore = useSettingsStore()
   const statsStore = useStatsStore()
-  const persistenceStore = usePersistenceStore()
   
   const message = useMessage()
   const explorationLogs = ref([])

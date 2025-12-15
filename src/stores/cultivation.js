@@ -4,7 +4,7 @@ import { getRealmName, getRealmLength } from '../plugins/realm'
 export const useCultivationStore = defineStore('cultivation', {
   actions: {
     // 修炼增加修为
-    cultivate(amount, playerInfoStore, persistenceStore) {
+    cultivate(amount, playerInfoStore) {
       // 确保amount是数字类型
       const numAmount = Number(String(amount).replace(/[^0-9.-]/g, '')) || 0
       playerInfoStore.cultivation = Number(String(playerInfoStore.cultivation).replace(/[^0-9.-]/g, '')) || 0
@@ -12,12 +12,12 @@ export const useCultivationStore = defineStore('cultivation', {
       // 增加修炼时间统计（需要在stats模块中处理）
       // this.totalCultivationTime += 1 // 增加修炼时间统计
       if (playerInfoStore.cultivation >= playerInfoStore.maxCultivation) {
-        this.tryBreakthrough(playerInfoStore, persistenceStore)
+        this.tryBreakthrough(playerInfoStore)
       }
     },
     
     // 尝试突破
-    tryBreakthrough(playerInfoStore, persistenceStore) {
+    tryBreakthrough(playerInfoStore) {
       // 境界等级对应的境界名称和修为上限
       const realmsLength = getRealmLength()
       // 检查是否可以突破到下一个境界

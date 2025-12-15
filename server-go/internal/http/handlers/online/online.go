@@ -120,9 +120,9 @@ func Heartbeat(c *gin.Context) {
 	zapLogger := logger.(*zap.Logger)
 
 	rawData, _ := c.GetRawData()
-	zapLogger.Info("收到心跳请求",
-		zap.String("rawBody", string(rawData)),
-		zap.Any("headers", c.Request.Header))
+	// zapLogger.Info("收到心跳请求",
+	//	zap.String("rawBody", string(rawData)),
+	//	zap.Any("headers", c.Request.Header))
 
 	// 重新设置body以便后续解析
 	c.Request.Body = io.NopCloser(strings.NewReader(string(rawData)))
@@ -177,11 +177,12 @@ func Heartbeat(c *gin.Context) {
 		return
 	}
 
-	zapLogger.Info("心跳更新成功",
-		zap.String("playerID", req.PlayerID),
-		zap.Int64("lastHeartbeat", lastHeartbeat))
+	//zapLogger.Info("心跳更新成功",
+	//	zap.String("playerID", req.PlayerID),
+	//	zap.Int64("lastHeartbeat", lastHeartbeat))
 
 	c.JSON(http.StatusOK, gin.H{"message": "心跳更新成功", "playerId": req.PlayerID, "lastHeartbeat": lastHeartbeat})
+
 }
 
 // Logout 标记玩家离线，对应 POST /api/online/logout

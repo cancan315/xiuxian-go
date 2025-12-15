@@ -22,7 +22,7 @@ export const useInventoryStore = defineStore('inventory', {
   
   actions: {
     // 获得物品
-    gainItem(item, persistenceStore) {
+    gainItem(item, ) {
       this.items.push({
         ...item,
         // 确保物品有itemId以便能正确保存到数据库
@@ -34,17 +34,17 @@ export const useInventoryStore = defineStore('inventory', {
     },
     
     // 使用物品（丹药或灵宠）
-    useItem(item, pillsStore, petsStore, playerInfoStore, persistenceStore) {
+    useItem(item, pillsStore, petsStore, playerInfoStore) {
       if (item.type === 'pill') {
-        return pillsStore.usePill(item, this, persistenceStore);
+        return pillsStore.usePill(item, this);
       } else if (item.type === 'pet') {
-        return petsStore.usePet(item, playerInfoStore, persistenceStore);
+        return petsStore.usePet(item, playerInfoStore);
       }
       return { success: false, message: '无法使用该物品' }
     },
     
     // 添加装备到背包
-    addEquipment(equipment, persistenceStore) {
+    addEquipment(equipment) {
       if (!this.items) {
         this.items = []
       }

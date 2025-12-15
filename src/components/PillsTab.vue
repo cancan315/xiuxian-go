@@ -37,10 +37,6 @@
     playerInfoStore: {
       type: Object,
       required: true
-    },
-    persistenceStore: {
-      type: Object,
-      required: true
     }
   })
 
@@ -63,7 +59,7 @@
 
   // 使用丹药
   const usePill = pill => {
-    const result = props.inventoryStore.useItem(pill, props.pillsStore, props.petsStore, props.playerInfoStore, props.persistenceStore)
+    const result = props.inventoryStore.useItem(pill, props.pillsStore, props.petsStore, props.playerInfoStore)
     if (result.success) {
       message.success(result.message)
     } else {

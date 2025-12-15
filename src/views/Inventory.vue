@@ -13,7 +13,7 @@
               :player-info-store="playerInfoStore"
               :inventory-store="inventoryStore"
               :equipment-store="equipmentStore"
-              :persistence-store="persistenceStore"
+              
               @load-equipped-artifacts="loadEquippedArtifacts"
               @refresh-pet-list="loadPetList"
             />
@@ -27,7 +27,7 @@
               :pills-store="pillsStore"
               :pets-store="petsStore"
               :player-info-store="playerInfoStore"
-              :persistence-store="persistenceStore"
+              
             />
           </n-tab-pane>
           <n-tab-pane name="formulas" tab="丹方">
@@ -55,7 +55,6 @@
   import { usePillsStore } from '../stores/pills'
   import { useSettingsStore } from '../stores/settings'
   import { useStatsStore } from '../stores/stats'
-  import { usePersistenceStore } from '../stores/persistence'
   import { ref, computed, onMounted } from 'vue'
   import { useMessage } from 'naive-ui'
   import { getStatName, formatStatValue } from '../plugins/stats'
@@ -76,7 +75,6 @@
   const pillsStore = usePillsStore()
   const settingsStore = useSettingsStore()
   const statsStore = useStatsStore()
-  const persistenceStore = usePersistenceStore()
   
   const message = useMessage()
 

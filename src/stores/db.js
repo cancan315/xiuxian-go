@@ -17,7 +17,7 @@ export const clearAuthToken = () => {
 
 // Get auth token
 export const getAuthToken = () => {
-  console.log('[DB Store] 获取认证令牌:', { tokenAvailable: !!authToken, tokenLength: authToken ? authToken.length : 0 });
+//  console.log('[DB Store] 获取认证令牌:', { tokenAvailable: !!authToken, tokenLength: authToken ? authToken.length : 0 });
   return authToken;
 };
 

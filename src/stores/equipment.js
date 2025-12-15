@@ -25,7 +25,7 @@ export const useEquipmentStore = defineStore('equipment', {
     },
 
     // 穿上装备
-    async equipArtifact(artifact, slot, inventoryStore, persistenceStore, playerInfoStore, token) {
+    async equipArtifact(artifact, slot, playerInfoStore, token) {
       try {
         // 添加日志记录
         console.log(`[Equipment Store] 玩家尝试装备物品: ${artifact.name} (${artifact.id}), 槽位: ${slot}`)
@@ -69,11 +69,11 @@ export const useEquipmentStore = defineStore('equipment', {
       } catch (error) {
         console.error('[Equipment Store] 装备穿戴失败:', error);
         return { success: false, message: '装备穿戴失败: ' + error.message, equipment: artifact }
-      }
+      } 
     },
 
     // 卸下装备
-    async unequipArtifact(slot, inventoryStore, persistenceStore, token) {
+    async unequipArtifact(slot, token) {
       const artifact = this.equippedArtifacts[slot]
       if (artifact) {
         try {
@@ -107,7 +107,7 @@ export const useEquipmentStore = defineStore('equipment', {
     },
 
     // 卖出装备
-    async sellEquipment(equipment, inventoryStore, persistenceStore, token) {
+    async sellEquipment(equipment, inventoryStore, token) {
       try {
         // 添加日志记录
         console.log(`[Equipment Store] 玩家尝试卖出装备: ${equipment.name} (${equipment.id})`)
@@ -139,7 +139,7 @@ export const useEquipmentStore = defineStore('equipment', {
     },
 
     // 批量卖出装备
-    async batchSellEquipments(quality = null, equipmentType = null, inventoryStore, persistenceStore, token) {
+    async batchSellEquipments(quality = null, equipmentType = null, inventoryStore, token) {
       try {
         // 添加日志记录
         console.log(`[Equipment Store] 玩家尝试批量卖出装备: 品质=${quality || '全部'}, 类型=${equipmentType || '全部'}`)

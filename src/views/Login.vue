@@ -5,14 +5,12 @@ import { useRouter } from 'vue-router';
 import APIService from '../services/api';
 import { setAuthToken, getAuthToken } from '../stores/db';
 // 修改为使用模块化store
-import { usePersistenceStore } from '../stores/persistence';
 import { usePlayerInfoStore } from '../stores/playerInfo';
 
 const formRef = ref(null);
 const message = useMessage();
 const router = useRouter();
 // 使用模块化store替代原来的usePlayerStore
-const persistenceStore = usePersistenceStore();
 const playerInfoStore = usePlayerInfoStore();
 
 const loading = ref(false);
@@ -65,11 +63,11 @@ const handleLogin = async (e) => {
       // 标记玩家上线
       await APIService.playerOnline(String(response.id))  // ✅ 改为 response.id
       // 在浏览器控制台执行
-      console.log('WebSocket状态:', window.wsManager?.getConnectionStatus())
+      // console.log('WebSocket状态:', window.wsManager?.getConnectionStatus())
       // 预期输出：{ isConnected: true, url: "ws://localhost:2025/ws?...", reconnectAttempts: 0 }
 
       // 检查玩家ID
-      console.log('玩家ID:', window.$pinia?.state.value?.playerInfo?.id)
+      // console.log('玩家ID:', window.$pinia?.state.value?.playerInfo?.id)
       // 预期输出：玩家的数字ID，例如 1
       message.success('登录成功');
       // 登录成功后跳转到游戏主界面

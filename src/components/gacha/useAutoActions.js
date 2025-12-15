@@ -1,7 +1,7 @@
 // 处理自动操作
 import { itemQualities } from '../../plugins/itemQualities.js'
 
-export const processAutoActions = async (results, inventoryStore, petsStore, playerInfoStore, persistenceStore) => {
+export const processAutoActions = async (results, inventoryStore, petsStore, playerInfoStore) => {
   let autoReleasedCount = 0
   let autoSoldIncome = 0
   let autoSoldCount = 0
@@ -39,7 +39,7 @@ export const processAutoActions = async (results, inventoryStore, petsStore, pla
         autoSoldCount++
       } else {
         // 添加到背包
-        inventoryStore.addEquipment(item, persistenceStore)
+        inventoryStore.addEquipment(item)
       }
     }
   }

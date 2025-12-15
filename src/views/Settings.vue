@@ -121,7 +121,6 @@
   import { usePillsStore } from '../stores/pills'
   import { useSettingsStore } from '../stores/settings'
   import { useStatsStore } from '../stores/stats'
-  import { usePersistenceStore } from '../stores/persistence'
   import { ref } from 'vue'
   import { useDialog, useMessage } from 'naive-ui'
   import { AlertCircleOutline, Close } from '@vicons/ionicons5'
@@ -133,7 +132,6 @@
   const pillsStore = usePillsStore()
   const settingsStore = useSettingsStore()
   const statsStore = useStatsStore()
-  const persistenceStore = usePersistenceStore()
   
   const newName = ref('')
   const message = useMessage()

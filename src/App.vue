@@ -184,7 +184,6 @@
   import { usePillsStore } from './stores/pills'
   import { useSettingsStore } from './stores/settings'
   import { useStatsStore } from './stores/stats'
-  import { usePersistenceStore } from './stores/persistence'
   import { h, onMounted, onUnmounted, ref, computed, watch } from 'vue'
   import { NIcon, darkTheme } from 'naive-ui'
   import { 
@@ -223,7 +222,6 @@
   const pillsStore = usePillsStore()
   const settingsStore = useSettingsStore()
   const statsStore = useStatsStore()
-  const persistenceStore = usePersistenceStore()
   
   const menuOptions = ref([])
   const isLoading = ref(true) // 添加加载状态
@@ -343,9 +341,16 @@
         
         // Load inventory data (including spirit stones)
         if (data.user) {
-          inventoryStore.spiritStones = data.user.spiritStones || 20000
-          inventoryStore.reinforceStones = data.user.reinforceStones || 0
-          inventoryStore.refinementStones = data.user.refinementStones || 0
+          console.log('[App.vue] 加载玩家资源数据:', {
+            灵石: data.user.spiritStones,
+            强化石: data.user.reinforceStones,
+            洗炼石: data.user.refinementStones,
+            灵兽精华: data.user.petEssence
+          });
+          inventoryStore.spiritStones = data.user.spiritStones 
+          inventoryStore.reinforceStones = data.user.reinforceStones 
+          inventoryStore.refinementStones = data.user.refinementStones 
+          inventoryStore.petEssence = data.user.petEssence 
         }
         
         isLoading.value = false
@@ -382,8 +387,6 @@
     // 添加事件监听器
     window.addEventListener('beforeunload', handleBeforeUnload)
 
-    // 自动获取灵力
-    startAutoGain()
   })
 
   // 监听 playerInfoStore.id 的变化，当玩家登录成功后初始化 WebSocket
@@ -541,26 +544,11 @@
     router.push('/login')
   }
 
-  // 自动获取灵力
-  const startAutoGain = () => {
-    // 立即同步一次数据以获取最新灵力值
-    persistenceStore.syncSpiritOnly()
-    
-    // 保留原有的worker逻辑，用于其他同步任务
-    if (spiritWorker.value) return
-    spiritWorker.value = new Worker(new URL('./workers/spirit.js', import.meta.url))
-    spiritWorker.value.onmessage = e => {
-      if (e.data.type === 'sync') {
-        // 定期同步玩家数据以获取最新的灵力值
-        persistenceStore.syncSpiritOnly()
-      }
-    }
-    spiritWorker.value.postMessage({ type: 'start' })
-  }
+
 
   // 切换暗黑模式
   const toggleDarkMode = () => {
-    settingsStore.toggle(persistenceStore)
+    settingsStore.toggle(useSettingsStore)
   }
 </script>
 

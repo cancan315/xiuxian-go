@@ -20,6 +20,10 @@ export const usePlayerInfoStore = defineStore('playerInfo', {
     cultivationRate: 1, // 修炼速率
     cultivationCost: 1, // 修炼消耗灵力
     cultivationGain: 1, // 修炼获得修为
+    spiritStones: 0, // 灵石数量
+    reinforceStones: 0, // 强化石数量
+    refinementStones: 0, // 洗炼石数量
+    petEssence: 0, // 灵兽精华
     
     herbRate: 1, // 灵草获取倍率
     alchemyRate: 1, // 炼丹成功率加成

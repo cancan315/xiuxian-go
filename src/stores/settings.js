@@ -18,7 +18,7 @@ export const useSettingsStore = defineStore('settings', {
     },
     
     // 切换暗黑模式
-    toggle(persistenceStore) {
+    toggle() {
       this.isDarkMode = !this.isDarkMode
       // 更新html标签的class
       this.updateHtmlDarkMode(this.isDarkMode)
