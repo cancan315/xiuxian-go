@@ -48,17 +48,5 @@ export const useCultivationStore = defineStore('cultivation', {
       // 由于灵力获取已经移到后端处理，这里只需更新本地状态
       // 实际的数据库更新由后端定时任务完成
     },
-    
-    // 增量更新灵力值到数据库
-    async updateSpiritInDatabase(playerInfoStore) {
-      const token = getAuthToken();
-      if (token) {
-        try {
-          await APIService.updateSpirit(token, playerInfoStore.spirit);
-        } catch (error) {
-          console.error('更新灵力值失败:', error);
-        }
-      }
-    }
   }
 })

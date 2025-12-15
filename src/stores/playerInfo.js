@@ -15,6 +15,7 @@ export const usePlayerInfoStore = defineStore('playerInfo', {
     maxCultivation: 100, // 当前境界最大修为值
     spirit: 0, // 灵力值
     spiritRate: 1, // 灵力获取倍率
+    spiritGainRate: 1, // 灵力获取速率
     luck: 1, // 幸运值
     cultivationRate: 1, // 修炼速率
     cultivationCost: 1, // 修炼消耗灵力

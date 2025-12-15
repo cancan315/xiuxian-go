@@ -28,7 +28,7 @@
       </n-space>
       <n-divider>修炼详情</n-divider>
       <n-descriptions bordered>
-        <n-descriptions-item label="灵力获取速率">{{ baseGainRate * playerInfoStore.spiritRate }} / 秒</n-descriptions-item>
+        <n-descriptions-item label="灵力获取速率">{{ playerInfoStore.spiritGainRate }} / 秒</n-descriptions-item>
         <n-descriptions-item label="修炼效率">{{ playerInfoStore.cultivationGain }} 修为 / 次</n-descriptions-item>
         <n-descriptions-item label="突破所需修为">
           {{ playerInfoStore.maxCultivation }}
@@ -103,7 +103,7 @@
         
         // 记录日志
         if (logRef.value) {
-          logRef.value.addLog(`修炼获得 ${response.cultivationGain.toFixed(0)} 点修为`)
+          logRef.value.addLog(`修炼获得 ${response.cultivationGain.toFixed(1)} 点修为`)
         }
         
         // 检查是否有突破
@@ -123,14 +123,17 @@
         
         // 增加修炼时间统计
         statsStore.totalCultivationTime += 1
+        return true
       } else {
         message.warning(response.error || '修炼失败')
+        return false
       }
     } catch (error) {
       message.error('修炼请求失败：' + error.message)
       if (logRef.value) {
         logRef.value.addLog(`修炼失败：${error.message}`)
       }
+      return false
     }
   }
 
@@ -143,45 +146,37 @@
       return
     }
     
+    // 检查灵力是否满足一次修炼消耗
+    if (playerInfoStore.spirit < cultivationCost.value) {
+      message.error('灵力不足，修炼失败')
+      return
+    }
+    
     // 开始自动修练
     isAutoCultivating.value = true
-    message.success('开始自动修练（10秒）')
-          
-    try {
-      // ✅ 使用正确的URL
-      const token = getAuthToken();
-      const response = await APIService.post('/cultivation/auto', {
-        duration: 10000
-      }, token)
-      
-      if (response.success) {
-        // 更新玩家数据 - 同步最新数据
-        await syncCultivationData()
-        
-        // 记录日志
+    message.success('开始自动修练')
+    
+    // 循环调用单次修炼直到灵力不足或用户停止
+    while (isAutoCultivating.value) {
+      // 检查灵力是否满足一次修炼消耗
+      if (playerInfoStore.spirit < cultivationCost.value) {
+        isAutoCultivating.value = false
+        message.warning('灵力不足，修炼停止')
         if (logRef.value) {
-          if (response.message) {
-            logRef.value.addLog(response.message)
-          }
-          if (response.breakthroughDetails && Array.isArray(response.breakthroughDetails)) {
-            for (const detail of response.breakthroughDetails) {
-              logRef.value.addLog(`突破：${detail}`)
-            }
-          }
+          logRef.value.addLog('灵力不足，修炼停止')
         }
-        
-        // 更新突破次数
-        statsStore.breakthroughCount += response.breakthroughs
-        statsStore.totalCultivationTime += 10
-        
-        message.success(`自动修炼完成！获得 ${response.totalCultivationGain.toFixed(0)} 点修为，突破 ${response.breakthroughs} 次`)
-      } else {
-        message.warning(response.error || '自动修炼失败')
+        break
       }
-    } catch (error) {
-      message.error('自动修炼请求失败：' + error.message)
-    } finally {
-      isAutoCultivating.value = false
+      
+      // 调用单次修炼
+      const success = await cultivate()
+      if (!success) {
+        isAutoCultivating.value = false
+        break
+      }
+      
+      // 短暂延迟，避免过快调用
+      await new Promise(resolve => setTimeout(resolve, 1000))
     }
   }
 

@@ -469,6 +469,7 @@
       //)
       //spirit.handleSpiritGrowth(data)
       // 更新playerInfoStore中的灵力值
+      playerInfoStore.spiritGainRate = data.gainAmount
       playerInfoStore.spirit = data.newSpirit
       //console.log(`灵力自动增长: +${data.gainAmount.toFixed(2)}, 当前灵力: ${data.newSpirit.toFixed(2)}`)
     })
