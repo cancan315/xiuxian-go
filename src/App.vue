@@ -487,7 +487,7 @@
     // 每3秒发送一次心跳
     heartbeatTimer = setInterval(async () => {
       try {
-        console.log('[App.vue] 发送心跳', { playerId });
+      //  console.log('[App.vue] 发送心跳', { playerId });
         await APIService.playerHeartbeat(playerId, token)
         // console.log('[App.vue] 心跳发送成功')
       } catch (error) {

@@ -1093,11 +1093,11 @@ class APIService {
    * @returns {Promise<Object>} 心跳响应
    */
   static async playerHeartbeat(playerId, token) {
-    console.log('[API Service] 发送心跳请求', { playerId, tokenAvailable: !!token, tokenLength: token ? token.length : 0 });
+  //  console.log('[API Service] 发送心跳请求', { playerId, tokenAvailable: !!token, tokenLength: token ? token.length : 0 });
     
     // 确保playerId是字符串类型
     const requestData = { playerId: String(playerId) };
-    console.log('[API Service] 心跳请求数据', requestData);
+  //  console.log('[API Service] 心跳请求数据', requestData);
     
     const response = await fetch(`${API_BASE_URL}/online/heartbeat`, {
       method: 'POST',
@@ -1108,7 +1108,7 @@ class APIService {
       body: JSON.stringify(requestData)
     });
     
-    console.log('[API Service] 心跳响应状态', { status: response.status, statusText: response.statusText });
+  //  console.log('[API Service] 心跳响应状态', { status: response.status, statusText: response.statusText });
     
     if (!response.ok) {
       const errorText = await response.text();
@@ -1123,7 +1123,7 @@ class APIService {
     }
     
     const data = await response.json();
-    console.log('[API Service] 心跳响应数据', data);
+  //  console.log('[API Service] 心跳响应数据', data);
     return convertToCamelCase(data);
   }
 }

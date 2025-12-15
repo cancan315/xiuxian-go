@@ -120,7 +120,7 @@
             logRef.value.addLog(bt.message)
           }
         }
-        
+        message.success('修炼成功，获得 ' + response.cultivationGain.toFixed(1) + ' 点修为')
         // 增加修炼时间统计
         statsStore.totalCultivationTime += 1
         return true
@@ -214,25 +214,31 @@
     try {
       const token = getAuthToken();
       
-      // 获取玩家基本数据
-      const playerResponse = await APIService.getPlayerData(token)
-      if (playerResponse.success) {
-        // 从玩家数据中提取修炼相关的字段
-        playerInfoStore.level = playerResponse.level
-        playerInfoStore.realm = playerResponse.realm
-        playerInfoStore.cultivation = playerResponse.cultivation
-        playerInfoStore.maxCultivation = playerResponse.maxCultivation
-        playerInfoStore.spirit = playerResponse.spirit
-        playerInfoStore.cultivationRate = playerResponse.cultivationRate || 1
-        playerInfoStore.spiritRate = playerResponse.spiritRate || 1
-      }
+//     // 获取玩家基本数据
+//     const playerResponse = await APIService.getPlayerData(token)
+//     if (playerResponse.success) {
+//       // 从玩家数据中提取修炼相关的字段
+//       playerInfoStore.level = playerResponse.level
+//       playerInfoStore.realm = playerResponse.realm
+//       playerInfoStore.cultivation = playerResponse.cultivation
+//       playerInfoStore.maxCultivation = playerResponse.maxCultivation
+//       playerInfoStore.spirit = playerResponse.spirit
+//       playerInfoStore.cultivationRate = playerResponse.cultivationRate || 1
+//       playerInfoStore.spiritRate = playerResponse.spiritRate || 1
+//     }
       
       // 获取修炼消耗和获得数据
       const response = await APIService.getCultivationData(token)
       if (response.success) {
-        console.log('[Cultivation] 修炼消耗:', response.data.spiritCost, '获得:', response.data.cultivationGain)
-        playerInfoStore.cultivationCost = response.data.spiritCost || 1      // 修炼消耗灵力
-        playerInfoStore.cultivationGain = response.data.cultivationGain || 1 // 修炼获得修为
+      //  console.log('[Cultivation] 修炼消耗:', response.data.spiritCost, '获得:', response.data.cultivationGain)
+        playerInfoStore.level = response.data.level // 境界等级
+        playerInfoStore.realm = response.data.realm // 境界
+        playerInfoStore.cultivation = response.data.cultivation // 当前修为
+        playerInfoStore.maxCultivation = response.data.maxCultivation // 最大修为
+        playerInfoStore.spirit = response.data.spirit // 当前灵力
+        playerInfoStore.cultivationCost = response.data.spiritCost       // 修炼消耗灵力
+        playerInfoStore.cultivationGain = response.data.cultivationGain // 修炼获得修为
+        playerInfoStore.spiritRate = response.data.spiritRate // 灵力获取倍率
         
       }
     } catch (error) {
