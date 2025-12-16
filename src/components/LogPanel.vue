@@ -49,6 +49,16 @@
     { immediate: true }
   )
 
+  // 添加日志方法
+  const addLog = (content, type = 'info') => {
+    const time = new Date().toLocaleTimeString()
+    logList.value.push({
+      time,
+      content,
+      type
+    })
+  }
+
   // 添加清空日志方法
   const clearLogs = () => {
     logList.value = []
@@ -68,6 +78,7 @@
 
   // 暒露方法
   defineExpose({
+    addLog,
     clearLogs
   })
 </script>

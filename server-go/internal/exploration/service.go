@@ -2,6 +2,7 @@ package exploration
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"math/rand"
@@ -11,6 +12,11 @@ import (
 	"xiuxian/server-go/internal/models"
 
 	"gorm.io/datatypes"
+)
+
+// 自定义错误
+var (
+	ErrInsufficientSpirit = errors.New("探索失败灵力不足")
 )
 
 // ExplorationService 探索服务
@@ -35,19 +41,20 @@ func NewExplorationService(userID uint) *ExplorationService {
 
 // CheckSpiritCost 检查灵力是否满足一次探索消耗
 // 当前规则：每次探索固定消耗 100 点灵力
-func (s *ExplorationService) CheckSpiritCost() (bool, error) {
+// 如果灵力不足返回 ErrInsufficientSpirit 错误
+func (s *ExplorationService) CheckSpiritCost() error {
 	var user models.User
 	// 查询玩家数据
 	if err := db.DB.First(&user, s.userID).Error; err != nil {
-		return false, fmt.Errorf("failed to get user: %w", err)
+		return fmt.Errorf("failed to get user: %w", err)
 	}
 
 	// 灵力不足时不可探索
 	if user.Spirit < 100 {
-		return false, nil
+		return ErrInsufficientSpirit
 	}
 
-	return true, nil
+	return nil
 }
 
 // cultivationRewardByRealm 根据境界计算修为奖励
@@ -59,10 +66,9 @@ func cultivationRewardByRealm(user *models.User, rate float64) int {
 	return int(math.Floor(float64(realm.MaxCultivation) * rate))
 }
 
-// StartExploration 开始探索
-// @param duration 探索持续时间（毫秒）
+// StartExploration 开始探索（单次触发）
 // @return 触发的事件列表、日志字符串、错误
-func (s *ExplorationService) StartExploration(duration int) ([]ExplorationEvent, string, error) {
+func (s *ExplorationService) StartExploration() ([]ExplorationEvent, string, error) {
 	// 获取玩家数据
 	var user models.User
 	if err := db.DB.First(&user, s.userID).Error; err != nil {
@@ -80,17 +86,12 @@ func (s *ExplorationService) StartExploration(duration int) ([]ExplorationEvent,
 	luck := s.calculateLuck(&user)
 	eventChance := 0.3 * luck
 
-	// 根据探索时间计算事件检查次数
-	// 每 3000ms（约 3 秒）检查一次事件
-	checkCount := int(math.Ceil(float64(duration) / 3000.0))
-	for i := 0; i < checkCount; i++ {
-		// 命中事件概率时触发随机事件
-		if r.Float64() < eventChance {
-			event := s.triggerRandomEvent(&user, r)
-			if event != nil {
-				events = append(events, *event)
-				logs = append(logs, fmt.Sprintf("[事件]%s", event.Description))
-			}
+	// 单次触发：直接检查一次事件
+	if r.Float64() < eventChance {
+		event := s.triggerRandomEvent(&user, r)
+		if event != nil {
+			events = append(events, *event)
+			logs = append(logs, fmt.Sprintf("[事件]%s", event.Description))
 		}
 	}
 
@@ -158,15 +159,15 @@ func (s *ExplorationService) triggerRandomEvent(user *models.User, r *rand.Rand)
 		weight  float64
 		handler func(*models.User, *rand.Rand) *ExplorationEvent
 	}{
-		{"古老石碑", 8, s.eventAncientTablet},
-		{"灵泉", 12, s.eventSpiritSpring},
+		{"论道大会", 10, s.eventAncientTablet},
+		{"百鬼门杂役", 12, s.eventSpiritSpring},
 		{"古修遗府", 3, s.eventAncientMaster},
-		{"妖兽袭击", 15, s.eventMonsterAttack},
-		{"走火入魔", 10, s.eventCultivationDeviation},
-		{"秘境宝藏", 5, s.eventTreasureTrove},
-		{"顿悟", 7, s.eventEnlightenment},
-		{"心魔侵扰", 12, s.eventQiDeviation},
-		{"灵草发现", 18, s.eventHerbDiscovery},
+		{"鬼鬼妖王", 15, s.eventMonsterAttack},
+		{"家族招婿", 12, s.eventCultivationDeviation},
+		{"获得灵石", 5, s.eventTreasureTrove},
+		{"灵山顿悟", 7, s.eventEnlightenment},
+		{"合欢女修", 16, s.eventQiDeviation},
+		{"灵草发现", 10, s.eventHerbDiscovery},
 		{"丹方残页", 10, s.eventPillRecipeFragment},
 	}
 
@@ -202,7 +203,7 @@ func (s *ExplorationService) eventAncientTablet(user *models.User, r *rand.Rand)
 
 	return &ExplorationEvent{
 		Type:        "cultivation_boost",
-		Description: fmt.Sprintf("[参与散修论道大会]交流修炼心得，领悟道法，修为增加%d点", bonus),
+		Description: fmt.Sprintf("参与散修论道会，交流修炼心得，领悟道法，修为增加%d点", bonus),
 		Amount:      bonus,
 	}
 }
@@ -221,7 +222,7 @@ func (s *ExplorationService) eventSpiritSpring(user *models.User, r *rand.Rand) 
 
 	return &ExplorationEvent{
 		Type:        EventTypeItemFound,
-		Description: fmt.Sprintf("[出门游历]偶遇百鬼门杂役弟子，果断出手，大战300回合，就地斩杀。修为+%d，灵力+%d", cultivationBonus, spiritBonus),
+		Description: fmt.Sprintf("出门游历偶遇百鬼门杂役弟子，果断出手，大战300回合，就地斩杀。修为+%d，灵力+%d", cultivationBonus, spiritBonus),
 	}
 }
 
@@ -241,11 +242,11 @@ func (s *ExplorationService) eventAncientMaster(user *models.User, r *rand.Rand)
 
 	return &ExplorationEvent{
 		Type:        EventTypeItemFound,
-		Description: fmt.Sprintf("[探索古修遗府]经过一番搜刮，寻到上古修士炼制的废丹，服用后，修为+%d，灵力+%d", cultivationBonus, spiritBonus),
+		Description: fmt.Sprintf("探索古修遗府经过一番搜刮，寻到上古修士炼制的废丹，服用后，修为+%d，灵力+%d", cultivationBonus, spiritBonus),
 	}
 }
 
-// eventMonsterAttack 妖兽袭击：损失修为当前境界的5%
+// eventMonsterAttack 鬼鬼妖王修为-5%
 func (s *ExplorationService) eventMonsterAttack(user *models.User, r *rand.Rand) *ExplorationEvent {
 	damage := cultivationRewardByRealm(user, 0.05)
 	user.Cultivation = math.Round(math.Max(0, user.Cultivation-float64(damage))*10) / 10
@@ -253,12 +254,12 @@ func (s *ExplorationService) eventMonsterAttack(user *models.User, r *rand.Rand)
 
 	return &ExplorationEvent{
 		Type:        EventTypeBattleEncounter,
-		Description: fmt.Sprintf("[偶遇妖兽]探索妖兽山脉，惊扰沉睡的鬼鬼大王，被妖王生吞，损失%d修为", damage),
+		Description: fmt.Sprintf("探索妖兽山脉，惊扰沉睡的鬼鬼妖王，被妖王生吞，损失%d修为", damage),
 		Amount:      damage,
 	}
 }
 
-// eventCultivationDeviation 走火入魔：修为受损当前境界的20%
+// eventCultivationDeviation 家族招婿：修为受损当前境界的20%
 func (s *ExplorationService) eventCultivationDeviation(user *models.User, r *rand.Rand) *ExplorationEvent {
 	damage := cultivationRewardByRealm(user, 0.2)
 	user.Cultivation = math.Round(math.Max(0, user.Cultivation-float64(damage))*10) / 10
@@ -266,12 +267,12 @@ func (s *ExplorationService) eventCultivationDeviation(user *models.User, r *ran
 
 	return &ExplorationEvent{
 		Type:        "cultivation_damage",
-		Description: fmt.Sprintf("[修仙家族招婿]参与招婿，被家主幼女一剑扫飞，擂台惨败，修为损失%d点", damage),
+		Description: fmt.Sprintf("参与家族招婿，被家主幼女一剑扫飞，擂台惨败，修为损失%d点", damage),
 		Amount:      damage,
 	}
 }
 
-// eventTreasureTrove 秘境宝藏：获得灵石
+// eventTreasureTrove 获得灵石
 func (s *ExplorationService) eventTreasureTrove(user *models.User, r *rand.Rand) *ExplorationEvent {
 	stoneBonus := 1
 	user.SpiritStones += stoneBonus
@@ -279,12 +280,12 @@ func (s *ExplorationService) eventTreasureTrove(user *models.User, r *rand.Rand)
 
 	return &ExplorationEvent{
 		Type:        EventTypeSpiritStoneFound,
-		Description: fmt.Sprintf("[深入废矿]你到废弃矿洞挖掘三天三夜，挖到精铁伴生碎石，到坊市出售后，获得%d颗灵石", stoneBonus),
+		Description: fmt.Sprintf("你到废弃矿洞挖掘三天三夜，挖到精铁伴生碎石，到坊市出售后，获得%d颗灵石", stoneBonus),
 		Amount:      stoneBonus,
 	}
 }
 
-// eventEnlightenment 顿悟：增加修为
+// eventEnlightenment 灵山顿悟：增加修为
 func (s *ExplorationService) eventEnlightenment(user *models.User, r *rand.Rand) *ExplorationEvent {
 	bonus := cultivationRewardByRealm(user, 0.2)
 	user.Cultivation = math.Round((user.Cultivation+float64(bonus))*10) / 10
@@ -292,7 +293,7 @@ func (s *ExplorationService) eventEnlightenment(user *models.User, r *rand.Rand)
 
 	return &ExplorationEvent{
 		Type:        "cultivation_boost",
-		Description: fmt.Sprintf("[灵山游历]寻觅到天然阵法，枯坐百日，顿悟自然道法，修为增加%d点", bonus),
+		Description: fmt.Sprintf("寻觅到天然阵法，枯坐百日，顿悟自然道法，修为增加%d点", bonus),
 		Amount:      bonus,
 	}
 }
@@ -312,7 +313,7 @@ func (s *ExplorationService) eventQiDeviation(user *models.User, r *rand.Rand) *
 
 	return &ExplorationEvent{
 		Type:        "spirit_and_cultivation_damage",
-		Description: fmt.Sprintf("[偶遇女修]被合欢外门女修撞见，经过奋力挣扎，事后，被吸取修为%d灵力各损失%d点", cultivationDamage, spiritDamage),
+		Description: fmt.Sprintf("被合欢外门女修撞见，经过奋力挣扎，事后，被吸取%d点修为%d点灵力", cultivationDamage, spiritDamage),
 		Amount:      cultivationDamage,
 	}
 }
@@ -338,7 +339,7 @@ func (s *ExplorationService) eventHerbDiscovery(user *models.User, r *rand.Rand)
 
 	return &ExplorationEvent{
 		Type:        EventTypeHerbFound,
-		Description: fmt.Sprintf("[灵草发现]获得%s", herbConfig.Name),
+		Description: fmt.Sprintf("获得%s", herbConfig.Name),
 		Amount:      int(herbConfig.BaseValue),
 	}
 }
@@ -369,7 +370,7 @@ func (s *ExplorationService) eventPillRecipeFragment(user *models.User, r *rand.
 
 	return &ExplorationEvent{
 		Type:        EventTypePillRecipeFragment,
-		Description: fmt.Sprintf("[丹方残页]获得%s的残页", recipe.Name),
+		Description: fmt.Sprintf("获得%s的残页", recipe.Name),
 		Fragments:   fragment.Count,
 	}
 }

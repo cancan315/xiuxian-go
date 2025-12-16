@@ -349,6 +349,8 @@ func (s *CultivationService) GetCultivationData() (*CultivationData, error) {
 		CultivationGain: cultivationGain,
 		CultivationRate: cultivationRate,
 		SpiritRate:      spiritRate,
+		SpiritStones:    user.SpiritStones,
+		ReinforceStones: user.ReinforceStones,
 		UnlockedRealms:  unlockedRealms,
 	}, nil
 }

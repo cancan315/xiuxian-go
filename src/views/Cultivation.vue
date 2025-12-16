@@ -200,19 +200,6 @@
     try {
       const token = getAuthToken();
       
-//     // 获取玩家基本数据
-//     const playerResponse = await APIService.getPlayerData(token)
-//     if (playerResponse.success) {
-//       // 从玩家数据中提取修炼相关的字段
-//       playerInfoStore.level = playerResponse.level
-//       playerInfoStore.realm = playerResponse.realm
-//       playerInfoStore.cultivation = playerResponse.cultivation
-//       playerInfoStore.maxCultivation = playerResponse.maxCultivation
-//       playerInfoStore.spirit = playerResponse.spirit
-//       playerInfoStore.cultivationRate = playerResponse.cultivationRate || 1
-//       playerInfoStore.spiritRate = playerResponse.spiritRate || 1
-//     }
-      
       // 获取修炼消耗和获得数据
       const response = await APIService.getCultivationData(token)
       if (response.success) {
@@ -225,6 +212,8 @@
         playerInfoStore.cultivationCost = response.data.spiritCost       // 修炼消耗灵力
         playerInfoStore.cultivationGain = response.data.cultivationGain // 修炼获得修为
         playerInfoStore.spiritRate = response.data.spiritRate // 灵力获取倍率
+        playerInfoStore.spiritStones = response.data.spiritStones // 灵石数量
+        playerInfoStore.reinforceStones = response.data.reinforceStones // 强化石数量
         
       }
     } catch (error) {

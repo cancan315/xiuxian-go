@@ -1130,26 +1130,25 @@ class APIService {
   // 探索系统相关方法
   
   /**
-   * 开始探索
-   * @param {string} token - 认证令牌
-   * @param {number} duration - 探索时长（毫秒）
+   * 开始探索（单次触发）
+   * @param {string} token - 认证令符
    * @returns {Promise<Object>} 探索结果
    */
-  static async startExploration(token, duration = 10000) {
+  static async startExploration(token) {
     const response = await fetch(`${API_BASE_URL}/exploration/start`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
-      body: JSON.stringify({ duration })
+      body: JSON.stringify({})
     });
-    
+      
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || '开始探索失败');
+      throw new Error(errorData.message || '灵力不足');
     }
-    
+      
     const data = await response.json();
     return convertToCamelCase(data);
   }

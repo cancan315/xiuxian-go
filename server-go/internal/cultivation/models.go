@@ -63,6 +63,8 @@ type CultivationData struct {
 	CultivationGain float64  `json:"cultivationGain"` // 修炼获得修为
 	CultivationRate float64  `json:"cultivationRate"`
 	SpiritRate      float64  `json:"spiritRate"`
+	SpiritStones    int      `json:"spiritStones"`    // 灵石数量
+	ReinforceStones int      `json:"reinforceStones"` // 强化数量
 	UnlockedRealms  []string `json:"unlockedRealms"`
 }
 

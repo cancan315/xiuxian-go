@@ -30,33 +30,23 @@ func StartExploration(c *gin.Context) {
 	logger, _ := c.Get("zap_logger")
 	zapLogger := logger.(*zap.Logger)
 
-	var req ExplorationRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "请求参数错误", "error": err.Error()})
-		return
-	}
-
-	// 默认探索时间10秒
-	if req.Duration == 0 {
-		req.Duration = 10000
-	}
-
 	zapLogger.Info("StartExploration 入参",
-		zap.Uint("userID", uid),
-		zap.Int("duration", req.Duration))
+		zap.Uint("userID", uid))
 
 	service := explorationSvc.NewExplorationService(uid)
 
-	// 先检查灵力是否满足（每次探索消耗1点灵力）
-	if success, err := service.CheckSpiritCost(); !success {
-		zapLogger.Warn("exploration failed: insufficient spirit",
-			zap.Uint("userID", uid))
-		c.JSON(http.StatusBadRequest, ExplorationResponse{
-			Success: false,
-			Error:   "灵力不足，探索失败",
-		})
-		return
-	} else if err != nil {
+	// 先检查灵力是否满足（每次探索消耗100点灵力）
+	if err := service.CheckSpiritCost(); err != nil {
+		if err.Error() == explorationSvc.ErrInsufficientSpirit.Error() {
+			zapLogger.Warn("exploration failed: insufficient spirit",
+				zap.Uint("userID", uid))
+			c.JSON(http.StatusBadRequest, ExplorationResponse{
+				Success: false,
+				Error:   "探索失败灵力不足",
+			})
+			return
+		}
+		// 其他错误
 		zapLogger.Error("check spirit cost failed",
 			zap.Uint("userID", uid),
 			zap.Error(err))
@@ -64,7 +54,7 @@ func StartExploration(c *gin.Context) {
 		return
 	}
 
-	events, log, err := service.StartExploration(req.Duration)
+	events, log, err := service.StartExploration()
 	if err != nil {
 		zapLogger.Error("exploration failed",
 			zap.Uint("userID", uid),

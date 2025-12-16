@@ -12,9 +12,33 @@
   const message = useMessage()
   const explorationLogs = ref([])
   const isExploring = ref(false)
-  const currentEvent = ref(null)
-  const showEventModal = ref(false)
   const isAutoExploring = ref(false)
+
+  // 从后端获取最新修炼数据
+  const syncCultivationData = async () => {
+    try {
+      const token = getAuthToken();
+      
+      // 获取修炼消耗和获得数据
+      const response = await APIService.getCultivationData(token)
+      if (response.success) {
+      //  console.log('[Cultivation] 修炼消耗:', response.data.spiritCost, '获得:', response.data.cultivationGain)
+        playerInfoStore.level = response.data.level // 境界等级
+        playerInfoStore.realm = response.data.realm // 境界
+        playerInfoStore.cultivation = response.data.cultivation // 当前修为
+        playerInfoStore.maxCultivation = response.data.maxCultivation // 最大修为
+        playerInfoStore.spirit = response.data.spirit // 当前灵力
+        playerInfoStore.cultivationCost = response.data.spiritCost       // 修炼消耗灵力
+        playerInfoStore.cultivationGain = response.data.cultivationGain // 修炼获得修为
+        playerInfoStore.spiritRate = response.data.spiritRate // 灵力获取倍率
+        playerInfoStore.spiritStones = response.data.spiritStones // 灵石数量
+        playerInfoStore.reinforceStones = response.data.reinforceStones // 强化石数量
+        
+      }
+    } catch (error) {
+      console.error('同步修为数据失败:', error)
+    }
+  }
 
   // 添加探索日志
   const addExplorationLog = (message) => {
@@ -38,21 +62,22 @@
         return false
       }
       
-      const response = await APIService.startExploration(token, 10000)
+      const response = await APIService.startExploration(token)
       
       if (response.success) {
+        await syncCultivationData()
         // 处理返回的事件
         if (response.events && response.events.length > 0) {
           for (const event of response.events) {
             triggerEvent(event)
           }
-        } else {
-          addExplorationLog('探索了一段时间，未发生特殊事件')
+          playerInfoStore.explorationCount += 1
         }
         
         // 添加后端日志（已包含所有事件信息）
         if (response.log) {
           addExplorationLog(response.log)
+          message.success(response.log)
         }
         return true
       } else {
@@ -81,7 +106,7 @@
       }
       
       // 短暂延迟，避免过快调用
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      await new Promise(resolve => setTimeout(resolve, 3000))
     }
     
     // 探索完成后调用 /api/player/data 接口
@@ -116,7 +141,7 @@
     }
   }
 
-  // 触发事件
+  // 处理事件（自动统计）
   const triggerEvent = (event) => {
     // 必须有后端返回的Description，否则视为失败
     if (!event.description) {
@@ -125,68 +150,8 @@
       return
     }
     
-    currentEvent.value = event
-    showEventModal.value = true
     playerInfoStore.eventTriggered += 1
-    
-    // 仅执行弹窗日志，不添加到日志面板（会会重複）
     // 日志由后端 response.log 統一提供
-  }
-
-  // 处理事件选择
-  const handleEventChoice = async (choice) => {
-    if (!currentEvent.value) return
-    
-    const event = currentEvent.value
-    showEventModal.value = false
-    
-    // 如果选择是"停止探索"，直接停止自动探索不调用后端接口
-    if (choice.value === 'stop') {
-      isAutoExploring.value = false
-      addExplorationLog('停止探索')
-      currentEvent.value = null
-      playerInfoStore.explorationCount += 1
-      return
-    }
-    
-    try {
-      const token = getAuthToken()
-      if (!token) {
-        addExplorationLog('未获得授权令牌')
-        return
-      }
-      
-      // 调用后端API处理事件选择
-      const response = await APIService.handleExplorationEventChoice(token, event.type, choice)
-      
-      if (response.success) {
-        // 根据事件类型处理奖励
-        switch (event.type) {
-          case 'item_found':
-            addExplorationLog('获得了物品')
-            break
-          case 'spirit_stone_found':
-            addExplorationLog(`获得了${event.amount}灵石`)
-            break
-          case 'herb_found':
-            addExplorationLog(`获得了灵草`)
-            break
-          case 'pill_recipe_fragment_found':
-            addExplorationLog('获得了丹方残页')
-            break
-          case 'battle_encounter':
-            addExplorationLog('战斗结束')
-            break
-        }
-      }
-    } catch (error) {
-      addExplorationLog(`处理失败: ${error.message}`)
-      message.error('事件处理失败')
-      console.error('[Exploration] 事件处理错误:', error)
-    }
-    
-    currentEvent.value = null
-    playerInfoStore.explorationCount += 1
   }
 
   onUnmounted(() => {
@@ -205,7 +170,7 @@
     <n-card title="探索">
       <n-space vertical>
         <n-alert v-if="!isAutoExploring" type="info">
-          点击开始自动探索按钮，在修仙世界中展开冬险之旅。
+          点击开始自动探索按钮，在修仙世界中追寻仙缘。
         </n-alert>
         
         <n-space>
@@ -223,24 +188,7 @@
       </n-space>
     </n-card>
     
-    <!-- 事件弹窗 -->
-    <n-modal v-model:show="showEventModal" preset="dialog" title="探索事件">
-      <template #default>
-        <div v-if="currentEvent">
-          <p>{{ currentEvent.description }}</p>
-          <n-space>
-            <n-button 
-              v-for="(choice, index) in currentEvent.choices" 
-              :key="index"
-              @click="handleEventChoice(choice)"
-              type="primary"
-            >
-              {{ choice.text }}
-            </n-button>
-          </n-space>
-        </div>
-      </template>
-    </n-modal>
+
   </div>
 </template>
 

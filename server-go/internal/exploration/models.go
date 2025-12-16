@@ -2,35 +2,35 @@ package exploration
 
 // 事件类型常量
 const (
-	EventTypeItemFound           = "item_found"
-	EventTypeSpiritStoneFound    = "spirit_stone_found"
-	EventTypeHerbFound           = "herb_found"
-	EventTypePillRecipeFragment  = "pill_recipe_fragment_found"
-	EventTypeBattleEncounter     = "battle_encounter"
+	EventTypeItemFound          = "item_found"
+	EventTypeSpiritStoneFound   = "spirit_stone_found"
+	EventTypeHerbFound          = "herb_found"
+	EventTypePillRecipeFragment = "pill_recipe_fragment_found"
+	EventTypeBattleEncounter    = "battle_encounter"
 )
 
 // 随机事件类型
 const (
-	RandomEventAncientTablet       = "ancient_tablet"
-	RandomEventSpiritSpring        = "spirit_spring"
-	RandomEventAncientMaster       = "ancient_master"
-	RandomEventMonsterAttack       = "monster_attack"
+	RandomEventAncientTablet        = "ancient_tablet"
+	RandomEventSpiritSpring         = "spirit_spring"
+	RandomEventAncientMaster        = "ancient_master"
+	RandomEventMonsterAttack        = "monster_attack"
 	RandomEventCultivationDeviation = "cultivation_deviation"
-	RandomEventTreasureTrove       = "treasure_trove"
-	RandomEventEnlightenment       = "enlightenment"
-	RandomEventQiDeviation         = "qi_deviation"
+	RandomEventTreasureTrove        = "treasure_trove"
+	RandomEventEnlightenment        = "enlightenment"
+	RandomEventQiDeviation          = "qi_deviation"
 )
 
 // ExplorationEvent 探索事件结构
 type ExplorationEvent struct {
-	Type        string      `json:"type"`        // 事件类型
-	Description string      `json:"description"` // 事件描述
-	Item        interface{} `json:"item,omitempty"`
-	Amount      int         `json:"amount,omitempty"`
-	Herb        interface{} `json:"herb,omitempty"`
-	Enemy       interface{} `json:"enemy,omitempty"`
-	RecipeID    string      `json:"recipeId,omitempty"`
-	Fragments   int         `json:"fragments,omitempty"`
+	Type        string        `json:"type"`        // 事件类型
+	Description string        `json:"description"` // 事件描述
+	Item        interface{}   `json:"item,omitempty"`
+	Amount      int           `json:"amount,omitempty"`
+	Herb        interface{}   `json:"herb,omitempty"`
+	Enemy       interface{}   `json:"enemy,omitempty"`
+	RecipeID    string        `json:"recipeId,omitempty"`
+	Fragments   int           `json:"fragments,omitempty"`
 	Choices     []EventChoice `json:"choices"`
 }
 
@@ -48,13 +48,13 @@ type ExplorationResult struct {
 
 // Herb 灵草信息
 type Herb struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Quality  string `json:"quality"`
-	Value    int    `json:"value"`
-	BaseValue int   `json:"-"`
-	Category string `json:"-"`
-	Chance   float64 `json:"-"`
+	ID        string  `json:"id"`
+	Name      string  `json:"name"`
+	Quality   string  `json:"quality"`
+	Value     int     `json:"value"`
+	BaseValue int     `json:"-"`
+	Category  string  `json:"-"`
+	Chance    float64 `json:"-"`
 }
 
 // HerbConfig 灵草配置
@@ -101,16 +101,14 @@ type PlayerStats struct {
 }
 
 // ExplorationRequest 探索请求
-type ExplorationRequest struct {
-	Duration int `json:"duration"` // 探索时长(ms)
-}
+type ExplorationRequest struct{}
 
 // ExplorationResponse 探索响应
 type ExplorationResponse struct {
-	Success bool            `json:"success"`
+	Success bool               `json:"success"`
 	Events  []ExplorationEvent `json:"events"`
-	Log     string          `json:"log"`
-	Error   string          `json:"error,omitempty"`
+	Log     string             `json:"log"`
+	Error   string             `json:"error,omitempty"`
 }
 
 // EventChoiceRequest 事件选择请求
