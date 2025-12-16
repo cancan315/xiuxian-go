@@ -9,7 +9,7 @@
       />
       <n-button
         @click="showBatchReleaseConfirm = true"
-        :disabled="!petsStore.pets.length"
+        :disabled="!props.playerInfoStore.pets.length"
       >
         一键放生
       </n-button>
@@ -218,10 +218,6 @@
     playerInfoStore: {
       type: Object,
       required: true
-    },
-    petsStore: {
-      type: Object,
-      required: true
     }
   })
 
@@ -253,7 +249,7 @@
 
   // 过滤后的灵宠列表
   const filteredPets = computed(() => {
-    const pets = props.petsStore.pets
+    const pets = props.playerInfoStore.pets
     if (selectedRarityToRelease.value === 'all') {
       return pets
     }
@@ -352,7 +348,7 @@
   // 获取可用作升星材料的灵宠列表
   const getAvailableFoodPets = pet => {
     if (!pet) return []
-    return props.petsStore.pets
+    return props.playerInfoStore.pets
       .filter(
         item =>
           item.id !== pet.id &&
@@ -388,7 +384,7 @@
       return
     }
     // 通过id查找对应的灵宠对象
-    const foodPet = props.petsStore.pets.find(item => item.id === selectedFoodPet.value)
+    const foodPet = props.playerInfoStore.pets.find(item => item.id === selectedFoodPet.value)
     if (!foodPet) {
       message.error('升星材料灵宠不存在')
       return
@@ -447,7 +443,7 @@
           props.playerInfoStore.activePet = response.pet || null;
           
           // 确保被召回的灵宠对象的isActive属性也被更新
-          const petInStore = props.petsStore.pets.find(p => p.id === item.id);
+          const petInStore = props.playerInfoStore.pets.find(p => p.id === item.id);
           if (petInStore) {
             petInStore.isActive = false;
           }
@@ -537,7 +533,7 @@
           props.playerInfoStore.activePet = response.pet || item;
           
           // 确保出战的灵宠对象的isActive属性也被更新
-          const petInStore = props.petsStore.pets.find(p => p.id === item.id);
+          const petInStore = props.playerInfoStore.pets.find(p => p.id === item.id);
           if (petInStore) {
             petInStore.isActive = true;
           }

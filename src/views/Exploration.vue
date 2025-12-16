@@ -1,29 +1,17 @@
 <script setup>
   // 修改为使用模块化store
   import { usePlayerInfoStore } from '../stores/playerInfo'
-  import { useInventoryStore } from '../stores/inventory'
-  import { useEquipmentStore } from '../stores/equipment'
-  import { usePetsStore } from '../stores/pets'
-  import { usePillsStore } from '../stores/pills'
-  import { useSettingsStore } from '../stores/settings'
-  import { useStatsStore } from '../stores/stats'
   import { ref, computed, onMounted, onUnmounted } from 'vue'
   import { useMessage } from 'naive-ui'
   import LogPanel from '../components/LogPanel.vue'
   import APIService from '../services/api'
+  import { getAuthToken } from '../stores/db'
 
   const playerInfoStore = usePlayerInfoStore()
-  const inventoryStore = useInventoryStore()
-  const equipmentStore = useEquipmentStore()
-  const petsStore = usePetsStore()
-  const pillsStore = usePillsStore()
-  const settingsStore = useSettingsStore()
-  const statsStore = useStatsStore()
   
   const message = useMessage()
   const explorationLogs = ref([])
   const isExploring = ref(false)
-  const explorationWorker = ref(null) // 保留但不使用，与后端API集成
   const currentEvent = ref(null)
   const showEventModal = ref(false)
 
@@ -84,7 +72,7 @@
   const triggerEvent = (event) => {
     currentEvent.value = event
     showEventModal.value = true
-    statsStore.eventTriggered += 1
+    playerInfoStore.eventTriggered += 1
     
     // 根据事件类型添加日志
     switch (event.type) {
@@ -146,7 +134,7 @@
     }
     
     currentEvent.value = null
-    statsStore.explorationCount += 1
+    playerInfoStore.explorationCount += 1
   }
 
   // 结束探索
@@ -162,7 +150,9 @@
   // 从后端获取最新的玩家数据
   onMounted(async () => {
     try {
-      const response = await apiClient.get('/api/player/data')
+      const token = getAuthToken()
+      if (!token) return
+      const response = await APIService.getPlayerData(token)
       // 同步玩家数据到store
     } catch (error) {
       console.error('Failed to load player data:', error)

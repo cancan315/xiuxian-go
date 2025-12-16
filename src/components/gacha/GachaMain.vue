@@ -15,23 +15,23 @@
             </n-radio-group>
           </div>
           <div class="spirit-stones">
-            <n-statistic label="灵石" :value="inventoryStore.spiritStones" />
+            <n-statistic label="灵石" :value="playerInfoStore.spiritStones" />
           </div>
           
           <GachaCard 
             :gacha-type="gachaType"
-            :is-shaking="gachaStore.isShaking"
-            :is-opening="gachaStore.isOpening"
+            :is-shaking="playerInfoStore.isShaking"
+            :is-opening="playerInfoStore.isOpening"
           />
           
           <GachaButtons
-            :spirit-stones="inventoryStore.spiritStones"
-            :wishlist-enabled="inventoryStore.wishlistEnabled"
-            :is-drawing="gachaStore.isDrawing"
+            :spirit-stones="playerInfoStore.spiritStones"
+            :wishlist-enabled="playerInfoStore.wishlistEnabled"
+            :is-drawing="playerInfoStore.isDrawing"
             @gacha="performGacha"
-            @show-probability="gachaStore.showProbabilityInfo = true"
-            @show-wishlist="gachaStore.showWishlistSettings = true"
-            @show-auto-settings="gachaStore.showAutoSettings = true"
+            @show-probability="playerInfoStore.showProbabilityInfo = true"
+            @show-wishlist="playerInfoStore.showWishlistSettings = true"
+            @show-auto-settings="playerInfoStore.showAutoSettings = true"
           />
         </div>
       </n-card>
@@ -39,18 +39,18 @@
     
     <!-- 弹窗组件 -->
     <GachaResultModal
-      v-model:show="gachaStore.showResultModal"
-      v-model:current-page="gachaStore.currentPage"
+      v-model:show="playerInfoStore.showResultModal"
+      v-model:current-page="playerInfoStore.currentPage"
       :gacha-type="gachaType"
       :gacha-number="gachaNumber"
-      :spirit-stones="inventoryStore.spiritStones"
-      :wishlist-enabled="inventoryStore.wishlistEnabled"
-      :is-drawing="gachaStore.isDrawing"
-      :current-page-results="gachaStore.currentPageResults"
-      :total-pages="gachaStore.totalPages"
-      :page-size="gachaStore.pageSize"
-      :selected-wish-equip-quality="inventoryStore.selectedWishEquipQuality"
-      :selected-wish-pet-rarity="inventoryStore.selectedWishPetRarity"
+      :spirit-stones="playerInfoStore.spiritStones"
+      :wishlist-enabled="playerInfoStore.wishlistEnabled"
+      :is-drawing="playerInfoStore.isDrawing"
+      :current-page-results="playerInfoStore.currentPageResults"
+      :total-pages="playerInfoStore.totalPages"
+      :page-size="playerInfoStore.pageSize"
+      :selected-wish-equip-quality="playerInfoStore.selectedWishEquipQuality"
+      :selected-wish-pet-rarity="playerInfoStore.selectedWishPetRarity"
       :pet-rarities="petRarities"
       :equipment-quality-options="equipmentQualityOptions"
       :pet-rarity-options="petRarityOptions"
@@ -61,10 +61,10 @@
     />
     
     <ProbabilityInfoModal
-      v-model:show="gachaStore.showProbabilityInfo"
-      :wishlist-enabled="inventoryStore.wishlistEnabled"
-      :selected-wish-equip-quality="inventoryStore.selectedWishEquipQuality"
-      :selected-wish-pet-rarity="inventoryStore.selectedWishPetRarity"
+      v-model:show="playerInfoStore.showProbabilityInfo"
+      :wishlist-enabled="playerInfoStore.wishlistEnabled"
+      :selected-wish-equip-quality="playerInfoStore.selectedWishEquipQuality"
+      :selected-wish-pet-rarity="playerInfoStore.selectedWishPetRarity"
       :equipment-qualities="equipmentQualities"
       :pet-rarities="petRarities"
       :adjusted-equip-probabilities="adjustedEquipProbabilities"
@@ -72,10 +72,10 @@
     />
     
     <WishlistSettingsModal
-      v-model:show="gachaStore.showWishlistSettings"
-      v-model:wishlist-enabled="inventoryStore.wishlistEnabled"
-      v-model:selected-wish-equip-quality="inventoryStore.selectedWishEquipQuality"
-      v-model:selected-wish-pet-rarity="inventoryStore.selectedWishPetRarity"
+      v-model:show="playerInfoStore.showWishlistSettings"
+      v-model:wishlist-enabled="playerInfoStore.wishlistEnabled"
+      v-model:selected-wish-equip-quality="playerInfoStore.selectedWishEquipQuality"
+      v-model:selected-wish-pet-rarity="playerInfoStore.selectedWishPetRarity"
       :equipment-qualities="equipmentQualities"
       :pet-rarities="petRarities"
       :equipment-quality-options="equipmentQualityOptions"
@@ -83,22 +83,22 @@
     />
     
     <AutoSettingsModal
-      v-model:show="gachaStore.showAutoSettings"
-      v-model:auto-sell-qualities="inventoryStore.autoSellQualities"
-      v-model:auto-release-rarities="inventoryStore.autoReleaseRarities"
+      v-model:show="playerInfoStore.showAutoSettings"
+      v-model:auto-sell-qualities="playerInfoStore.autoSellQualities"
+      v-model:auto-release-rarities="playerInfoStore.autoReleaseRarities"
       :equipment-qualities="equipmentQualities"
       :pet-rarities="petRarities"
     />
     
     <PetDetailModal
-      v-model:show="gachaStore.showPetDetails"
-      :pet="gachaStore.selectedPet"
+      v-model:show="playerInfoStore.showPetDetails"
+      :pet="playerInfoStore.selectedPet"
       :pet-rarities="petRarities"
     />
     
     <EquipmentDetailModal
-      v-model:show="gachaStore.showEquipmentDetails"
-      :equipment="gachaStore.selectedEquipment"
+      v-model:show="playerInfoStore.showEquipmentDetails"
+      :equipment="playerInfoStore.selectedEquipment"
       :equipment-types="equipmentTypes"
     />
   </n-layout>
@@ -109,13 +109,6 @@
   import { useMessage } from 'naive-ui'
   // 修改为使用模块化store
   import { usePlayerInfoStore } from '../../stores/playerInfo'
-  import { useInventoryStore } from '../../stores/inventory'
-  import { useEquipmentStore } from '../../stores/equipment'
-  import { usePetsStore } from '../../stores/pets'
-  import { usePillsStore } from '../../stores/pills'
-  import { useSettingsStore } from '../../stores/settings'
-  import { useStatsStore } from '../../stores/stats'
-  import { useGachaStore } from '../../stores/gacha'
   import GachaCard from './GachaCard.vue'
   import GachaButtons from './GachaButtons.vue'
   import GachaResultModal from './GachaResultModal.vue'
@@ -132,13 +125,6 @@
   import APIService from '../../services/api'
 
   const playerInfoStore = usePlayerInfoStore()
-  const inventoryStore = useInventoryStore()
-  const equipmentStore = useEquipmentStore()
-  const petsStore = usePetsStore()
-  const pillsStore = usePillsStore()
-  const settingsStore = useSettingsStore()
-  const statsStore = useStatsStore()
-  const gachaStore = useGachaStore()
   
   const message = useMessage()
   
@@ -204,25 +190,25 @@
   
   // 获取调整后的装备概率
   const adjustedEquipProbabilities = computed(() => {
-    return getAdjustedEquipProbabilities(inventoryStore.wishlistEnabled, inventoryStore.selectedWishEquipQuality)
+    return getAdjustedEquipProbabilities(playerInfoStore.wishlistEnabled, playerInfoStore.selectedWishEquipQuality)
   })
   
   // 获取调整后的灵宠概率
   const adjustedPetProbabilities = computed(() => {
-    return getAdjustedPetProbabilities(inventoryStore.wishlistEnabled, inventoryStore.selectedWishPetRarity)
+    return getAdjustedPetProbabilities(playerInfoStore.wishlistEnabled, playerInfoStore.selectedWishPetRarity)
   })
   
 
   // 处理抽卡
   const performGacha = async (count = 1) => {
     console.log(`[GachaMain] 用户开始抽卡，次数: ${count}`);
-    console.log(`[GachaMain] 抽卡前灵石数量: ${inventoryStore.spiritStones}`);
-    if (gachaStore.isDrawing) {
+    console.log(`[GachaMain] 抽卡前灵石数量: ${playerInfoStore.spiritStones}`);
+    if (playerInfoStore.isDrawing) {
       console.warn('[GachaMain] 抽卡正在进行中，忽略重复请求');
       return;
     }
 
-    gachaStore.setDrawingState(true)
+    playerInfoStore.setDrawingState(true)
     gachaNumber.value = count
 
     try {
@@ -235,7 +221,7 @@
       }
       
       console.log(`[GachaMain] 调用后端API执行抽卡，类型: ${gachaType.value}`);
-      const response = await performGachaAPI(token, gachaType.value, count, inventoryStore.wishlistEnabled)
+      const response = await performGachaAPI(token, gachaType.value, count, playerInfoStore.wishlistEnabled)
       
       if (!response.success) {
         console.error(`[GachaMain] 抽卡API返回失败，消息: ${response.message}`);
@@ -246,10 +232,10 @@
       console.log(`[GachaMain] 抽卡后检查response:`, response);
       if (response.spiritStones !== undefined) {
         console.log(`[GachaMain] 抽卡后灵石数量 (spiritStones): ${response.spiritStones}`);
-        inventoryStore.spiritStones = response.spiritStones;
+        playerInfoStore.spiritStones = response.spiritStones;
       } else if (response.spirit_stones !== undefined) {
         console.log(`[GachaMain] 抽卡后灵石数量 (spirit_stones): ${response.spirit_stones}`);
-        inventoryStore.spiritStones = response.spirit_stones;
+        playerInfoStore.spiritStones = response.spirit_stones;
       } else {
         console.log(`[GachaMain] response.spiritStones 和 response.spirit_stones 都不存在`);
       }
@@ -257,10 +243,10 @@
 
       // 显示抽卡动画
       console.log('[GachaMain] 显示抽卡动画');
-      gachaStore.setShakingState(true)
+      playerInfoStore.setShakingState(true)
       await new Promise(resolve => setTimeout(resolve, 1000))
-      gachaStore.setShakingState(false)
-      gachaStore.setOpeningState(true)
+      playerInfoStore.setShakingState(false)
+      playerInfoStore.setOpeningState(true)
       await new Promise(resolve => setTimeout(resolve, 500))
 
       // 设置抽卡结果
@@ -295,18 +281,18 @@
         return item;
       });
       
-      gachaStore.setGachaResults(processedItems)
-      gachaStore.toggleResultModal(true)
-      gachaStore.resetPagination()
+      playerInfoStore.setGachaResults(processedItems)
+      playerInfoStore.toggleResultModal(true)
+      playerInfoStore.resetPagination()
       
-      // 打印 gachaStore 中的数据日志
-      console.log('[GachaMain] gachaStore 数据:', {
-        gachaResults: gachaStore.gachaResults,
-        showResultModal: gachaStore.showResultModal,
-        currentPage: gachaStore.currentPage,
-        pageSize: gachaStore.pageSize,
-        totalPages: gachaStore.totalPages,
-        currentPageResults: gachaStore.currentPageResults
+      // 打印 playerInfoStore 中的数据日志
+      console.log('[GachaMain] playerInfoStore 数据:', {
+        gachaResults: playerInfoStore.gachaResults,
+        showResultModal: playerInfoStore.showResultModal,
+        currentPage: playerInfoStore.currentPage,
+        pageSize: playerInfoStore.pageSize,
+        totalPages: playerInfoStore.totalPages,
+        currentPageResults: playerInfoStore.currentPageResults
       })
       
       // 重新获取玩家完整数据以同步数据库中的最新数据
@@ -315,19 +301,19 @@
         const playerDataResponse = await APIService.getPlayerData(token);
         if (playerDataResponse.items) {
           console.log(`[GachaMain] 成功获取玩家物品列表，物品数量: ${playerDataResponse.items.length}`);
-          inventoryStore.items = playerDataResponse.items;
+          playerInfoStore.items = playerDataResponse.items;
         }
         
         // 更新灵宠列表
         if (playerDataResponse.pets) {
           console.log(`[GachaMain] 成功获取玩家灵宠列表，灵宠数量: ${playerDataResponse.pets.length}`);
-          petsStore.pets = playerDataResponse.pets;
+          playerInfoStore.pets = playerDataResponse.pets;
         }
       } catch (inventoryError) {
         console.error('[GachaMain] 获取玩家完整数据失败:', inventoryError);
         // 如果获取最新数据失败，仍然使用抽卡返回的结果
         if (response.items) {
-          inventoryStore.items = [...inventoryStore.items, ...response.items];
+          playerInfoStore.items = [...playerInfoStore.items, ...response.items];
         }
       }
 
@@ -342,8 +328,8 @@
       console.error('[GachaMain] 抽卡过程中发生错误:', error)
       message.error('抽卡失败: ' + error.message)
     } finally {
-      gachaStore.setOpeningState(false)
-      gachaStore.setDrawingState(false)
+      playerInfoStore.setOpeningState(false)
+      playerInfoStore.setDrawingState(false)
       console.log('[GachaMain] 抽卡流程结束');
     }
     
@@ -352,29 +338,29 @@
   // 显示宠物详情
   const showPetDetail = (pet) => {
     console.log(`[GachaMain] 显示宠物详情: ${pet.name} (${pet.id})`);
-    gachaStore.selectedPet = pet
-    gachaStore.showPetDetails = true
+    playerInfoStore.selectedPet = pet
+    playerInfoStore.showPetDetails = true
   }
   
   // 显示装备详情
   const showEquipmentDetail = (equipment) => {
     console.log(`[GachaMain] 显示装备详情: ${equipment.name} (${equipment.id})`);
-    gachaStore.selectedEquipment = equipment
-    gachaStore.showEquipmentDetails = true
+    playerInfoStore.selectedEquipment = equipment
+    playerInfoStore.showEquipmentDetails = true
   }
   
   // 处理自动出售变更
   const handleAutoSellChange = (values) => {
     // 如果选择了"全部"，则清除其他选项
     if (values.includes('all')) {
-      inventoryStore.autoSellQualities = ['all']
+      playerInfoStore.autoSellQualities = ['all']
     }
     // 如果之前选择了"全部"而现在选择了其他选项，则移除"全部"
     else if (
-      inventoryStore.autoSellQualities.includes('all') &&
+      playerInfoStore.autoSellQualities.includes('all') &&
       values.length > 0
     ) {
-      inventoryStore.autoSellQualities = values.filter(v => v !== 'all')
+      playerInfoStore.autoSellQualities = values.filter(v => v !== 'all')
     }
   }
 
@@ -382,23 +368,23 @@
   const handleAutoReleaseChange = (values) => {
     // 如果选择了"全部"，则清除其他选项
     if (values.includes('all')) {
-      inventoryStore.autoReleaseRarities = ['all']
+      playerInfoStore.autoReleaseRarities = ['all']
     }
     // 如果之前选择了"全部"而现在选择了其他选项，则移除"全部"
     else if (
-      inventoryStore.autoReleaseRarities.includes('all') &&
+      playerInfoStore.autoReleaseRarities.includes('all') &&
       values.length > 0
     ) {
-      inventoryStore.autoReleaseRarities = values.filter(v => v !== 'all')
+      playerInfoStore.autoReleaseRarities = values.filter(v => v !== 'all')
     }
   }
   
   // 监听自动设置的变化
-  watch(() => inventoryStore.autoSellQualities, (newVal) => {
+  watch(() => playerInfoStore.autoSellQualities, (newVal) => {
     // 可以在这里添加额外的逻辑
   }, { deep: true })
   
-  watch(() => inventoryStore.autoReleaseRarities, (newVal) => {
+  watch(() => playerInfoStore.autoReleaseRarities, (newVal) => {
     // 可以在这里添加额外的逻辑
   }, { deep: true })
 </script>

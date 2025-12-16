@@ -11,8 +11,8 @@
               </n-button>
             </n-space>
           </template>
-          <p v-if="equipmentStore.equippedArtifacts[type]">
-            {{ equipmentStore.equippedArtifacts[type].name }}
+          <p v-if="props.playerInfoStore.equippedArtifacts[type]">
+            {{ props.playerInfoStore.equippedArtifacts[type].name }}
           </p>
           <p v-else>未装备</p>
           <template #footer>
@@ -22,7 +22,7 @@
                 size="small"
                 type="info"
                 @click.stop="() => showEquippedEquipmentDetails(type)"
-                v-if="equipmentStore.equippedArtifacts[type]"
+                v-if="props.playerInfoStore.equippedArtifacts[type]"
               >
                 详细
               </n-button>
@@ -30,7 +30,7 @@
                 size="small"
                 type="error"
                 @click.stop="() => unequipItem(type)"
-                v-if="equipmentStore.equippedArtifacts[type]"
+                v-if="props.playerInfoStore.equippedArtifacts[type]"
               >
                 卸下
               </n-button>
@@ -99,7 +99,7 @@
           </span>
         </n-descriptions-item>
         <n-descriptions-item label="类型">
-          {{ equipmentTypes[selectedEquipment?.type] }}
+          {{ equipmentTypes[selectedEquipment?.equipType || selectedEquipment?.EquipType] || '未知类型' }}
         </n-descriptions-item>
         <n-descriptions-item label="强化等级">+{{ selectedEquipment?.enhanceLevel || 0 }}</n-descriptions-item>
         <template v-if="selectedEquipment?.stats">
@@ -110,7 +110,7 @@
       </n-descriptions>
       <div
         class="stats-comparison"
-        v-if="equipmentComparison && selectedEquipment && selectedEquipment.id != equipmentStore.equippedArtifacts[selectedEquipment.type]?.id"
+        v-if="equipmentComparison && selectedEquipment && selectedEquipment.id != props.playerInfoStore.equippedArtifacts[selectedEquipment.equipType || selectedEquipment.EquipType]?.id"
       >
         <n-divider>属性对比</n-divider>
         <n-table :bordered="false" :single-line="false">
@@ -154,12 +154,12 @@
             <n-button
               @click="equipItem(selectedEquipment)"
               :disabled="playerInfoStore.level < selectedEquipment?.requiredRealm"
-              v-if="selectedEquipment && selectedEquipment.id != equipmentStore.equippedArtifacts[selectedEquipment.type]?.id"
+              v-if="selectedEquipment && selectedEquipment.id != props.playerInfoStore.equippedArtifacts[selectedEquipment.equipType || selectedEquipment.EquipType]?.id"
             >
               装备
             </n-button>
             <n-button
-              @click="unequipItem(selectedEquipment?.type)"
+              @click="unequipItem(selectedEquipment?.equipType || selectedEquipment?.EquipType)"
               :disabled="playerInfoStore.level < selectedEquipment?.requiredRealm"
               v-else-if="selectedEquipment"
             >
@@ -168,7 +168,7 @@
             <n-button
               type="error"
               @click="sellEquipment(selectedEquipment)"
-              v-if="selectedEquipment && selectedEquipment.id != equipmentStore.equippedArtifacts[selectedEquipment.type]?.id"
+              v-if="selectedEquipment && selectedEquipment.id != props.playerInfoStore.equippedArtifacts[selectedEquipment.equipType || selectedEquipment.EquipType]?.id"
             >
               出售
             </n-button>
@@ -181,7 +181,7 @@
     <n-modal v-model:show="showEnhanceConfirm" preset="dialog" title="装备强化">
       <n-space vertical>
         <p>是否消耗 {{ ((selectedEquipment?.enhanceLevel || 0) + 1) * 10 }} 强化石强化装备？</p>
-        <p>当前强化石数量：{{ inventoryStore.reinforceStones }}</p>
+        <p>当前强化石数量：{{ playerInfoStore.reinforceStones }}</p>
       </n-space>
       <template #action>
         <n-space justify="end">
@@ -189,7 +189,7 @@
           <n-button
             type="primary"
             @click="handleEnhanceEquipment"
-            :disabled="inventoryStore.reinforceStones < ((selectedEquipment?.enhanceLevel || 0) + 1) * 10"
+            :disabled="playerInfoStore.reinforceStones < ((selectedEquipment?.enhanceLevel || 0) + 1) * 10"
           >
             确认强化
           </n-button>
@@ -224,7 +224,7 @@
 </template>
 
 <script setup>
-  import { ref, computed, onMounted } from 'vue'
+  import { ref, computed, onMounted, onUnmounted } from 'vue'
   import { useMessage } from 'naive-ui'
   import { getStatName, formatStatValue } from '../plugins/stats'
   import { getRealmPeriodName } from '../plugins/realm'
@@ -235,14 +235,6 @@
   // Props
   const props = defineProps({
     playerInfoStore: {
-      type: Object,
-      required: true
-    },
-    inventoryStore: {
-      type: Object,
-      required: true
-    },
-    equipmentStore: {
       type: Object,
       required: true
     }
@@ -349,7 +341,7 @@
   // 装备属性对比计算
   const equipmentComparison = computed(() => {
     if (!selectedEquipment.value || !selectedEquipmentType.value) return null
-    const currentEquipment = props.equipmentStore.equippedArtifacts[selectedEquipmentType.value]
+    const currentEquipment = props.playerInfoStore.equippedArtifacts[selectedEquipmentType.value]
     if (!currentEquipment) return null
     const comparison = {}
     const allStats = new Set([
@@ -420,7 +412,7 @@
 
   // 查看已装备的装备详情
   const showEquippedEquipmentDetails = async (type) => {
-    const equippedItem = props.equipmentStore.equippedArtifacts[type];
+    const equippedItem = props.playerInfoStore.equippedArtifacts[type];
     if (equippedItem) {
       selectedEquipment.value = equippedItem;
       showEquipmentDetailModal.value = true;
@@ -433,6 +425,13 @@
   const onCloseEquipmentModal = () => {
     localEquipmentList.value = []
   }
+
+  // 组件卸载时清理
+  onUnmounted(() => {
+    selectedEquipment.value = null
+    showEquipmentDetailModal.value = false
+    showEquipmentModal.value = false
+  })
 
   // 显示装备详情
   const showEquipmentDetails = async (equipment) => {
@@ -469,7 +468,7 @@
   // 卸下装备
   const unequipItem = async slot => {
     const token = getAuthToken()
-    const result = await props.equipmentStore.unequipArtifact(
+    const result = await props.playerInfoStore.unequipArtifact(
       slot,
       props.inventoryStore,
       
@@ -537,11 +536,9 @@
       specialAttributes: props.playerInfoStore.specialAttributes
     });
     
-    const result = await props.equipmentStore.equipArtifact(
+    const result = await props.playerInfoStore.equipArtifact(
       equipment,
       equipment.equipType || equipment.EquipType,
-      props.inventoryStore,
-      
       props.playerInfoStore,
       token
     )
@@ -589,7 +586,7 @@
   // 批量卖出装备
   const batchSellEquipments = async () => {
     const token = getAuthToken()
-    const result = await props.equipmentStore.batchSellEquipments(
+    const result = await props.playerInfoStore.batchSellEquipments(
       selectedQuality.value === 'all' ? null : selectedQuality.value,
       selectedEquipmentType.value,
       props.inventoryStore,
@@ -610,7 +607,7 @@
   // 卖出单件装备
   const sellEquipment = async equipment => {
     const token = getAuthToken()
-    const result = await props.equipmentStore.sellEquipment(equipment, props.inventoryStore, token)
+    const result = await props.playerInfoStore.sellEquipment(equipment, token)
     if (result.success) {
       message.success(result.message)
       showEquipmentDetailModal.value = false
@@ -631,12 +628,13 @@
     try {
       // 直接从后端获取最新的玩家数据，包括强化石数量
       const userData = await APIService.getUser(token)
-      props.inventoryStore.reinforceStones = userData.reinforceStones || 0
+      props.playerInfoStore.reinforceStones = userData.reinforceStones || 0
       
-      const result = await APIService.enhanceEquipment(token, selectedEquipment.value.id, props.inventoryStore.reinforceStones)
+      const result = await APIService.enhanceEquipment(token, selectedEquipment.value.id, props.playerInfoStore.reinforceStones)
       
       if (result.success) {
-        props.inventoryStore.reinforceStones -= result.cost
+        // 同时更新两个Store中的强化石数量
+        props.playerInfoStore.reinforceStones -= result.cost
         selectedEquipment.value.stats = { ...result.newStats }
         selectedEquipment.value.enhanceLevel = result.newLevel
         // 更新装备的境界要求
@@ -659,10 +657,14 @@
     
     const token = getAuthToken()
     try {
+      // 直接从后端获取最新的洗练石数量
+      const userData = await APIService.getUser(token)
+      props.playerInfoStore.refinementStones = userData.refinementStones || 0
+      
       const result = await APIService.reforgeEquipment(token, selectedEquipment.value.id, props.playerInfoStore.refinementStones)
       
       if (result.success) {
-        props.playerInfoStore.refinementStones -= result.cost
+        // 不立即扣除洗练石，等用户确认后再扣除
         reforgeResult.value = result
         showReforgeConfirm.value = true
       } else {
@@ -689,11 +691,12 @@
       
       if (result.success) {
         if (confirm) {
-          // 用户确认后，应用新属性
+          // 用户确认后，扣除洗练石並应用新属性
+          props.playerInfoStore.refinementStones -= result.cost
           selectedEquipment.value.stats = reforgeResult.value.newStats
           message.success('已确认新属性')
         } else {
-          // 用户取消，保留原属性
+          // 用户取消，保留原属性（不扣除洗练石）
           message.info('已保留原有属性')
         }
       } else {

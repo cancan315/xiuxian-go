@@ -1,5 +1,5 @@
 <template>
-  <n-config-provider :theme="settingsStore.isDarkMode ? darkTheme : null">
+  <n-config-provider :theme="playerInfoStore.isDarkMode ? darkTheme : null">
     <n-message-provider>
       <n-dialog-provider>
         <n-spin :show="isLoading" description="正在加载游戏数据...">
@@ -14,7 +14,7 @@
                       <n-button quaternary circle @click="toggleDarkMode">
                         <template #icon>
                           <n-icon>
-                            <Sunny v-if="settingsStore.isDarkMode" />
+                            <Sunny v-if="playerInfoStore.isDarkMode" />
                             <Moon v-else />
                           </n-icon>
                         </template>
@@ -29,6 +29,7 @@
                       :options="menuOptions"
                       :value="currentView"
                       @update:value="handleMenuClick"
+                      :default-value="currentView"
                     />
                   </n-scrollbar>
                 </div>
@@ -52,10 +53,10 @@
                         {{ playerInfoStore.spirit.toFixed(2) }}
                       </n-descriptions-item>
                       <n-descriptions-item label="灵石">
-                        {{ inventoryStore.spiritStones }}
+                        {{ playerInfoStore.spiritStones }}
                       </n-descriptions-item>
                       <n-descriptions-item label="强化石">
-                        {{ inventoryStore.reinforceStones }}
+                        {{ playerInfoStore.reinforceStones }}
                       </n-descriptions-item>
                     </n-descriptions>
                     <n-collapse>
@@ -178,12 +179,6 @@
   import { useRouter, useRoute } from 'vue-router'
   // 修改为使用模块化store
   import { usePlayerInfoStore } from './stores/playerInfo'
-  import { useInventoryStore } from './stores/inventory'
-  import { useEquipmentStore } from './stores/equipment'
-  import { usePetsStore } from './stores/pets'
-  import { usePillsStore } from './stores/pills'
-  import { useSettingsStore } from './stores/settings'
-  import { useStatsStore } from './stores/stats'
   import { h, onMounted, onUnmounted, ref, computed, watch } from 'vue'
   import { NIcon, darkTheme } from 'naive-ui'
   import { 
@@ -216,12 +211,6 @@
   const route = useRoute()
   // 使用模块化store替代原来的usePlayerStore
   const playerInfoStore = usePlayerInfoStore()
-  const inventoryStore = useInventoryStore()
-  const equipmentStore = useEquipmentStore()
-  const petsStore = usePetsStore()
-  const pillsStore = usePillsStore()
-  const settingsStore = useSettingsStore()
-  const statsStore = useStatsStore()
   
   const menuOptions = ref([])
   const isLoading = ref(true) // 添加加载状态
@@ -321,22 +310,22 @@
         
         // Load inventory items
         if (data.items) {
-          inventoryStore.items = data.items
+          playerInfoStore.items = data.items
         }
         
         // Load pets
         if (data.pets) {
-          petsStore.pets = data.pets
+          playerInfoStore.pets = data.pets
         }
         
         // Load herbs
         if (data.herbs) {
-          inventoryStore.herbs = data.herbs
+          playerInfoStore.herbs = data.herbs
         }
         
         // Load pills
         if (data.pills) {
-          inventoryStore.pills = data.pills
+          playerInfoStore.pills = data.pills
         }
         
         // Load inventory data (including spirit stones)
@@ -347,10 +336,10 @@
             洗炼石: data.user.refinementStones,
             灵兽精华: data.user.petEssence
           });
-          inventoryStore.spiritStones = data.user.spiritStones 
-          inventoryStore.reinforceStones = data.user.reinforceStones 
-          inventoryStore.refinementStones = data.user.refinementStones 
-          inventoryStore.petEssence = data.user.petEssence 
+          playerInfoStore.spiritStones = data.user.spiritStones 
+          playerInfoStore.reinforceStones = data.user.reinforceStones 
+          playerInfoStore.refinementStones = data.user.refinementStones 
+          playerInfoStore.petEssence = data.user.petEssence 
         }
         
         isLoading.value = false
@@ -368,7 +357,6 @@
   
   // 灵力获取相关配置
   const baseGainRate = 1 // 基础灵力获取率
-  const spiritWorker = ref(null)
   const ws = useWebSocket()
   const spirit = useSpiritGrowth()
   let handleBeforeUnload = null  // ⋆⋆ 先定义引用以便卸载时离检
@@ -451,8 +439,15 @@
 
   // 菜单点击事件
   const handleMenuClick = (key) => {
+    console.log('[App.vue] 菜单点击：', key)
     currentView.value = key
+    console.log('[App.vue] currentView 已更新为：', currentView.value)
   }
+
+  // 监听菜单切换
+  watch(() => currentView.value, (newView) => {
+    console.log('[App.vue] currentView 已改变为：', newView, '对应的组件：', currentViewComponent.value?.name || 'Unknown')
+  })
 
   // 重新订阅灵力增长事件
   let spiritUnsubscribe = null
@@ -534,12 +529,6 @@
     clearAuthToken()
     // 重置玩家状态
     playerInfoStore.$reset()
-    inventoryStore.$reset()
-    equipmentStore.$reset()
-    petsStore.$reset()
-    pillsStore.$reset()
-    settingsStore.$reset()
-    statsStore.$reset()
     // 跳转到登录页面
     router.push('/login')
   }
@@ -548,7 +537,7 @@
 
   // 切换暗黑模式
   const toggleDarkMode = () => {
-    settingsStore.toggle(useSettingsStore)
+    playerInfoStore.toggleDarkMode()
   }
 </script>
 

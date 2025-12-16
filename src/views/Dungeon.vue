@@ -4,7 +4,7 @@
       <template #header-extra>
         <n-space>
           <n-select
-            v-model:value="statsStore.dungeonDifficulty"
+            v-model:value="playerInfoStore.dungeonDifficulty"
             placeholder="请选择难度"
             :options="dungeonOptions"
             style="width: 120px"
@@ -290,23 +290,11 @@
 <script setup>
   // 修改为使用模块化store
   import { usePlayerInfoStore } from '../stores/playerInfo'
-  import { useInventoryStore } from '../stores/inventory'
-  import { useEquipmentStore } from '../stores/equipment'
-  import { usePetsStore } from '../stores/pets'
-  import { usePillsStore } from '../stores/pills'
-  import { useSettingsStore } from '../stores/settings'
-  import { useStatsStore } from '../stores/stats'
   import { ref, computed, onMounted, onUnmounted } from 'vue'
   import { useMessage } from 'naive-ui'
   import LogPanel from '../components/LogPanel.vue'
 
   const playerInfoStore = usePlayerInfoStore()
-  const inventoryStore = useInventoryStore()
-  const equipmentStore = useEquipmentStore()
-  const petsStore = usePetsStore()
-  const pillsStore = usePillsStore()
-  const settingsStore = useSettingsStore()
-  const statsStore = useStatsStore()
   
   const message = useMessage()
   const showBattleLog = ref(false)
@@ -314,7 +302,6 @@
   const currentEnemy = ref(null)
   const isInBattle = ref(false)
   const battleResult = ref(null)
-  const dungeonWorker = ref(null)
   const infoShow = ref(false)
   const infoType = ref('')
   const playerAttacking = ref(false)
@@ -433,10 +420,10 @@
     if (!currentEnemy.value) return null
     
     // 基础属性基于难度和楼层
-    const baseAttack = Math.floor(5 * playerStats.value.attack * (0.5 + 0.1 * statsStore.dungeonDifficulty) * (1 + currentEnemy.value.floor * 0.05))
-    const baseDefense = Math.floor(2 * playerStats.value.defense * (0.5 + 0.1 * statsStore.dungeonDifficulty) * (1 + currentEnemy.value.floor * 0.05))
-    const baseHealth = Math.floor(20 * playerStats.value.health * (0.5 + 0.1 * statsStore.dungeonDifficulty) * (1 + currentEnemy.value.floor * 0.05))
-    const baseSpeed = Math.floor(3 * playerStats.value.speed * (0.5 + 0.1 * statsStore.dungeonDifficulty) * (1 + currentEnemy.value.floor * 0.05))
+    const baseAttack = Math.floor(5 * playerStats.value.attack * (0.5 + 0.1 * playerInfoStore.dungeonDifficulty) * (1 + currentEnemy.value.floor * 0.05))
+    const baseDefense = Math.floor(2 * playerStats.value.defense * (0.5 + 0.1 * playerInfoStore.dungeonDifficulty) * (1 + currentEnemy.value.floor * 0.05))
+    const baseHealth = Math.floor(20 * playerStats.value.health * (0.5 + 0.1 * playerInfoStore.dungeonDifficulty) * (1 + currentEnemy.value.floor * 0.05))
+    const baseSpeed = Math.floor(3 * playerStats.value.speed * (0.5 + 0.1 * playerInfoStore.dungeonDifficulty) * (1 + currentEnemy.value.floor * 0.05))
     
     return {
       attack: baseAttack,
@@ -444,18 +431,18 @@
       health: baseHealth,
       maxHealth: baseHealth,
       speed: baseSpeed,
-      critRate: 0.05 * statsStore.dungeonDifficulty,
-      comboRate: 0.05 * statsStore.dungeonDifficulty,
-      counterRate: 0.05 * statsStore.dungeonDifficulty,
-      stunRate: 0.05 * statsStore.dungeonDifficulty,
-      dodgeRate: 0.05 * statsStore.dungeonDifficulty,
-      vampireRate: 0.05 * statsStore.dungeonDifficulty,
-      critResist: 0.05 * statsStore.dungeonDifficulty,
-      comboResist: 0.05 * statsStore.dungeonDifficulty,
-      counterResist: 0.05 * statsStore.dungeonDifficulty,
-      stunResist: 0.05 * statsStore.dungeonDifficulty,
-      dodgeResist: 0.05 * statsStore.dungeonDifficulty,
-      vampireResist: 0.05 * statsStore.dungeonDifficulty,
+      critRate: 0.05 * playerInfoStore.dungeonDifficulty,
+      comboRate: 0.05 * playerInfoStore.dungeonDifficulty,
+      counterRate: 0.05 * playerInfoStore.dungeonDifficulty,
+      stunRate: 0.05 * playerInfoStore.dungeonDifficulty,
+      dodgeRate: 0.05 * playerInfoStore.dungeonDifficulty,
+      vampireRate: 0.05 * playerInfoStore.dungeonDifficulty,
+      critResist: 0.05 * playerInfoStore.dungeonDifficulty,
+      comboResist: 0.05 * playerInfoStore.dungeonDifficulty,
+      counterResist: 0.05 * playerInfoStore.dungeonDifficulty,
+      stunResist: 0.05 * playerInfoStore.dungeonDifficulty,
+      dodgeResist: 0.05 * playerInfoStore.dungeonDifficulty,
+      vampireResist: 0.05 * playerInfoStore.dungeonDifficulty,
       healBoost: 0,
       critDamageBoost: 0,
       critDamageReduce: 0,
@@ -486,39 +473,11 @@
     battleResult.value = null
     addBattleLog(`遭遇${enemy.name}！`)
     
-    // 初始化战斗
-    if (dungeonWorker.value) {
-      dungeonWorker.value.terminate()
-    }
-    
-    dungeonWorker.value = new Worker(new URL('../workers/exploration.js', import.meta.url))
-    dungeonWorker.value.onmessage = e => {
-      const { type, data } = e.data
-      if (type === 'battle_update') {
-        // 更新战斗状态
-        Object.assign(currentEnemy.value, data.enemy)
-        addBattleLog(data.log)
-      } else if (type === 'battle_end') {
-        // 战斗结束
-        finishBattle(data.result)
-      }
-    }
-    
-    dungeonWorker.value.postMessage({
-      type: 'start_battle',
-      player: playerStats.value,
-      enemy: enemyStats.value,
-      enemyInfo: enemy
-    })
+    // 后端已实现战斗逻辑，调用 API 不需要 Worker
   }
 
   // 结束战斗
   const finishBattle = (result) => {
-    if (dungeonWorker.value) {
-      dungeonWorker.value.terminate()
-      dungeonWorker.value = null
-    }
-    
     isInBattle.value = false
     battleResult.value = result
     
@@ -526,13 +485,13 @@
       // 战斗胜利
       addBattleLog('战斗胜利！')
       
-      // 增加统计数据
+      // 剂改：许统计数据使用 playerInfoStore
       if (currentEnemy.value.isBoss) {
-        statsStore.dungeonBossKills += 1
+        playerInfoStore.dungeonBossKills += 1
       } else if (currentEnemy.value.isElite) {
-        statsStore.dungeonEliteKills += 1
+        playerInfoStore.dungeonEliteKills += 1
       } else {
-        statsStore.dungeonTotalKills += 1
+        playerInfoStore.dungeonTotalKills += 1
       }
       
       // 获得奖励
@@ -540,10 +499,10 @@
     } else {
       // 战斗失败
       addBattleLog('战斗失败！')
-      statsStore.dungeonDeathCount += 1
+      playerInfoStore.dungeonDeathCount += 1
     }
     
-    statsStore.dungeonTotalRuns += 1
+    playerInfoStore.dungeonTotalRuns += 1
   }
 
   // 获得战斗奖励
@@ -551,16 +510,16 @@
     rewards.forEach(reward => {
       switch (reward.type) {
         case 'spirit_stone':
-          inventoryStore.spiritStones += reward.amount
+          playerInfoStore.spiritStones += reward.amount
           addBattleLog(`获得${reward.amount}灵石`)
           break
         case 'herb':
           // 添加灵草到背包
-          const existingHerb = inventoryStore.herbs.find(h => h.id === reward.herb.id)
+          const existingHerb = playerInfoStore.herbs.find(h => h.id === reward.herb.id)
           if (existingHerb) {
             existingHerb.count += reward.amount
           } else {
-            inventoryStore.herbs.push({
+            playerInfoStore.herbs.push({
               ...reward.herb,
               count: reward.amount
             })
@@ -568,25 +527,20 @@
           addBattleLog(`获得${reward.amount}个${reward.herb.name}`)
           break
         case 'equipment':
-          inventoryStore.items.push(reward.equipment)
+          playerInfoStore.items.push(reward.equipment)
           addBattleLog(`获得装备${reward.equipment.name}`)
           break
         case 'pet':
-          petsStore.pets.push(reward.pet)
+          playerInfoStore.pets.push(reward.pet)
           addBattleLog(`获得灵宠${reward.pet.name}`)
           break
       }
     })
-    statsStore.dungeonTotalRewards += 1
+    playerInfoStore.dungeonTotalRewards += 1
   }
 
   // 逃跑
   const flee = () => {
-    if (dungeonWorker.value) {
-      dungeonWorker.value.terminate()
-      dungeonWorker.value = null
-    }
-    
     isInBattle.value = false
     currentEnemy.value = null
     addBattleLog('你逃跑了！')
@@ -601,7 +555,7 @@
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          difficulty: statsStore.dungeonDifficulty
+          difficulty: playerInfoStore.dungeonDifficulty
         })
       })
       const data = await response.json()
@@ -689,7 +643,7 @@
         },
         body: JSON.stringify({
           floor: dungeonState.value.floor,
-          difficulty: statsStore.dungeonDifficulty
+          difficulty: playerInfoStore.dungeonDifficulty
         })
       })
       const data = await response.json()
@@ -825,9 +779,7 @@
   }
 
   onUnmounted(() => {
-    if (dungeonWorker.value) {
-      dungeonWorker.value.terminate()
-    }
+    // Worker 已移除
   })
 </script>
 

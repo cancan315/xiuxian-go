@@ -20,7 +20,7 @@
   import { computed } from 'vue'
 
   const props = defineProps({
-    inventoryStore: {
+    playerInfoStore: {
       type: Object,
       required: true
     }
@@ -29,13 +29,12 @@
   // 灵草分组
   const groupedHerbs = computed(() => {
     const herbs = {}
-    props.inventoryStore.items
-      .filter(item => item.type === 'herb')
+    props.playerInfoStore.herbs
       .forEach(herb => {
         if (herbs[herb.id]) {
-          herbs[herb.id].count++
+          herbs[herb.id].count += herb.count || 1
         } else {
-          herbs[herb.id] = { ...herb, count: 1 }
+          herbs[herb.id] = { ...herb, count: herb.count || 1 }
         }
       })
     return Object.values(herbs)

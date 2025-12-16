@@ -72,9 +72,9 @@
 <script setup>
   import { ref, computed, defineProps, defineEmits } from 'vue'
   import ResultGrid from './ResultGrid.vue'
-  import { useGachaStore } from '../../stores/gacha'
+  import { usePlayerInfoStore } from '../../stores/playerInfo'
 
-  const gachaStore = useGachaStore()
+  const playerInfoStore = usePlayerInfoStore()
 
   const props = defineProps({
     show: {
@@ -163,9 +163,9 @@
       if (!value) {
         localSelectedQuality.value = 'all'
         localSelectedRarity.value = 'all'
-        // 重置store中的筛选状态
-        gachaStore.setSelectedQuality('all')
-        gachaStore.setSelectedRarity('all')
+        // 重置 store 中的筛选状态
+        playerInfoStore.setSelectedQuality('all')
+        playerInfoStore.setSelectedRarity('all')
       }
     }
   })
@@ -179,14 +179,14 @@
     localSelectedQuality.value = value
     currentPage.value = 1
     // 同步到 store
-    gachaStore.setSelectedQuality(value)
+    playerInfoStore.setSelectedQuality(value)
   }
 
   const handleRarityChange = (value) => {
     localSelectedRarity.value = value
     currentPage.value = 1
     // 同步到 store
-    gachaStore.setSelectedRarity(value)
+    playerInfoStore.setSelectedRarity(value)
   }
 
   const handlePerformGacha = (count) => {

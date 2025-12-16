@@ -22,18 +22,6 @@
   import { useMessage } from 'naive-ui'
 
   const props = defineProps({
-    inventoryStore: {
-      type: Object,
-      required: true
-    },
-    pillsStore: {
-      type: Object,
-      required: true
-    },
-    petsStore: {
-      type: Object,
-      required: true
-    },
     playerInfoStore: {
       type: Object,
       required: true
@@ -45,7 +33,7 @@
   // 丹药分组
   const groupedPills = computed(() => {
     const pills = {}
-    props.inventoryStore.items
+    props.playerInfoStore.items
       .filter(item => item.type === 'pill')
       .forEach(pill => {
         if (pills[pill.id]) {
@@ -59,12 +47,8 @@
 
   // 使用丹药
   const usePill = pill => {
-    const result = props.inventoryStore.useItem(pill, props.pillsStore, props.petsStore, props.playerInfoStore)
-    if (result.success) {
-      message.success(result.message)
-    } else {
-      message.error(result.message)
-    }
+    // 丹药使用功能已移到后端，前端仅负责打开库存中的丹药 UI
+    message.info('丹药使用功能正在开发中')
   }
 </script>
 

@@ -11,32 +11,24 @@
           <n-tab-pane name="equipment" tab="装备">
             <EquipmentTab 
               :player-info-store="playerInfoStore"
-              :inventory-store="inventoryStore"
-              :equipment-store="equipmentStore"
-              
               @load-equipped-artifacts="loadEquippedArtifacts"
               @refresh-pet-list="loadPetList"
             />
           </n-tab-pane>
           <n-tab-pane name="herbs" tab="灵草">
-            <HerbsTab :inventory-store="inventoryStore" />
+            <HerbsTab :player-info-store="playerInfoStore" />
           </n-tab-pane>
           <n-tab-pane name="pills" tab="丹药">
             <PillsTab 
-              :inventory-store="inventoryStore"
-              :pills-store="pillsStore"
-              :pets-store="petsStore"
               :player-info-store="playerInfoStore"
-              
             />
           </n-tab-pane>
           <n-tab-pane name="formulas" tab="丹方">
-            <FormulasTab :inventory-store="inventoryStore" />
+            <FormulasTab :player-info-store="playerInfoStore" />
           </n-tab-pane>
           <n-tab-pane name="pets" tab="灵宠">
             <PetsTab
               :player-info-store="playerInfoStore"
-              :pets-store="petsStore"
               @refresh-pet-list="loadPetList"
             />
           </n-tab-pane>
@@ -49,12 +41,6 @@
 <script setup>
   // 修改为使用模块化store
   import { usePlayerInfoStore } from '../stores/playerInfo'
-  import { useInventoryStore } from '../stores/inventory'
-  import { useEquipmentStore } from '../stores/equipment'
-  import { usePetsStore } from '../stores/pets'
-  import { usePillsStore } from '../stores/pills'
-  import { useSettingsStore } from '../stores/settings'
-  import { useStatsStore } from '../stores/stats'
   import { ref, computed, onMounted } from 'vue'
   import { useMessage } from 'naive-ui'
   import { getStatName, formatStatValue } from '../plugins/stats'
@@ -69,12 +55,6 @@
   import PillsTab from '../components/PillsTab.vue'
   
   const playerInfoStore = usePlayerInfoStore()
-  const inventoryStore = useInventoryStore()
-  const equipmentStore = useEquipmentStore()
-  const petsStore = usePetsStore()
-  const pillsStore = usePillsStore()
-  const settingsStore = useSettingsStore()
-  const statsStore = useStatsStore()
   
   const message = useMessage()
 
@@ -94,16 +74,16 @@
       if (data.equipment) {
         data.equipment.forEach(item => {
           if (item.slot) {
-            equipmentStore.equippedArtifacts[item.slot] = item
+            playerInfoStore.equippedArtifacts[item.slot] = item
           }
         })
       }
       
       // 清空没有装备的槽位
-      Object.keys(equipmentStore.equippedArtifacts).forEach(slot => {
+      Object.keys(playerInfoStore.equippedArtifacts).forEach(slot => {
         const isEquipped = data.equipment && data.equipment.some(item => item.slot === slot);
         if (!isEquipped) {
-          equipmentStore.equippedArtifacts[slot] = null;
+          playerInfoStore.equippedArtifacts[slot] = null;
         }
       });
       
@@ -136,12 +116,12 @@
       console.log('[Inventory] 获取到玩家完整数据:', response);
       
       if (response.pets) {
-        console.log('[Inventory] 更新灵宠列表，数量:', response.pets.length);
-        petsStore.pets = response.pets;
+        console.log('[Inventory] 更新灰宠列表，数量:', response.pets.length);
+        playerInfoStore.pets = response.pets;
         
-        // 打印灵宠列表状态用于调试
-        console.log('[Inventory] 当前灵宠列表状态:');
-        petsStore.pets.forEach(pet => {
+        // 打印灰宠列表状态用于调试
+        console.log('[Inventory] 当前灰宠列表状态:');
+        playerInfoStore.pets.forEach(pet => {
           console.log(`  ${pet.name}(${pet.id}): isActive=${pet.isActive}`);
         });
       } else {

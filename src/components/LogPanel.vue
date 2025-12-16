@@ -40,49 +40,22 @@
   const logs = ref([])
   const scrollRef = ref(null)
 
-  // 创建Web Worker实例
-  const logWorker = ref(null)
-
-  // 初始化Web Worker
-  onMounted(() => {
-    logWorker.value = new Worker(new URL('../workers/log.js', import.meta.url), { type: 'module' })
-
-    // 监听Worker消息
-    logWorker.value.onmessage = e => {
-      if (e.data.type === 'LOGS_UPDATED') {
-        logs.value = e.data.logs
-        // 下一帧滚动到底部
-        setTimeout(() => {
-          if (scrollRef.value) {
-            scrollRef.value.scrollTo({ top: 99999, behavior: 'smooth' })
-          }
-        })
-      }
-    }
-  })
-
-  // 组件卸载时清理Worker
-  onUnmounted(() => {
-    if (logWorker.value) {
-      logWorker.value.terminate()
-    }
-  })
-
   // 添加日志的方法
   const addLog = (type, content) => {
-    if (logWorker.value) {
-      logWorker.value.postMessage({
-        type: 'ADD_LOG',
-        data: { type, content }
-      })
+    logs.value.push({
+      type,
+      content,
+      time: new Date().toLocaleTimeString()
+    })
+    // 限制日志数量（可选）
+    if (logs.value.length > 500) {
+      logs.value.shift()
     }
   }
 
   // 添加清空日志方法
   const clearLogs = () => {
-    if (logWorker.value) {
-      logWorker.value.postMessage({ type: 'CLEAR_LOGS' })
-    }
+    logs.value = []
   }
 
   // 优化滚动逻辑：只在 logs 数量变化时滚动

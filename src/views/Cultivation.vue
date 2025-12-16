@@ -42,12 +42,6 @@
 <script setup>
   // 修改为使用模块化store
   import { usePlayerInfoStore } from '../stores/playerInfo'
-  import { useInventoryStore } from '../stores/inventory'
-  import { useEquipmentStore } from '../stores/equipment'
-  import { usePetsStore } from '../stores/pets'
-  import { usePillsStore } from '../stores/pills'
-  import { useSettingsStore } from '../stores/settings'
-  import { useStatsStore } from '../stores/stats'
   import { ref, computed, onMounted, onUnmounted } from 'vue'
   import { useMessage } from 'naive-ui'
   import { BookOutline } from '@vicons/ionicons5' // 导入图标组件
@@ -56,12 +50,6 @@
   import { getAuthToken } from '../stores/db'
 
   const playerInfoStore = usePlayerInfoStore()
-  const inventoryStore = useInventoryStore()
-  const equipmentStore = useEquipmentStore()
-  const petsStore = usePetsStore()
-  const pillsStore = usePillsStore()
-  const settingsStore = useSettingsStore()
-  const statsStore = useStatsStore()
   
   const message = useMessage()
   const isAutoCultivating = ref(false)
@@ -112,7 +100,7 @@
           playerInfoStore.maxCultivation = bt.newMaxCultivation
           playerInfoStore.spirit += bt.spiritReward
           playerInfoStore.spiritRate = bt.newSpiritRate
-          statsStore.breakthroughCount += 1
+          playerInfoStore.breakthroughCount += 1
           message.success(bt.message)
           if (logRef.value) {
             logRef.value.addLog(bt.message)
@@ -120,7 +108,7 @@
         }
         message.success('修炼成功，获得 ' + response.cultivationGain.toFixed(1) + ' 点修为')
         // 增加修炼时间统计
-        statsStore.totalCultivationTime += 1
+        playerInfoStore.totalCultivationTime += 1
         return true
       } else {
         message.warning(response.error || '修炼失败')
@@ -197,7 +185,7 @@
         }
         
         // 更新统计
-        statsStore.breakthroughCount += 1
+        playerInfoStore.breakthroughCount += 1
         message.success(response.message || '突破成功！')
       } else {
         message.warning(response.error || '突破失败')

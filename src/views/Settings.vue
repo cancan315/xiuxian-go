@@ -115,23 +115,11 @@
 <script setup>
   // 修改为使用模块化store
   import { usePlayerInfoStore } from '../stores/playerInfo'
-  import { useInventoryStore } from '../stores/inventory'
-  import { useEquipmentStore } from '../stores/equipment'
-  import { usePetsStore } from '../stores/pets'
-  import { usePillsStore } from '../stores/pills'
-  import { useSettingsStore } from '../stores/settings'
-  import { useStatsStore } from '../stores/stats'
   import { ref } from 'vue'
   import { useDialog, useMessage } from 'naive-ui'
   import { AlertCircleOutline, Close } from '@vicons/ionicons5'
 
   const playerInfoStore = usePlayerInfoStore()
-  const inventoryStore = useInventoryStore()
-  const equipmentStore = useEquipmentStore()
-  const petsStore = usePetsStore()
-  const pillsStore = usePillsStore()
-  const settingsStore = useSettingsStore()
-  const statsStore = useStatsStore()
   
   const newName = ref('')
   const message = useMessage()
@@ -163,11 +151,11 @@
     const spiritStoneCost = playerInfoStore.nameChangeCount === 0 ? 0 : Math.pow(2, playerInfoStore.nameChangeCount) * 100
     // 第一次修改免费，之后需要消耗灵石
     if (playerInfoStore.nameChangeCount > 0) {
-      if (inventoryStore.spiritStones < spiritStoneCost) {
+      if (playerInfoStore.spiritStones < spiritStoneCost) {
         message.error(`灵石不足！修改道号需要${spiritStoneCost}颗灵石`)
         return
       }
-      inventoryStore.spiritStones -= spiritStoneCost
+      playerInfoStore.spiritStones -= spiritStoneCost
     }
     playerInfoStore.renamePlayer(newName.value.trim())
     

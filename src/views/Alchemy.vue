@@ -79,24 +79,12 @@
 <script setup>
   // 修改为使用模块化store
   import { usePlayerInfoStore } from '../stores/playerInfo'
-  import { useInventoryStore } from '../stores/inventory'
-  import { useEquipmentStore } from '../stores/equipment'
-  import { usePetsStore } from '../stores/pets'
-  import { usePillsStore } from '../stores/pills'
-  import { useSettingsStore } from '../stores/settings'
-  import { useStatsStore } from '../stores/stats'
   import { ref, computed, onMounted } from 'vue'
   import { useMessage } from 'naive-ui'
   import LogPanel from '../components/LogPanel.vue'
   import APIService from '../services/api'
 
   const playerInfoStore = usePlayerInfoStore()
-  const inventoryStore = useInventoryStore()
-  const equipmentStore = useEquipmentStore()
-  const petsStore = usePetsStore()
-  const pillsStore = usePillsStore()
-  const settingsStore = useSettingsStore()
-  const statsStore = useStatsStore()
   
   const message = useMessage()
   const selectedRecipe = ref(null)
@@ -155,7 +143,7 @@
 
   // 获取材料状态（拥有数量/需要数量）
   const getMaterialStatus = (material) => {
-    const ownedCount = inventoryStore.herbs.filter(h => h.id === material.herbId).length
+    const ownedCount = playerInfoStore.herbs.filter(h => h.id === material.herbId).length
     return `${ownedCount}/${material.count}`
   }
 
@@ -163,7 +151,7 @@
   const checkMaterials = (recipe) => {
     if (!recipe || !recipe.materials) return false
     for (const material of recipe.materials) {
-      const ownedCount = inventoryStore.herbs.filter(h => h.id === material.herbId).length
+      const ownedCount = playerInfoStore.herbs.filter(h => h.id === material.herbId).length
       if (ownedCount < material.count) {
         return false
       }
@@ -190,7 +178,7 @@
       
       // 构建灵草库存数据
       const inventoryHerbs = {}
-      inventoryStore.herbs.forEach(h => {
+      playerInfoStore.herbs.forEach(h => {
         if (inventoryHerbs[h.id]) {
           inventoryHerbs[h.id]++
         } else {
@@ -203,7 +191,7 @@
         data: {
           recipeId: recipe.id,
           playerLevel: playerInfoStore.level || 1,
-          unlockedRecipes: pillsStore.pillRecipes || [],
+          unlockedRecipes: playerInfoStore.pillRecipes || [],
           inventoryHerbs: inventoryHerbs,
           luck: playerInfoStore.luck || 1.0,
           alchemyRate: playerInfoStore.alchemyRate || 1.0
@@ -220,16 +208,16 @@
         if (response.data.consumedHerbs) {
           Object.entries(response.data.consumedHerbs).forEach(([herbId, count]) => {
             for (let i = 0; i < count; i++) {
-              const index = inventoryStore.herbs.findIndex(h => h.id === herbId)
+              const index = playerInfoStore.herbs.findIndex(h => h.id === herbId)
               if (index > -1) {
-                inventoryStore.herbs.splice(index, 1)
+                playerInfoStore.herbs.splice(index, 1)
               }
             }
           })
         }
         
         // 更新炼制次数统计
-        pillsStore.pillsCrafted++
+        playerInfoStore.pillsCrafted++
         
         // 刷新丹方列表
         await initAlchemy()
@@ -259,21 +247,21 @@
         data: {
           recipeId: recipeId,
           quantity: 1,
-          currentFragments: pillsStore.pillFragments[recipeId] || 0,
-          unlockedRecipes: pillsStore.pillRecipes || []
+          currentFragments: playerInfoStore.pillFragments[recipeId] || 0,
+          unlockedRecipes: playerInfoStore.pillRecipes || []
         }
       })
       
       if (response.success && response.data.success) {
         // 更新前端状态
-        pillsStore.pillFragments[recipeId] = response.data.fragmentsOwned
+        playerInfoStore.pillFragments[recipeId] = response.data.fragmentsOwned
         
         if (response.data.recipeUnlocked) {
           message.success(`成功合成${recipe.name}丹方！`)
-          if (!pillsStore.pillRecipes.includes(recipeId)) {
-            pillsStore.pillRecipes.push(recipeId)
+          if (!playerInfoStore.pillRecipes.includes(recipeId)) {
+            playerInfoStore.pillRecipes.push(recipeId)
           }
-          statsStore.unlockedPillRecipes += 1
+          playerInfoStore.unlockedPillRecipes += 1
         } else {
           message.success(`购买成功，当前拥有${response.data.fragmentsOwned}片残页`)
         }

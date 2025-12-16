@@ -232,7 +232,7 @@ func EnhanceEquipment(c *gin.Context) {
 
 	id := c.Param("id")
 	var req struct {
-		ReinforceStones int `json:"reinforce_stones"`
+		ReinforceStones int `json:"reinforceStones"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "请求参数错误"})
@@ -267,8 +267,8 @@ func EnhanceEquipment(c *gin.Context) {
 	currentLevel := equipment.EnhanceLevel
 	cost := 10 * (currentLevel + 1)
 
-	// 检查强化石是否足够
-	if req.ReinforceStones < cost || user.ReinforceStones < cost {
+	// 只检查数据库中的强化石数量，不依赖前端传来的值
+	if user.ReinforceStones < cost {
 		c.JSON(http.StatusOK, gin.H{
 			"success":  false,
 			"message":  "强化石不足",
@@ -333,7 +333,7 @@ func ReforgeEquipment(c *gin.Context) {
 
 	id := c.Param("id")
 	var req struct {
-		RefinementStones int `json:"refinement_stones"`
+		RefinementStones int `json:"refinementStones"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "请求参数错误"})
@@ -348,6 +348,26 @@ func ReforgeEquipment(c *gin.Context) {
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "服务器错误", "error": err.Error()})
+		return
+	}
+
+	// 获取用户信息检查洗练石
+	var user models.User
+	if err := db.DB.First(&user, userID).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "服务器错误", "error": err.Error()})
+		return
+	}
+
+	// 洗练成本定义
+	const refinementCost = 10
+
+	// 检查洗练石是否足够
+	if user.RefinementStones < refinementCost {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "洗练石不足",
+			"cost":    refinementCost,
+		})
 		return
 	}
 
@@ -378,10 +398,11 @@ func ReforgeEquipment(c *gin.Context) {
 	}
 
 	// 返回洗练结果供用户确认
+	// 注意：此时还没有扣除洗练石，需要用户确认后再扣除
 	c.JSON(http.StatusOK, gin.H{
 		"success":  true,
 		"message":  "洗练成功",
-		"cost":     10,
+		"cost":     refinementCost,
 		"oldStats": oldStats,
 		"newStats": newStats,
 	})
@@ -406,6 +427,9 @@ func ConfirmReforge(c *gin.Context) {
 		return
 	}
 
+	// 洗练成本定义
+	const refinementCost = 10
+
 	// 查找装备
 	var equipment models.Equipment
 	if err := db.DB.Where("id = ? AND user_id = ?", id, userID).First(&equipment).Error; err != nil {
@@ -425,11 +449,24 @@ func ConfirmReforge(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "服务器错误", "error": err.Error()})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"success": true, "message": "洗练属性已应用", "stats": req.NewStats})
+
+		// 扣除用户洗练石
+		if err := db.DB.Model(&models.User{}).Where("id = ?", userID).
+			Update("refinement_stones", gorm.Expr("refinement_stones - ?", refinementCost)).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "服务器错误", "error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"message": "洗练属性已应用",
+			"stats":   req.NewStats,
+			"cost":    refinementCost,
+		})
 		return
 	}
 
-	// 用户取消，保留原属性
+	// 用户取消，保留原属性（不扣除洗练石）
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "已保留原有属性"})
 }
 

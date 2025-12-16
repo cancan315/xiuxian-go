@@ -58,7 +58,7 @@
   import { pillGrades, pillTypes } from '../plugins/pills'
 
   const props = defineProps({
-    inventoryStore: {
+    playerInfoStore: {
       type: Object,
       required: true
     }
@@ -69,7 +69,7 @@
     const complete = []
     const incomplete = []
     
-    props.inventoryStore.items
+    props.playerInfoStore.items
       .filter(item => item.type === 'formula')
       .forEach(formula => {
         if (formula.fragments >= formula.fragmentsNeeded) {
