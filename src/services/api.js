@@ -1126,6 +1126,59 @@ class APIService {
   //  console.log('[API Service] 心跳响应数据', data);
     return convertToCamelCase(data);
   }
+
+  // 探索系统相关方法
+  
+  /**
+   * 开始探索
+   * @param {string} token - 认证令牌
+   * @param {number} duration - 探索时长（毫秒）
+   * @returns {Promise<Object>} 探索结果
+   */
+  static async startExploration(token, duration = 10000) {
+    const response = await fetch(`${API_BASE_URL}/exploration/start`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ duration })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || '开始探索失败');
+    }
+    
+    const data = await response.json();
+    return convertToCamelCase(data);
+  }
+  
+  /**
+   * 处理探索事件选择
+   * @param {string} token - 认证令牌
+   * @param {string} eventType - 事件类型
+   * @param {Object} choice - 选择对象
+   * @returns {Promise<Object>} 处理结果
+   */
+  static async handleExplorationEventChoice(token, eventType, choice) {
+    const response = await fetch(`${API_BASE_URL}/exploration/event-choice`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ eventType, choice })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || '处理事件失败');
+    }
+    
+    const data = await response.json();
+    return convertToCamelCase(data);
+  }
 }
 
 export default APIService;

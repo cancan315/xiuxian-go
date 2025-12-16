@@ -5,8 +5,8 @@
       <n-button size="small" @click="clearLogs" type="error" secondary>清空日志</n-button>
     </n-space>
     <n-scrollbar ref="scrollRef" trigger="none" style="max-height: 200px">
-      <div class="log-container" v-if="logs.length">
-        <div v-for="(log, index) in logs" :key="index" class="log-item">
+      <div class="log-container" v-if="logList.length">
+        <div v-for="(log, index) in logList" :key="index" class="log-item">
           <n-tag :type="log.type" size="small" class="log-type">
             {{ log.time }}
           </n-tag>
@@ -30,37 +30,33 @@
       type: String,
       default: '系统日志'
     },
-    messages: {
+    logs: {
       type: Array,
       default: () => []
     }
   })
 
   // 日志数组和滚动引用
-  const logs = ref([])
+  const logList = ref([])
   const scrollRef = ref(null)
 
-  // 添加日志的方法
-  const addLog = (type, content) => {
-    logs.value.push({
-      type,
-      content,
-      time: new Date().toLocaleTimeString()
-    })
-    // 限制日志数量（可选）
-    if (logs.value.length > 500) {
-      logs.value.shift()
-    }
-  }
+  // 监听外部传入的 logs，同步到内部
+  watch(
+    () => props.logs,
+    (newLogs) => {
+      logList.value = newLogs
+    },
+    { immediate: true }
+  )
 
   // 添加清空日志方法
   const clearLogs = () => {
-    logs.value = []
+    logList.value = []
   }
 
   // 优化滚动逻辑：只在 logs 数量变化时滚动
   watch(
-    () => logs.value.length,
+    () => logList.value.length,
     () => {
       setTimeout(() => {
         if (scrollRef.value) {
@@ -70,9 +66,8 @@
     }
   )
 
-  // 暴露方法
+  // 暒露方法
   defineExpose({
-    addLog,
     clearLogs
   })
 </script>

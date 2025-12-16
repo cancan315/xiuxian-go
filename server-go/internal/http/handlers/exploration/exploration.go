@@ -3,16 +3,17 @@ package exploration
 import (
 	"net/http"
 
+	explorationSvc "xiuxian/server-go/internal/exploration"
+
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
-	 explorationSvc "xiuxian/server-go/internal/exploration"
 )
 
 // 请求/响应类型别名，导出供处理器使用
 type (
-	ExplorationRequest = explorationSvc.ExplorationRequest
+	ExplorationRequest  = explorationSvc.ExplorationRequest
 	ExplorationResponse = explorationSvc.ExplorationResponse
-	EventChoiceRequest = explorationSvc.EventChoiceRequest
+	EventChoiceRequest  = explorationSvc.EventChoiceRequest
 	EventChoiceResponse = explorationSvc.EventChoiceResponse
 )
 
@@ -35,7 +36,7 @@ func StartExploration(c *gin.Context) {
 		return
 	}
 
-	// 默认探索时长10秒
+	// 默认探索时间10秒
 	if req.Duration == 0 {
 		req.Duration = 10000
 	}
@@ -45,6 +46,24 @@ func StartExploration(c *gin.Context) {
 		zap.Int("duration", req.Duration))
 
 	service := explorationSvc.NewExplorationService(uid)
+
+	// 先检查灵力是否满足（每次探索消耗1点灵力）
+	if success, err := service.CheckSpiritCost(); !success {
+		zapLogger.Warn("exploration failed: insufficient spirit",
+			zap.Uint("userID", uid))
+		c.JSON(http.StatusBadRequest, ExplorationResponse{
+			Success: false,
+			Error:   "灵力不足，探索失败",
+		})
+		return
+	} else if err != nil {
+		zapLogger.Error("check spirit cost failed",
+			zap.Uint("userID", uid),
+			zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "探索失败", "error": err.Error()})
+		return
+	}
+
 	events, log, err := service.StartExploration(req.Duration)
 	if err != nil {
 		zapLogger.Error("exploration failed",
