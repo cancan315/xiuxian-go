@@ -28,7 +28,8 @@ var (
 //
 // 每个 ExplorationService 实例只服务于一个玩家（userID）
 type ExplorationService struct {
-	userID uint // 当前探索的玩家ID
+	userID        uint
+	spiritGrowMgr interface{ GetPlayerSpiritFromCache(uint) float64 }
 }
 
 // NewExplorationService 创建探索服务实例
@@ -39,19 +40,34 @@ func NewExplorationService(userID uint) *ExplorationService {
 	}
 }
 
+// SetSpiritGrowManager 设置灵力增长管理器（用于读取缓存灵力）
+func (s *ExplorationService) SetSpiritGrowManager(mgr interface{ GetPlayerSpiritFromCache(uint) float64 }) {
+	s.spiritGrowMgr = mgr
+}
+
+// getSpiritValue 获取灵力值，优先使用缓存
+func (s *ExplorationService) getSpiritValue() float64 {
+	if s.spiritGrowMgr != nil {
+		return s.spiritGrowMgr.GetPlayerSpiritFromCache(s.userID)
+	}
+	// 降级到数据库查询
+	var user models.User
+	if err := db.DB.First(&user, s.userID).Error; err != nil {
+		return 0
+	}
+	return user.Spirit
+}
+
 // CheckSpiritCost 检查灵力是否满足一次探索消耗
 // 当前规则：每次探索固定消耗 100 点灵力
 // 如果灵力不足返回 ErrInsufficientSpirit 错误
 func (s *ExplorationService) CheckSpiritCost() error {
-	var user models.User
-	// 查询玩家数据
-	if err := db.DB.First(&user, s.userID).Error; err != nil {
-		return fmt.Errorf("failed to get user: %w", err)
-	}
+	// ✅ 检查灵力时，优先使用缓存值
+	currentSpirit := s.getSpiritValue()
 
 	// 灵力不足时不可探索
-	if user.Spirit < 100 {
-		return ErrInsufficientSpirit
+	if currentSpirit < 100 {
+		return fmt.Errorf("灵力不足，需要100，当前%.0f", currentSpirit)
 	}
 
 	return nil

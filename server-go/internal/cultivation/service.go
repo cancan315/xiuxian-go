@@ -14,7 +14,8 @@ import (
 
 // CultivationService 修炼服务
 type CultivationService struct {
-	userID uint
+	userID        uint
+	spiritGrowMgr interface{ GetPlayerSpiritFromCache(uint) float64 }
 }
 
 // NewCultivationService 创建修炼服务
@@ -22,6 +23,24 @@ func NewCultivationService(userID uint) *CultivationService {
 	return &CultivationService{
 		userID: userID,
 	}
+}
+
+// SetSpiritGrowManager 设置灵力增长管理器（用于读取缓存灵力）
+func (s *CultivationService) SetSpiritGrowManager(mgr interface{ GetPlayerSpiritFromCache(uint) float64 }) {
+	s.spiritGrowMgr = mgr
+}
+
+// getSpiritValue 获取灵力值，优先使用缓存
+func (s *CultivationService) getSpiritValue() float64 {
+	if s.spiritGrowMgr != nil {
+		return s.spiritGrowMgr.GetPlayerSpiritFromCache(s.userID)
+	}
+	// 降级到数据库查询
+	var user models.User
+	if err := db.DB.First(&user, s.userID).Error; err != nil {
+		return 0
+	}
+	return user.Spirit
 }
 
 // getPlayerAttributes 获取玩家属性（从BaseAttributes JSON中）
@@ -93,11 +112,12 @@ func (s *CultivationService) SingleCultivate() (*CultivationResponse, error) {
 	// 计算当前等级的修炼消耗
 	cultivationCost := getCurrentCultivationCost(user.Level)
 
-	// 检查灵力是否充足
-	if user.Spirit < cultivationCost {
+	// ✅ 检查灵力时，优先使用缓存值
+	currentSpirit := s.getSpiritValue()
+	if currentSpirit < cultivationCost {
 		return &CultivationResponse{
 			Success: false,
-			Error:   fmt.Sprintf("灵力不足，需要%.0f，当前%.0f", cultivationCost, user.Spirit),
+			Error:   fmt.Sprintf("灵力不足，需要%.0f，当前%.0f", cultivationCost, currentSpirit),
 		}, nil
 	}
 

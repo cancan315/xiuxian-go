@@ -90,6 +90,7 @@ func main() {
 	r.Use(func(c *gin.Context) {
 		c.Set("ws_manager", wsManager)
 		c.Set("ws_handlers", wsHandlers)
+		c.Set("spirit_manager", spiritManager)
 		c.Next()
 	})
 

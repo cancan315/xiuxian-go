@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 	"gorm.io/datatypes"
 
+	"xiuxian/server-go/internal/cache"
 	"xiuxian/server-go/internal/db"
 	"xiuxian/server-go/internal/models"
 )
@@ -151,8 +152,21 @@ func GetPlayerSpirit(c *gin.Context) {
 		return
 	}
 
+	logger, _ := c.Get("zap_logger")
+	zapLogger := logger.(*zap.Logger)
+
+	// 优先从缓存获取灵力值
+	spirit, err := cache.GetPlayerSpiritFromCache(userID, zapLogger)
+	if err == nil && spirit > 0 {
+		zapLogger.Debug("从缓存获取灵力值", zap.Uint("userID", userID), zap.Float64("spirit", spirit))
+		c.JSON(http.StatusOK, gin.H{"spirit": spirit})
+		return
+	}
+
+	// 缓存不存在或获取失败，从数据库查询
 	var user models.User
 	if err := db.DB.Select("spirit").First(&user, userID).Error; err != nil {
+		zapLogger.Error("获取灵力值失败", zap.Uint("userID", userID), zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
 		return
 	}
@@ -177,10 +191,20 @@ func UpdateSpirit(c *gin.Context) {
 		return
 	}
 
+	logger, _ := c.Get("zap_logger")
+	zapLogger := logger.(*zap.Logger)
+
 	if err := db.DB.Model(&models.User{}).Where("id = ?", userID).Update("spirit", req.Spirit).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
 		return
 	}
+
+	// ✅ 异步删除灵力缓存（确保数据最新）
+	go func() {
+		if err := cache.DeletePlayerSpiritCache(userID, zapLogger); err != nil {
+			zapLogger.Warn("删除灵力缓存失败", zap.Error(err))
+		}
+	}()
 
 	c.JSON(http.StatusOK, gin.H{"message": "灵力值更新成功"})
 }
@@ -188,6 +212,18 @@ func UpdateSpirit(c *gin.Context) {
 // GetLeaderboard 对应 GET /api/player/leaderboard
 // 与 Node playerController.getLeaderboard 对齐
 func GetLeaderboard(c *gin.Context) {
+	logger, _ := c.Get("zap_logger")
+	zapLogger := logger.(*zap.Logger)
+
+	// 优先从缓存获取排行榜数据
+	cachedList, err := cache.GetLeaderboardFromCache(zapLogger)
+	if err == nil && cachedList != nil {
+		zapLogger.Debug("从缓存获取排行榜", zap.Int("count", len(cachedList)))
+		c.JSON(http.StatusOK, cachedList)
+		return
+	}
+
+	// 缓存不存在或获取失败，从数据库查询
 	var list []struct {
 		ID           uint   `json:"id"`
 		PlayerName   string `json:"playerName"`
@@ -202,9 +238,29 @@ func GetLeaderboard(c *gin.Context) {
 		Order("\"spiritStones\" DESC").
 		Limit(100).
 		Scan(&list).Error; err != nil {
+		zapLogger.Error("获取排行榜失败", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
 		return
 	}
+
+	// 转换为 map 格式并存储到缓存
+	cachedData := make([]map[string]interface{}, len(list))
+	for i, item := range list {
+		cachedData[i] = map[string]interface{}{
+			"id":           item.ID,
+			"playerName":   item.PlayerName,
+			"level":        item.Level,
+			"realm":        item.Realm,
+			"spiritStones": item.SpiritStones,
+		}
+	}
+
+	// 异步存储到缓存（不影响响应）
+	go func() {
+		if err := cache.SetLeaderboardCache(cachedData, zapLogger); err != nil {
+			zapLogger.Warn("缓存排行榜失败", zap.Error(err))
+		}
+	}()
 
 	c.JSON(http.StatusOK, list)
 }
