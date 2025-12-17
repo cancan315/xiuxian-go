@@ -181,7 +181,6 @@ import { Moon, Sunny, Flash } from '@vicons/ionicons5'
 import { getRealmName } from './plugins/realm'
 import { getAuthToken, clearAuthToken } from './stores/db'
 import APIService from './services/api'
-import { useWebSocket, useSpiritGrowth } from './composables/useWebSocket'
 
 // 导入各视图组件
 import Cultivation from './views/Cultivation.vue'
@@ -256,50 +255,52 @@ const getMenuOptions = () => {
   }))
 }
 
+  const syncCultivationData = async () => {
+    try {
+      const token = getAuthToken();
+      
+      // 获取修炼消耗和获得数据
+      const response = await APIService.getCultivationData(token)
+      if (response.success) {
+      //  console.log('[Cultivation] 修炼消耗:', response.data.spiritCost, '获得:', response.data.cultivationGain)
+        playerInfoStore.level = response.data.level // 境界等级
+        playerInfoStore.realm = response.data.realm // 境界
+        playerInfoStore.cultivation = response.data.cultivation // 当前修为
+        playerInfoStore.maxCultivation = response.data.maxCultivation // 最大修为
+        // playerInfoStore.spirit = response.data.spirit // 当前灵力
+        playerInfoStore.cultivationCost = response.data.spiritCost       // 修炼消耗灵力
+        playerInfoStore.cultivationGain = response.data.cultivationGain // 修炼获得修为
+        playerInfoStore.spiritRate = response.data.spiritRate // 灵力获取倍率
+        playerInfoStore.spiritStones = response.data.spiritStones // 灵石数量
+        playerInfoStore.reinforceStones = response.data.reinforceStones // 强化石数量
+        message.success('五灵之体，自动吸纳天地灵气，增加灵力5点')
+      }
+    } catch (error) {
+      console.error('同步修为数据失败:', error)
+    }
+  }   
+
+const interval = setInterval(syncCultivationData, 10000)
+
 // 初始化数据加载
 const getPlayerData = async () => {
   const token = getAuthToken()
   if (token) {
     try {
-      const data = await APIService.getPlayerData(token)
-
-      // Load user data
-      if (data.user) {
-        playerInfoStore.$patch(data.user)
-      }
-
-      // Load inventory items
-      if (data.items) {
-        playerInfoStore.items = data.items
-      }
-
-      // Load pets
-      if (data.pets) {
-        playerInfoStore.pets = data.pets
-      }
-
-      // Load herbs
-      if (data.herbs) {
-        playerInfoStore.herbs = data.herbs
-      }
-
-      // Load pills
-      if (data.pills) {
-        playerInfoStore.pills = data.pills
-      }
-
-      // Load inventory data (including spirit stones)
-      if (data.user) {
-        console.log('[App.vue] 加载玩家资源数据:', {
-          灵石: data.user.spiritStones,
-          强化石: data.user.reinforceStones,
-          洗炼石: data.user.refinementStones,
-          灵兽精华: data.user.petEssence
-        });
-        playerInfoStore.spiritStones = data.user.spiritStones
-        playerInfoStore.reinforceStones = data.user.reinforceStones
-        playerInfoStore.refinementStones = data.user.refinementStones
-        playerInfoStore.petEssence = data.user.petEssence
+      const response = await APIService.getCultivationData(token)
+      if (response.success) {
+      //  console.log('[Cultivation] 修炼消耗:', response.data.spiritCost, '获得:', response.data.cultivationGain)
+        playerInfoStore.level = response.data.level // 境界等级
+        playerInfoStore.realm = response.data.realm // 境界
+        playerInfoStore.cultivation = response.data.cultivation // 当前修为
+        playerInfoStore.maxCultivation = response.data.maxCultivation // 最大修为
+        playerInfoStore.spirit = response.data.spirit // 当前灵力
+        playerInfoStore.cultivationCost = response.data.spiritCost       // 修炼消耗灵力
+        playerInfoStore.cultivationGain = response.data.cultivationGain // 修炼获得修为
+        playerInfoStore.spiritRate = response.data.spiritRate // 灵力获取倍率
+        playerInfoStore.spiritStones = response.data.spiritStones // 灵石数量
+        playerInfoStore.reinforceStones = response.data.reinforceStones // 强化石数量
+        
       }
 
       isLoading.value = false
@@ -315,10 +316,6 @@ const getPlayerData = async () => {
   }
 }
 
-// 灵力获取相关配置
-const baseGainRate = 1 // 基础灵力获取率
-const ws = useWebSocket()
-const spirit = useSpiritGrowth()
 let handleBeforeUnload = null  // ⋆⋆ 先定义引用以便卸载时离检
 
 onMounted(async () => {
@@ -337,50 +334,17 @@ onMounted(async () => {
 
 })
 
-// 监听 playerInfoStore.id 的变化，当玩家登录成功后初始化 WebSocket
-let wsInitialized = false
-let previousId = 0  // 追踪前一个id，判断是ID变更还是退出
+// 心跳定时器和灵力定期同步
 let heartbeatTimer = null  // 心跳定时器
+let spiritSyncTimer = null  // 灵力同步定时器
 
 watch(() => playerInfoStore.id, async (newId) => {
-  // 判断是ID从有值变成0 (退出场景)
-  if (previousId > 0 && newId === 0) {
-    console.log('[App.vue] 检测到玩家登出, playerInfoStore.id置为0')
-    wsInitialized = false
-    // 退出宜在logout中已经调用了ws.disconnect()，此处不需要重复
-    previousId = newId
-    return
-  }
-
-  // ID变更场景 (例如切换账户)
-  if (previousId > 0 && newId !== previousId && newId > 0) {
-    console.log('[App.vue] 检测到玩家ID变更', { previousId, newId })
-    // 先断开旧的连接
-    ws.disconnect()
-    wsInitialized = false
-  }
-
-  previousId = newId
-
-  // 不处理ID为0的场景 (退出场景)
-  if (newId && !wsInitialized) {
-    wsInitialized = true
+  if (newId > 0) {
     const token = getAuthToken()
-    console.log('[App.vue] 监测到playerInfoStore.id变化，WebSocket初始化检查', { token: !!token, playerId: newId })
-    if (token && newId) {
-      try {
-        console.log('[App.vue] 开始连接WebSocket', { userId: newId })
-        await ws.initWebSocket(token, newId)
-        console.log('[App.vue] WebSocket连接成功', { wsInstance: !!ws })
-        // 重新订阅灵力增长事件
-        reSubscribeSpiritGrowth()
-
-        // 启动心跳定时器（每3秒发送一次心跳）
-        startHeartbeatTimer(newId, token)
-      } catch (error) {
-        console.error('[App.vue] WebSocket初始化失败:', error)
-        wsInitialized = false
-      }
+    if (token) {
+      // 启动心跳和灵力同步定时器
+      startHeartbeatTimer(newId, token)
+      startSpiritSyncTimer(token)
     }
   }
 })
@@ -391,10 +355,9 @@ onUnmounted(() => {
   if (handleBeforeUnload) {
     window.removeEventListener('beforeunload', handleBeforeUnload)
   }
-  // 断开WebSocket连接
-  ws.disconnect()
-  // 停止心跳定时器
+  // 停止定时器
   stopHeartbeatTimer()
+  stopSpiritSyncTimer()
 })
 
 // 菜单 key 到提示文本的映射
@@ -427,31 +390,36 @@ watch(() => currentView.value, (newView) => {
   console.log('[App.vue] currentView 已改变为：', newView, '对应的组件：', currentViewComponent.value?.name || 'Unknown')
 })
 
-// 重新订阅灵力增长事件
-let spiritUnsubscribe = null
-const reSubscribeSpiritGrowth = () => {
-  // 如果已有订阅，先取消
-  if (spiritUnsubscribe) {
-    spiritUnsubscribe()
+// 灵力定期同步
+const startSpiritSyncTimer = (token) => {
+  // 清除已有的定时器
+  if (spiritSyncTimer) {
+    clearInterval(spiritSyncTimer)
   }
 
-  // 重新订阅
-  console.log('[App.vue] 重新订阅灵力增长事件')
-  spiritUnsubscribe = ws.subscribeSpiritGrowthData((data) => {
-    //onsole.log('[App.vue] 收到灵力增长消息', {
-    // gainAmount: data.gainAmount?.toFixed(2),
-    // newSpirit: data.newSpirit?.toFixed(2),
-    // oldSpirit: data.oldSpirit?.toFixed(2)
-    //)
-    //spirit.handleSpiritGrowth(data)
-    // 更新playerInfoStore中的灵力值
-    playerInfoStore.spiritGainRate = data.gainAmount
-    playerInfoStore.spirit = data.newSpirit
-    
-    //console.log(`灵力自动增长: +${data.gainAmount.toFixed(2)}, 当前灵力: ${data.newSpirit.toFixed(2)}`)
-  })
-  
-  console.log('[App.vue] 灵力增长事件重新订阅完成')
+  // 每10秒同步一次玩家数据（包括灵力）
+  spiritSyncTimer = setInterval(async () => {
+    try {
+      const response = await APIService.getPlayerData(token)
+      if (response.success) {
+        // 更新玩家数据
+        playerInfoStore.spirit = response.spirit
+        playerInfoStore.cultivation = response.cultivation
+        playerInfoStore.level = response.level
+        playerInfoStore.realm = response.realm
+        playerInfoStore.maxCultivation = response.maxCultivation
+      }
+    } catch (error) {
+      console.error('[App.vue] 灵力同步失败:', error)
+    }
+  }, 10000)  // 10秒同步一次
+}
+
+const stopSpiritSyncTimer = () => {
+  if (spiritSyncTimer) {
+    clearInterval(spiritSyncTimer)
+    spiritSyncTimer = null
+  }
 }
 
 // 启动心跳定时器
@@ -491,10 +459,9 @@ const logout = async () => {
   // ✅ 需要在接下来的操作之前，先保存玩家ID
   const playerId = playerInfoStore.id
 
-  // ✅ 需要立即断开WebSocket连接，避免watch监听到playerInfoStore.id变化后进行重连
-  ws.disconnect()
-  // 停止心跳定时器
+  // 停止定时器
   stopHeartbeatTimer()
+  stopSpiritSyncTimer()
 
   // 通知后端玩家已离线
   try {
@@ -520,6 +487,9 @@ const logout = async () => {
 const toggleDarkMode = () => {
   playerInfoStore.toggleDarkMode()
 }
+
+// 移除空白行
+
 </script>
 
 <style>

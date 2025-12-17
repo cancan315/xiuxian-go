@@ -10,7 +10,6 @@ import (
 	"xiuxian/server-go/internal/db"
 	"xiuxian/server-go/internal/models"
 	"xiuxian/server-go/internal/redis"
-	"xiuxian/server-go/internal/websocket"
 
 	"go.uber.org/zap"
 )
@@ -23,17 +22,15 @@ type SpiritGrowManager struct {
 	stopChan      chan struct{}
 	checkInterval time.Duration
 	syncInterval  time.Duration
-	wsHandlers    *websocket.Handlers
 }
 
 // NewSpiritGrowManager 创建灵力增长管理器
-func NewSpiritGrowManager(logger *zap.Logger, wsHandlers *websocket.Handlers) *SpiritGrowManager {
+func NewSpiritGrowManager(logger *zap.Logger) *SpiritGrowManager {
 	return &SpiritGrowManager{
 		logger:        logger,
 		checkInterval: 1 * time.Second,
 		syncInterval:  30 * time.Second, // 每30秒同步一次数据库
 		stopChan:      make(chan struct{}),
-		wsHandlers:    wsHandlers,
 	}
 }
 
@@ -185,7 +182,6 @@ func (m *SpiritGrowManager) calculateSpiritGainInRedis(playerID string) {
 		return
 	}
 
-	oldSpirit := currentSpirit
 	spiritRate := m.getPlayerSpiritRate(&user)
 	spiritGain := 1.0 * spiritRate * elapsedSeconds
 
@@ -212,9 +208,7 @@ func (m *SpiritGrowManager) calculateSpiritGainInRedis(playerID string) {
 	}
 
 	// 推送灵力增长事件给客户端（实时反馈）
-	if m.wsHandlers != nil && m.wsHandlers.Spirit != nil {
-		m.wsHandlers.Spirit.NotifySpiritUpdate(userID, oldSpirit, newSpirit, spiritRate, elapsedSeconds)
-	}
+	// ✅ WebSocket已移除，改为定期同步到数据库
 }
 
 // syncAllPlayersSpirit 将所有玩家的灵力从Redis同步到数据库

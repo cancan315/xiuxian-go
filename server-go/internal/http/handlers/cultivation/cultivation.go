@@ -3,7 +3,6 @@ package cultivation
 import (
 	"net/http"
 
-	"xiuxian/server-go/internal/cache"
 	cultivationSvc "xiuxian/server-go/internal/cultivation"
 
 	"github.com/gin-gonic/gin"
@@ -36,13 +35,6 @@ func SingleCultivate(c *gin.Context) {
 
 	service := cultivationSvc.NewCultivationService(uid)
 
-	// ✅ 注入灵力增长管理器以支持缓存灵力读取
-	if spiritMgr, ok := c.Get("spirit_manager"); ok {
-		if mgr, ok := spiritMgr.(interface{ GetPlayerSpiritFromCache(uint) float64 }); ok {
-			service.SetSpiritGrowManager(mgr)
-		}
-	}
-
 	resp, err := service.SingleCultivate()
 	if err != nil {
 		zapLogger.Error("cultivation failed",
@@ -55,13 +47,6 @@ func SingleCultivate(c *gin.Context) {
 	zapLogger.Info("SingleCultivate 出参",
 		zap.Uint("userID", uid),
 		zap.Float64("cultivationGain", resp.CultivationGain))
-
-	// ✅ 异步删除修炼缓存（确保数据最新）
-	go func() {
-		if err := cache.DeleteCultivationDataCache(uid, zapLogger); err != nil {
-			zapLogger.Warn("删除修炼缓存失败", zap.Error(err))
-		}
-	}()
 
 	c.JSON(http.StatusOK, resp)
 }
@@ -96,13 +81,6 @@ func CultivateUntilBreakthrough(c *gin.Context) {
 		zap.Uint("userID", uid),
 		zap.Bool("success", resp.Success))
 
-	// ✅ 异步删除修炼缓存（确保数据最新）
-	go func() {
-		if err := cache.DeleteCultivationDataCache(uid, zapLogger); err != nil {
-			zapLogger.Warn("删除修炼缓存失败", zap.Error(err))
-		}
-	}()
-
 	c.JSON(http.StatusOK, resp)
 }
 
@@ -122,18 +100,7 @@ func GetCultivationData(c *gin.Context) {
 	zapLogger.Info("GetCultivationData 入参",
 		zap.Uint("userID", uid))
 
-	// 优先从缓存获取修炼数据
-	cachedData, err := cache.GetCultivationDataFromCache(uid, zapLogger)
-	if err == nil && cachedData != nil {
-		zapLogger.Debug("从缓存获取修炼数据", zap.Uint("userID", uid))
-		c.JSON(http.StatusOK, gin.H{
-			"success": true,
-			"data":    cachedData,
-		})
-		return
-	}
-
-	// 缓存不存在或获取失败，从数据库查询
+	// 从数据库查询修炼数据
 	service := cultivationSvc.NewCultivationService(uid)
 	data, err := service.GetCultivationData()
 	if err != nil {
@@ -148,13 +115,6 @@ func GetCultivationData(c *gin.Context) {
 		zap.Uint("userID", uid),
 		zap.Int("level", data.Level),
 		zap.String("realm", data.Realm))
-
-	// 异步存储到缓存（不影响响应）
-	go func() {
-		if err := cache.SetCultivationDataCache(uid, data, zapLogger); err != nil {
-			zapLogger.Warn("缓存修炼数据失败", zap.Error(err))
-		}
-	}()
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,

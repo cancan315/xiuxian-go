@@ -10,12 +10,10 @@ import (
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
 
-	"context"
 	"xiuxian/server-go/internal/db"
 	"xiuxian/server-go/internal/http/router"
 	"xiuxian/server-go/internal/redis"
 	"xiuxian/server-go/internal/spirit"
-	"xiuxian/server-go/internal/websocket"
 
 	"github.com/gin-contrib/gzip"
 )
@@ -65,16 +63,8 @@ func main() {
 	r.Use(ginzap.RecoveryWithZap(logger, true))
 	r.Use(LoggerMiddleware(logger))
 
-	// 初始化WebSocket连接管理器
-	wsManager := websocket.NewConnectionManager(logger)
-	ctx := context.Background()
-	wsManager.Start(ctx)
-
-	// 初始化WebSocket事件处理器
-	wsHandlers := websocket.InitializeHandlers(wsManager, logger)
-
 	// 启动灵力增长后台任务
-	spiritManager := spirit.NewSpiritGrowManager(logger, wsHandlers)
+	spiritManager := spirit.NewSpiritGrowManager(logger)
 	spiritManager.Start()
 	defer spiritManager.Stop()
 
@@ -83,13 +73,8 @@ func main() {
 	// 注册路由
 	router.RegisterRoutes(r)
 
-	// 注册WebSocket路由
-	websocket.RegisterWebSocketRoutes(r, wsManager, logger)
-
-	// 将WebSocket处理器注入到上下文中，供其他接口使用
+	// 将灵力增长管理器注入到上下文中
 	r.Use(func(c *gin.Context) {
-		c.Set("ws_manager", wsManager)
-		c.Set("ws_handlers", wsHandlers)
 		c.Set("spirit_manager", spiritManager)
 		c.Next()
 	})
