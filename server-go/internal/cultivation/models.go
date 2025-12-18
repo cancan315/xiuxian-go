@@ -66,6 +66,11 @@ type CultivationData struct {
 	SpiritStones    int      `json:"spiritStones"`    // 灵石数量
 	ReinforceStones int      `json:"reinforceStones"` // 强化数量
 	UnlockedRealms  []string `json:"unlockedRealms"`
+	// ✅ 新增：玩家属性数据
+	BaseAttributes    map[string]interface{} `json:"baseAttributes,omitempty"`    // 基础属性
+	CombatAttributes  map[string]interface{} `json:"combatAttributes,omitempty"`  // 战斗属性
+	CombatResistance  map[string]interface{} `json:"combatResistance,omitempty"`  // 战斗抗性
+	SpecialAttributes map[string]interface{} `json:"specialAttributes,omitempty"` // 特殊属性
 }
 
 // 境界信息

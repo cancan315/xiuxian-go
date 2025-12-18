@@ -359,6 +359,25 @@ func (s *CultivationService) GetCultivationData() (*CultivationData, error) {
 		}
 	}
 
+	// ✅ 新增：解析玩家的四大属性
+	baseAttributes := make(map[string]interface{})
+	combatAttributes := make(map[string]interface{})
+	combatResistance := make(map[string]interface{})
+	specialAttributes := make(map[string]interface{})
+
+	if user.BaseAttributes != nil {
+		json.Unmarshal(user.BaseAttributes, &baseAttributes)
+	}
+	if user.CombatAttributes != nil {
+		json.Unmarshal(user.CombatAttributes, &combatAttributes)
+	}
+	if user.CombatResistance != nil {
+		json.Unmarshal(user.CombatResistance, &combatResistance)
+	}
+	if user.SpecialAttributes != nil {
+		json.Unmarshal(user.SpecialAttributes, &specialAttributes)
+	}
+
 	return &CultivationData{
 		Level:           user.Level,
 		Realm:           user.Realm,
@@ -372,5 +391,10 @@ func (s *CultivationService) GetCultivationData() (*CultivationData, error) {
 		SpiritStones:    user.SpiritStones,
 		ReinforceStones: user.ReinforceStones,
 		UnlockedRealms:  unlockedRealms,
+		// ✅ 新增：返回属性数据
+		BaseAttributes:    baseAttributes,
+		CombatAttributes:  combatAttributes,
+		CombatResistance:  combatResistance,
+		SpecialAttributes: specialAttributes,
 	}, nil
 }

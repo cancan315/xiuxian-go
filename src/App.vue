@@ -3,156 +3,159 @@
     <n-message-provider>
       <n-dialog-provider>
         <n-spin :show="isLoading" description="正在加载游戏数据...">
-          <n-layout v-if="isAuthenticated && !isLoggingOut">
-            <n-layout-header bordered>
-              <div class="header-content">
-                <n-page-header>
-                  <template #title>我的小小修仙界</template>
-                  <template #extra>
-                    <n-space>
-                      <n-button @click="logout">退出游戏</n-button>
-                      <n-button quaternary circle @click="toggleDarkMode">
-                        <template #icon>
-                          <n-icon>
-                            <Sunny v-if="playerInfoStore.isDarkMode" />
-                            <Moon v-else />
-                          </n-icon>
-                        </template>
-                      </n-button>
-                    </n-space>
-                  </template>
-                </n-page-header>
-                <div class="menu-container">
-                  <n-scrollbar x-scrollable>
-                    <n-menu mode="horizontal" :options="menuOptions" :value="currentView"
-                      @update:value="handleMenuClick" :default-value="currentView" />
-                  </n-scrollbar>
+          <!-- ✅ 将 style 移到这个 div 上，而不是组件上 -->
+          <div style="min-height: 100vh; width: 100%; display: flex; flex-direction: column;">
+            <n-layout v-if="isAuthenticated && !isLoggingOut">
+              <n-layout-header bordered>
+                <div class="header-content">
+                  <n-page-header>
+                    <template #title>我的小小修仙界</template>
+                    <template #extra>
+                      <n-space>
+                        <n-button @click="logout">退出游戏</n-button>
+                        <n-button quaternary circle @click="toggleDarkMode">
+                          <template #icon>
+                            <n-icon>
+                              <Sunny v-if="playerInfoStore.isDarkMode" />
+                              <Moon v-else />
+                            </n-icon>
+                          </template>
+                        </n-button>
+                      </n-space>
+                    </template>
+                  </n-page-header>
+                  <div class="menu-container">
+                    <n-scrollbar x-scrollable>
+                      <n-menu mode="horizontal" :options="menuOptions" :value="currentView"
+                        @update:value="handleMenuClick" :default-value="currentView" />
+                    </n-scrollbar>
+                  </div>
                 </div>
-              </div>
-            </n-layout-header>
-            <n-layout-content>
-              <div class="content-wrapper">
-                <n-card>
-                  <n-space vertical>
-                    <n-descriptions bordered>
-                      <n-descriptions-item label="道号">
-                        {{ playerInfoStore.name }}
-                      </n-descriptions-item>
-                      <n-descriptions-item label="境界">
-                        {{ getRealmName(playerInfoStore.level).name }}
-                      </n-descriptions-item>
-                      <n-descriptions-item label="修为">
-                        {{ playerInfoStore.cultivation }} / {{ playerInfoStore.maxCultivation }}
-                      </n-descriptions-item>
-                      <n-descriptions-item label="灵力">
-                        {{ playerInfoStore.spirit.toFixed(2) }}
-                      </n-descriptions-item>
-                      <n-descriptions-item label="灵石">
-                        {{ playerInfoStore.spiritStones }}
-                      </n-descriptions-item>
-                      <n-descriptions-item label="强化石">
-                        {{ playerInfoStore.reinforceStones }}
-                      </n-descriptions-item>
-                    </n-descriptions>
-                    <n-collapse>
-                      <n-collapse-item title="详细信息" name="1">
-                        <n-divider>基础属性</n-divider>
-                        <n-descriptions bordered :column="2">
-                          <n-descriptions-item label="生命值">
-                            {{ (playerInfoStore.baseAttributes?.health || 0).toFixed(0) }}
-                          </n-descriptions-item>
-                          <n-descriptions-item label="攻击力">
-                            {{ (playerInfoStore.baseAttributes?.attack || 0).toFixed(0) }}
-                          </n-descriptions-item>
-                          <n-descriptions-item label="防御力">
-                            {{ (playerInfoStore.baseAttributes?.defense || 0).toFixed(0) }}
-                          </n-descriptions-item>
-                          <n-descriptions-item label="速度">
-                            {{ (playerInfoStore.baseAttributes?.speed || 0).toFixed(0) }}
-                          </n-descriptions-item>
-                        </n-descriptions>
-                        <n-divider>战斗属性</n-divider>
-                        <n-descriptions bordered :column="3">
-                          <n-descriptions-item label="暴击率">
-                            {{ (playerInfoStore.combatAttributes?.critRate * 100 || 0).toFixed(1) }}%
-                          </n-descriptions-item>
-                          <n-descriptions-item label="连击率">
-                            {{ (playerInfoStore.combatAttributes?.comboRate * 100 || 0).toFixed(1) }}%
-                          </n-descriptions-item>
-                          <n-descriptions-item label="反击率">
-                            {{ (playerInfoStore.combatAttributes?.counterRate * 100 || 0).toFixed(1) }}%
-                          </n-descriptions-item>
-                          <n-descriptions-item label="眩晕率">
-                            {{ (playerInfoStore.combatAttributes?.stunRate * 100 || 0).toFixed(1) }}%
-                          </n-descriptions-item>
-                          <n-descriptions-item label="闪避率">
-                            {{ (playerInfoStore.combatAttributes?.dodgeRate * 100 || 0).toFixed(1) }}%
-                          </n-descriptions-item>
-                          <n-descriptions-item label="吸血率">
-                            {{ (playerInfoStore.combatAttributes?.vampireRate * 100 || 0).toFixed(1) }}%
-                          </n-descriptions-item>
-                        </n-descriptions>
-                        <n-divider>战斗抗性</n-divider>
-                        <n-descriptions bordered :column="3">
-                          <n-descriptions-item label="抗暴击">
-                            {{ (playerInfoStore.combatResistance?.critResist * 100 || 0).toFixed(1) }}%
-                          </n-descriptions-item>
-                          <n-descriptions-item label="抗连击">
-                            {{ (playerInfoStore.combatResistance?.comboResist * 100 || 0).toFixed(1) }}%
-                          </n-descriptions-item>
-                          <n-descriptions-item label="抗反击">
-                            {{ (playerInfoStore.combatResistance?.counterResist * 100 || 0).toFixed(1) }}%
-                          </n-descriptions-item>
-                          <n-descriptions-item label="抗眩晕">
-                            {{ (playerInfoStore.combatResistance?.stunResist * 100 || 0).toFixed(1) }}%
-                          </n-descriptions-item>
-                          <n-descriptions-item label="抗闪避">
-                            {{ (playerInfoStore.combatResistance?.dodgeResist * 100 || 0).toFixed(1) }}%
-                          </n-descriptions-item>
-                          <n-descriptions-item label="抗吸血">
-                            {{ (playerInfoStore.combatResistance?.vampireResist * 100 || 0).toFixed(1) }}%
-                          </n-descriptions-item>
-                        </n-descriptions>
-                        <n-divider>特殊属性</n-divider>
-                        <n-descriptions bordered :column="4">
-                          <n-descriptions-item label="强化治疗">
-                            {{ (playerInfoStore.specialAttributes?.healBoost * 100 || 0).toFixed(1) }}%
-                          </n-descriptions-item>
-                          <n-descriptions-item label="强化爆伤">
-                            {{ (playerInfoStore.specialAttributes?.critDamageBoost * 100 || 0).toFixed(1) }}%
-                          </n-descriptions-item>
-                          <n-descriptions-item label="弱化爆伤">
-                            {{ (playerInfoStore.specialAttributes?.critDamageReduce * 100 || 0).toFixed(1) }}%
-                          </n-descriptions-item>
-                          <n-descriptions-item label="最终增伤">
-                            {{ (playerInfoStore.specialAttributes?.finalDamageBoost * 100 || 0).toFixed(1) }}%
-                          </n-descriptions-item>
-                          <n-descriptions-item label="最终减伤">
-                            {{ (playerInfoStore.specialAttributes?.finalDamageReduce * 100 || 0).toFixed(1) }}%
-                          </n-descriptions-item>
-                          <n-descriptions-item label="战斗属性提升">
-                            {{ (playerInfoStore.specialAttributes?.combatBoost * 100 || 0).toFixed(1) }}%
-                          </n-descriptions-item>
-                          <n-descriptions-item label="战斗抗性提升">
-                            {{ (playerInfoStore.specialAttributes?.resistanceBoost * 100 || 0).toFixed(1) }}%
-                          </n-descriptions-item>
-                        </n-descriptions>
-                      </n-collapse-item>
-                    </n-collapse>
-                    <n-progress type="line"
-                      :percentage="Number(((playerInfoStore.cultivation / playerInfoStore.maxCultivation) * 100).toFixed(2))"
-                      indicator-text-color="rgba(255, 255, 255, 0.82)" rail-color="rgba(32, 128, 240, 0.2)"
-                      color="#2080f0" :show-indicator="true" indicator-placement="inside" processing />
-                  </n-space>
-                </n-card>
+              </n-layout-header>
+              <n-layout-content>
+                <div class="content-wrapper">
+                  <n-card>
+                    <n-space vertical>
+                      <n-descriptions bordered>
+                        <n-descriptions-item label="道号">
+                          {{ playerInfoStore.name }}
+                        </n-descriptions-item>
+                        <n-descriptions-item label="境界">
+                          {{ getRealmName(playerInfoStore.level).name }}
+                        </n-descriptions-item>
+                        <n-descriptions-item label="修为">
+                          {{ playerInfoStore.cultivation }} / {{ playerInfoStore.maxCultivation }}
+                        </n-descriptions-item>
+                        <n-descriptions-item label="灵力">
+                          {{ playerInfoStore.spirit.toFixed(2) }}
+                        </n-descriptions-item>
+                        <n-descriptions-item label="灵石">
+                          {{ playerInfoStore.spiritStones }}
+                        </n-descriptions-item>
+                        <n-descriptions-item label="强化石">
+                          {{ playerInfoStore.reinforceStones }}
+                        </n-descriptions-item>
+                      </n-descriptions>
+                      <n-collapse>
+                        <n-collapse-item title="详细信息" name="1">
+                          <n-divider>基础属性</n-divider>
+                          <n-descriptions bordered :column="2">
+                            <n-descriptions-item label="生命值">
+                              {{ (playerInfoStore.baseAttributes?.health || 0).toFixed(0) }}
+                            </n-descriptions-item>
+                            <n-descriptions-item label="攻击力">
+                              {{ (playerInfoStore.baseAttributes?.attack || 0).toFixed(0) }}
+                            </n-descriptions-item>
+                            <n-descriptions-item label="防御力">
+                              {{ (playerInfoStore.baseAttributes?.defense || 0).toFixed(0) }}
+                            </n-descriptions-item>
+                            <n-descriptions-item label="速度">
+                              {{ (playerInfoStore.baseAttributes?.speed || 0).toFixed(0) }}
+                            </n-descriptions-item>
+                          </n-descriptions>
+                          <n-divider>战斗属性</n-divider>
+                          <n-descriptions bordered :column="3">
+                            <n-descriptions-item label="暴击率">
+                              {{ (playerInfoStore.combatAttributes?.critRate * 100 || 0).toFixed(1) }}%
+                            </n-descriptions-item>
+                            <n-descriptions-item label="连击率">
+                              {{ (playerInfoStore.combatAttributes?.comboRate * 100 || 0).toFixed(1) }}%
+                            </n-descriptions-item>
+                            <n-descriptions-item label="反击率">
+                              {{ (playerInfoStore.combatAttributes?.counterRate * 100 || 0).toFixed(1) }}%
+                            </n-descriptions-item>
+                            <n-descriptions-item label="眩晕率">
+                              {{ (playerInfoStore.combatAttributes?.stunRate * 100 || 0).toFixed(1) }}%
+                            </n-descriptions-item>
+                            <n-descriptions-item label="闪避率">
+                              {{ (playerInfoStore.combatAttributes?.dodgeRate * 100 || 0).toFixed(1) }}%
+                            </n-descriptions-item>
+                            <n-descriptions-item label="吸血率">
+                              {{ (playerInfoStore.combatAttributes?.vampireRate * 100 || 0).toFixed(1) }}%
+                            </n-descriptions-item>
+                          </n-descriptions>
+                          <n-divider>战斗抗性</n-divider>
+                          <n-descriptions bordered :column="3">
+                            <n-descriptions-item label="抗暴击">
+                              {{ (playerInfoStore.combatResistance?.critResist * 100 || 0).toFixed(1) }}%
+                            </n-descriptions-item>
+                            <n-descriptions-item label="抗连击">
+                              {{ (playerInfoStore.combatResistance?.comboResist * 100 || 0).toFixed(1) }}%
+                            </n-descriptions-item>
+                            <n-descriptions-item label="抗反击">
+                              {{ (playerInfoStore.combatResistance?.counterResist * 100 || 0).toFixed(1) }}%
+                            </n-descriptions-item>
+                            <n-descriptions-item label="抗眩晕">
+                              {{ (playerInfoStore.combatResistance?.stunResist * 100 || 0).toFixed(1) }}%
+                            </n-descriptions-item>
+                            <n-descriptions-item label="抗闪避">
+                              {{ (playerInfoStore.combatResistance?.dodgeResist * 100 || 0).toFixed(1) }}%
+                            </n-descriptions-item>
+                            <n-descriptions-item label="抗吸血">
+                              {{ (playerInfoStore.combatResistance?.vampireResist * 100 || 0).toFixed(1) }}%
+                            </n-descriptions-item>
+                          </n-descriptions>
+                          <n-divider>特殊属性</n-divider>
+                          <n-descriptions bordered :column="4">
+                            <n-descriptions-item label="强化治疗">
+                              {{ (playerInfoStore.specialAttributes?.healBoost * 100 || 0).toFixed(1) }}%
+                            </n-descriptions-item>
+                            <n-descriptions-item label="强化爆伤">
+                              {{ (playerInfoStore.specialAttributes?.critDamageBoost * 100 || 0).toFixed(1) }}%
+                            </n-descriptions-item>
+                            <n-descriptions-item label="弱化爆伤">
+                              {{ (playerInfoStore.specialAttributes?.critDamageReduce * 100 || 0).toFixed(1) }}%
+                            </n-descriptions-item>
+                            <n-descriptions-item label="最终增伤">
+                              {{ (playerInfoStore.specialAttributes?.finalDamageBoost * 100 || 0).toFixed(1) }}%
+                            </n-descriptions-item>
+                            <n-descriptions-item label="最终减伤">
+                              {{ (playerInfoStore.specialAttributes?.finalDamageReduce * 100 || 0).toFixed(1) }}%
+                            </n-descriptions-item>
+                            <n-descriptions-item label="战斗属性提升">
+                              {{ (playerInfoStore.specialAttributes?.combatBoost * 100 || 0).toFixed(1) }}%
+                            </n-descriptions-item>
+                            <n-descriptions-item label="战斗抗性提升">
+                              {{ (playerInfoStore.specialAttributes?.resistanceBoost * 100 || 0).toFixed(1) }}%
+                            </n-descriptions-item>
+                          </n-descriptions>
+                        </n-collapse-item>
+                      </n-collapse>
+                      <n-progress type="line"
+                        :percentage="Number(((playerInfoStore.cultivation / playerInfoStore.maxCultivation) * 100).toFixed(2))"
+                        indicator-text-color="rgba(255, 255, 255, 0.82)" rail-color="rgba(32, 128, 240, 0.2)"
+                        color="#2080f0" :show-indicator="true" indicator-placement="inside" processing />
+                    </n-space>
+                  </n-card>
 
-                <!-- 在此处显示选中的视图 -->
-                <component :is="currentViewComponent" v-if="currentViewComponent" :key="currentView" />
-              </div>
-            </n-layout-content>
-          </n-layout>
-          <div v-else>
-            <router-view />
+                  <!-- 在此处显示选中的视图 -->
+                  <component :is="currentViewComponent" v-if="currentViewComponent" :key="currentView" />
+                </div>
+              </n-layout-content>
+            </n-layout>
+            <div v-else style="min-height: 100vh; display: flex; flex-direction: column;">
+              <router-view style="flex: 1;" />
+            </div>
           </div>
         </n-spin>
       </n-dialog-provider>
@@ -255,7 +258,7 @@ const getMenuOptions = () => {
   }))
 }
 
-  const syncCultivationData = async () => {
+const syncCultivationData = async () => {
     try {
       const token = getAuthToken();
       
@@ -274,13 +277,26 @@ const getMenuOptions = () => {
         playerInfoStore.spiritStones = response.data.spiritStones // 灵石数量
         playerInfoStore.reinforceStones = response.data.reinforceStones // 强化石数量
         
+        // ✅ 新增：同步属性数据
+        if (response.data.baseAttributes) {
+          playerInfoStore.baseAttributes = response.data.baseAttributes
+        }
+        if (response.data.combatAttributes) {
+          playerInfoStore.combatAttributes = response.data.combatAttributes
+        }
+        if (response.data.combatResistance) {
+          playerInfoStore.combatResistance = response.data.combatResistance
+        }
+        if (response.data.specialAttributes) {
+          playerInfoStore.specialAttributes = response.data.specialAttributes
+        }
       }
     } catch (error) {
       console.error('同步修为数据失败:', error)
     }
   }   
 
-const interval = setInterval(syncCultivationData, 10000)
+// const interval = setInterval(syncCultivationData, 10000)
 
 // 初始化数据加载
 const getPlayerData = async () => {
@@ -301,6 +317,23 @@ const getPlayerData = async () => {
         playerInfoStore.spiritStones = response.data.spiritStones // 灵石数量
         playerInfoStore.reinforceStones = response.data.reinforceStones // 强化石数量
         
+        // ✅ 新增：初始化时同步属性数据
+        if (response.data.baseAttributes) {
+          playerInfoStore.baseAttributes = response.data.baseAttributes
+          console.log('[App.vue] 已加载基础属性:', response.data.baseAttributes)
+        }
+        if (response.data.combatAttributes) {
+          playerInfoStore.combatAttributes = response.data.combatAttributes
+          console.log('[App.vue] 已加载战斗属性:', response.data.combatAttributes)
+        }
+        if (response.data.combatResistance) {
+          playerInfoStore.combatResistance = response.data.combatResistance
+          console.log('[App.vue] 已加载战斗抗性:', response.data.combatResistance)
+        }
+        if (response.data.specialAttributes) {
+          playerInfoStore.specialAttributes = response.data.specialAttributes
+          console.log('[App.vue] 已加载特殊属性:', response.data.specialAttributes)
+        }
       }
 
       isLoading.value = false
@@ -412,6 +445,7 @@ const startSpiritSyncTimer = (token) => {
             gain: gainResponse.spiritGain,
             newSpirit: applyResponse.newSpirit
           })
+          syncCultivationData()
           message.success(`五灵之体，自动吸纳天地灵气，增加灵力${gainResponse.spiritGain}点`)
         }
       }
@@ -436,6 +470,8 @@ const startHeartbeatTimer = (playerId, token) => {
     clearInterval(heartbeatTimer)
   }
 
+  let heartbeatFailureCount = 0; // 心跳连续失败计数
+
   // 每3秒发送一次心跳
   heartbeatTimer = setInterval(async () => {
     try {
@@ -443,8 +479,33 @@ const startHeartbeatTimer = (playerId, token) => {
       await APIService.playerHeartbeat(playerId, token)
       // console.log('[App.vue] 心跳发送成功')
       
+      // 心跳成功，重置失败计数
+      heartbeatFailureCount = 0
+      
     } catch (error) {
       console.error('[App.vue] 心跳发送失败:', error)
+      
+      // 增加失败计数
+      heartbeatFailureCount++
+      console.warn(`[App.vue] 心跳发送失败，失败次数: ${heartbeatFailureCount}/3`)
+      
+      // 连续失败3次，调用退出游戏接口
+      if (heartbeatFailureCount >= 3) {
+        console.error('[App.vue] 心跳连续失败3次，调用退出游戏接口')
+        stopHeartbeatTimer()
+        
+        try {
+          // 调用退出游戏接口
+          await APIService.playerOffline(String(playerId))
+          console.log('[App.vue] 已通知后端玩家离线')
+        } catch (offlineError) {
+          console.error('[App.vue] 通知后端离线失败:', offlineError)
+        }
+        
+        // 清空玩家数据并返回登录页
+        playerInfoStore.$reset()
+        router.push('/login')
+      }
     }
   }, 3000)
 }
@@ -517,6 +578,13 @@ html.dark {
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans',
     'Helvetica Neue', sans-serif;
+}
+
+/* ✅ 为最外层容器设置样式 */
+#app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 .n-config-provider,

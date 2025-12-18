@@ -55,20 +55,14 @@ const handleLogin = async (e) => {
       // 保存令牌
       setAuthToken(response.token);
       
-      // ✅ 立即设置玩家ID到Store，确保WebSocket初始化时能使用
+      // ✅ 立即设置玩家ID到Store，确保后续数据加载时能使用
       const playerStore = usePlayerInfoStore()
-      playerStore.id = response.id  // ✅ 改为 response.id（后端返回的字段名）
+      playerStore.id = response.id
       console.log('[Login.vue] 用户登录成功，已设置playerInfoStore.id:', playerStore.id)
 
       // 标记玩家上线
-      await APIService.playerOnline(String(response.id))  // ✅ 改为 response.id
-      // 在浏览器控制台执行
-      // console.log('WebSocket状态:', window.wsManager?.getConnectionStatus())
-      // 预期输出：{ isConnected: true, url: "ws://localhost:2025/ws?...", reconnectAttempts: 0 }
+      await APIService.playerOnline(String(response.id))
 
-      // 检查玩家ID
-      // console.log('玩家ID:', window.$pinia?.state.value?.playerInfo?.id)
-      // 预期输出：玩家的数字ID，例如 1
       message.success('登录成功');
       // 登录成功后跳转到游戏主界面
       router.push('/home');
@@ -117,18 +111,18 @@ const handleRegister = async (e) => {
       // 保存令牌
       setAuthToken(response.token);
       
-      // ✅ 立即设置玩家ID到Store，确保WebSocket初始化时能使用
+      // ✅ 立即设置玩家ID到Store
       const playerStore = usePlayerInfoStore()
       playerStore.id = response.id
       console.log('[Login.vue] 用户注册成功，已设置playerInfoStore.id:', playerStore.id)
 
       // 标记新玩家上线，启动灵力增长任务
       if (response.id) {
-        await APIService.playerOnline(String(response.id))  // 转换为字符串
+        await APIService.playerOnline(String(response.id))
       }
 
       message.success('注册成功');
-      // 注册成功后跳转到游戏主界面，确保流程各璶须预美第一时间执行
+      // 注册成功后跳转到游戏主界面
       router.push('/home');
     } else {
       message.error(response.message || '注册失败');
@@ -147,7 +141,7 @@ const handleRegister = async (e) => {
 
 <template>
   <div class="login-container">
-    <n-card title="修仙界登录" style="max-width: 400px; margin: 100px auto;">
+    <n-card title="修仙界登录" style="max-width: 400px;">
       <n-form ref="formRef" :model="formValue" :rules="rules">
         <n-form-item label="用户名" path="username">
           <n-input v-model:value="formValue.username" placeholder="请输入用户名" />
@@ -174,10 +168,11 @@ const handleRegister = async (e) => {
 
 <style scoped>
 .login-container {
-  height: 100vh;
+  min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 0 15px; /* 为小屏幕添加内边距 */
 }
 </style>

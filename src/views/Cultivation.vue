@@ -194,15 +194,12 @@
   onMounted(() => {
     // 页面加载时同步修炼数据
     syncCultivationData()
-    // 每10秒同步一次数据
-    const interval = setInterval(syncCultivationData, 10000)
     // 绑定键盘快捷键
     window.addEventListener('keydown', handleKeyboard)
-    
-    onUnmounted(() => {
-      clearInterval(interval)
-      window.removeEventListener('keydown', handleKeyboard)
-    })
+  })
+
+  onUnmounted(() => {
+    window.removeEventListener('keydown', handleKeyboard)
   })
 </script>
 

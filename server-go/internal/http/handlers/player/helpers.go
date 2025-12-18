@@ -49,7 +49,35 @@ func toString(v interface{}) string {
 
 // removePetBonuses 在修改装备前移除灵宠提供的所有加成
 func removePetBonuses(baseAttrs, combatAttrs, combatRes, specialAttrs map[string]float64, pet *models.Pet, petCombat map[string]float64) {
-	// 百分比基础属性加成
+	// ✅ 改进：先移除数值加成，再移除百分比加成（顺序与应用相反）
+
+	// 第一步：移除 combatAttributes 数值加成（从当前值减去）
+	if v, ok := petCombat["attack"]; ok && v != 0 {
+		baseAttrs["attack"] = baseAttrs["attack"] - v
+		if baseAttrs["attack"] < 0 {
+			baseAttrs["attack"] = 0
+		}
+	}
+	if v, ok := petCombat["defense"]; ok && v != 0 {
+		baseAttrs["defense"] = baseAttrs["defense"] - v
+		if baseAttrs["defense"] < 0 {
+			baseAttrs["defense"] = 0
+		}
+	}
+	if v, ok := petCombat["health"]; ok && v != 0 {
+		baseAttrs["health"] = baseAttrs["health"] - v
+		if baseAttrs["health"] < 0 {
+			baseAttrs["health"] = 0
+		}
+	}
+	if v, ok := petCombat["speed"]; ok && v != 0 {
+		baseAttrs["speed"] = baseAttrs["speed"] - v
+		if baseAttrs["speed"] < 0 {
+			baseAttrs["speed"] = 0
+		}
+	}
+
+	// 第二步：移除百分比基础属性加成
 	if pet.AttackBonus != 0 {
 		if cur := baseAttrs["attack"]; cur != 0 {
 			baseAttrs["attack"] = cur / (1 + pet.AttackBonus)
@@ -64,20 +92,6 @@ func removePetBonuses(baseAttrs, combatAttrs, combatRes, specialAttrs map[string
 		if cur := baseAttrs["health"]; cur != 0 {
 			baseAttrs["health"] = cur / (1 + pet.HealthBonus)
 		}
-	}
-
-	// 基础属性与战斗属性、抗性、特殊属性的数值加成（从当前值减去）
-	if v, ok := petCombat["attack"]; ok {
-		baseAttrs["attack"] = (baseAttrs["attack"] - v)
-	}
-	if v, ok := petCombat["defense"]; ok {
-		baseAttrs["defense"] = (baseAttrs["defense"] - v)
-	}
-	if v, ok := petCombat["health"]; ok {
-		baseAttrs["health"] = (baseAttrs["health"] - v)
-	}
-	if v, ok := petCombat["speed"]; ok {
-		baseAttrs["speed"] = (baseAttrs["speed"] - v)
 	}
 
 	floatKeys := []struct {
@@ -106,7 +120,7 @@ func removePetBonuses(baseAttrs, combatAttrs, combatRes, specialAttrs map[string
 	}
 
 	for _, it := range floatKeys {
-		if v, ok := petCombat[it.key]; ok {
+		if v, ok := petCombat[it.key]; ok && v != 0 {
 			it.m[it.key] = it.m[it.key] - v
 			if it.m[it.key] < 0 {
 				it.m[it.key] = 0
@@ -263,13 +277,13 @@ func upsertItemOrEquipment(tx *gorm.DB, userID uint, item map[string]interface{}
 			update := map[string]interface{}{
 				"user_id":      userID,
 				"equipment_id": itemID,
-				"name":        toString(item["name"]),
-				"type":        typeVal,
-				"slot":        slot,
-				"details":     toJSON(item["details"]),
-				"stats":       toJSON(item["stats"]),
-				"quality":     toString(item["quality"]),
-				"equipped":    boolFrom(item["equipped"]),
+				"name":         toString(item["name"]),
+				"type":         typeVal,
+				"slot":         slot,
+				"details":      toJSON(item["details"]),
+				"stats":        toJSON(item["stats"]),
+				"quality":      toString(item["quality"]),
+				"equipped":     boolFrom(item["equipped"]),
 			}
 			return tx.Model(&existing).Updates(update).Error
 		}
@@ -299,8 +313,8 @@ func upsertItemOrEquipment(tx *gorm.DB, userID uint, item map[string]interface{}
 	err := tx.Where("userId = ? AND (itemId = ? OR id = ?)", userID, itemID, idStr).First(&existingItem).Error
 	if err == nil {
 		update := map[string]interface{}{
-			"user_id":   userID,
-			"item_id":   itemID,
+			"user_id":  userID,
+			"item_id":  itemID,
 			"name":     toString(item["name"]),
 			"type":     typeVal,
 			"details":  toJSON(item["details"]),
@@ -367,8 +381,8 @@ func upsertPet(tx *gorm.DB, userID uint, pet map[string]interface{}) error {
 	err := tx.Where("userId = ? AND (petId = ? OR id = ?)", userID, petID, idStr).First(&existing).Error
 	if err == nil {
 		update := map[string]interface{}{
-			"user_id":           userID,
-			"pet_id":            petID,
+			"user_id":          userID,
+			"pet_id":           petID,
 			"name":             toString(pet["name"]),
 			"type":             toString(pet["type"]),
 			"rarity":           rarity,
@@ -376,7 +390,7 @@ func upsertPet(tx *gorm.DB, userID uint, pet map[string]interface{}) error {
 			"star":             pet["star"],
 			"quality":          toJSON(quality),
 			"combatAttributes": toJSON(combatAttrs),
-			"is_active":         boolFrom(pet["is_active"]),
+			"is_active":        boolFrom(pet["is_active"]),
 		}
 		return tx.Model(&existing).Updates(update).Error
 	}
@@ -414,8 +428,8 @@ func upsertHerb(tx *gorm.DB, userID uint, herb map[string]interface{}) error {
 		update := map[string]interface{}{
 			"user_id": userID,
 			"herb_id": herbID,
-			"name":   toString(herb["name"]),
-			"count":  herb["count"],
+			"name":    toString(herb["name"]),
+			"count":   herb["count"],
 		}
 		return tx.Model(&existing).Updates(update).Error
 	}
@@ -448,8 +462,8 @@ func upsertPill(tx *gorm.DB, userID uint, pill map[string]interface{}) error {
 	err := tx.Where("userId = ? AND (pillId = ? OR id = ?)", userID, pillID, idStr).First(&existing).Error
 	if err == nil {
 		update := map[string]interface{}{
-			"user_id":      userID,
-			"pill_id":      pillID,
+			"user_id":     userID,
+			"pill_id":     pillID,
 			"name":        toString(pill["name"]),
 			"description": toString(pill["description"]),
 			"effect":      toJSON(pill["effect"]),

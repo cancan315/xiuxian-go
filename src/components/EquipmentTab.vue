@@ -470,8 +470,6 @@
     const token = getAuthToken()
     const result = await props.playerInfoStore.unequipArtifact(
       slot,
-      props.inventoryStore,
-      
       token
     );
 
@@ -539,7 +537,6 @@
     const result = await props.playerInfoStore.equipArtifact(
       equipment,
       equipment.equipType || equipment.EquipType,
-      props.playerInfoStore,
       token
     )
     
@@ -626,21 +623,30 @@
     
     const token = getAuthToken()
     try {
-      // 直接从后端获取最新的玩家数据，包括强化石数量
-      const userData = await APIService.getUser(token)
-      props.playerInfoStore.reinforceStones = userData.reinforceStones || 0
-      
+      // 直接调用强化接口，后端会处理卸下→强化→穿戴的全流程
       const result = await APIService.enhanceEquipment(token, selectedEquipment.value.id, props.playerInfoStore.reinforceStones)
       
       if (result.success) {
-        // 同时更新两个Store中的强化石数量
-        props.playerInfoStore.reinforceStones -= result.cost
+        // ✅ 更新强化石数量
+        props.playerInfoStore.reinforceStones = result.user.reinforce_stones
+        
+        // ✅ 更新装备信息
         selectedEquipment.value.stats = { ...result.newStats }
         selectedEquipment.value.enhanceLevel = result.newLevel
-        // 更新装备的境界要求
         if (result.newRequiredRealm !== undefined) {
           selectedEquipment.value.requiredRealm = result.newRequiredRealm
         }
+        
+        // ✅ 更新玩家属性
+        if (result.user) {
+          props.playerInfoStore.$patch({
+            baseAttributes: result.user.baseAttributes,
+            combatAttributes: result.user.combatAttributes,
+            combatResistance: result.user.combatResistance,
+            specialAttributes: result.user.specialAttributes
+          })
+        }
+        
         message.success('强化成功')
       } else {
         message.error(result.message || '强化失败')

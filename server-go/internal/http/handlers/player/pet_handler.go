@@ -300,62 +300,8 @@ func RecallPet(c *gin.Context) {
 	specialAttrs := jsonToFloatMap(user.SpecialAttributes)
 	petCombat := jsonToFloatMap(pet.CombatAttributes)
 
-	// 先移除基础属性百分比加成
-	if pet.AttackBonus != 0 {
-		baseAttrs["attack"] = baseAttrs["attack"] / (1 + pet.AttackBonus)
-	}
-	if pet.DefenseBonus != 0 {
-		baseAttrs["defense"] = baseAttrs["defense"] / (1 + pet.DefenseBonus)
-	}
-	if pet.HealthBonus != 0 {
-		baseAttrs["health"] = baseAttrs["health"] / (1 + pet.HealthBonus)
-	}
-
-	// 再移除 combatAttributes 数值
-	if v, ok := petCombat["attack"]; ok {
-		baseAttrs["attack"] = baseAttrs["attack"] - v
-	}
-	if v, ok := petCombat["defense"]; ok {
-		baseAttrs["defense"] = baseAttrs["defense"] - v
-	}
-	if v, ok := petCombat["health"]; ok {
-		baseAttrs["health"] = baseAttrs["health"] - v
-	}
-	if v, ok := petCombat["speed"]; ok {
-		baseAttrs["speed"] = baseAttrs["speed"] - v
-	}
-
-	clampZero := func(m map[string]float64, key string, delta float64) {
-		if delta == 0 {
-			return
-		}
-		m[key] = m[key] - delta
-		if m[key] < 0 {
-			m[key] = 0
-		}
-	}
-	clampZero(combatAttrs, "critRate", petCombat["critRate"])
-	clampZero(combatAttrs, "comboRate", petCombat["comboRate"])
-	clampZero(combatAttrs, "counterRate", petCombat["counterRate"])
-	clampZero(combatAttrs, "stunRate", petCombat["stunRate"])
-	clampZero(combatAttrs, "dodgeRate", petCombat["dodgeRate"])
-	clampZero(combatAttrs, "vampireRate", petCombat["vampireRate"])
-
-	clampZero(combatRes, "critResist", petCombat["critResist"])
-	clampZero(combatRes, "comboResist", petCombat["comboResist"])
-	clampZero(combatRes, "counterResist", petCombat["counterResist"])
-	clampZero(combatRes, "stunResist", petCombat["stunResist"])
-	clampZero(combatRes, "dodgeResist", petCombat["dodgeResist"])
-	clampZero(combatRes, "vampireResist", petCombat["vampireResist"])
-
-	for _, key := range []string{"healBoost", "critDamageBoost", "critDamageReduce", "finalDamageBoost", "finalDamageReduce", "combatBoost", "resistanceBoost"} {
-		if v, ok := petCombat[key]; ok {
-			specialAttrs[key] = specialAttrs[key] - v
-			if specialAttrs[key] < 0 {
-				specialAttrs[key] = 0
-			}
-		}
-	}
+	// ✅ 改进：使用统一的 removePetBonuses 函数移除灵宠加成
+	removePetBonuses(baseAttrs, combatAttrs, combatRes, specialAttrs, &pet, petCombat)
 
 	updates := map[string]interface{}{
 		"base_attributes":    toJSON(baseAttrs),
