@@ -1,6 +1,7 @@
 package online
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -69,6 +70,11 @@ func Login(c *gin.Context) {
 		zap.Time("LastSpiritGainTime", now))
 
 	rdb := client()
+
+	// 清理Redis中的灵力计算时间戳，防止下次计算时使用过期的时间戳
+	lastGainTimeKey := fmt.Sprintf("player:spirit:lastGainTime:%d", user.ID)
+	rdb.Del(redisc.Ctx, lastGainTimeKey)
+
 	loginTime := time.Now().UnixMilli()
 	key := "player:online:" + req.PlayerID
 

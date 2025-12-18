@@ -16,15 +16,6 @@
         <n-button :type="isAutoCultivating ? 'warning' : 'success'" size="large" block @click="toggleAutoCultivation">
           {{ isAutoCultivating ? '停止自动修炼' : '开始自动修炼' }}
         </n-button>
-        <n-button
-          type="info"
-          size="large"
-          block
-          @click="cultivateUntilBreakthrough"
-          :disabled="playerInfoStore.spirit < calculateBreakthroughCost()"
-        >
-          一键突破
-        </n-button>
       </n-space>
       <n-divider>修炼详情</n-divider>
       <n-descriptions bordered>
@@ -162,36 +153,7 @@
       }
       
       // 短暂延迟，避免过快调用
-      await new Promise(resolve => setTimeout(resolve, 1000))
-    }
-  }
-
-  // 一键突破
-  const cultivateUntilBreakthrough = async () => {
-    try {
-      const token = getAuthToken();
-      const response = await APIService.post('/cultivation/breakthrough', {}, token)
-      
-      if (response.success) {
-        // 同步最新数据
-        await syncCultivationData()
-        
-        // 记录日志
-        if (logRef.value) {
-          logRef.value.addLog(`一键突破成功`)
-          if (response.message) {
-            logRef.value.addLog(response.message)
-          }
-        }
-        
-        // 更新统计
-        playerInfoStore.breakthroughCount += 1
-        message.success(response.message || '突破成功！')
-      } else {
-        message.warning(response.error || '突破失败')
-      }
-    } catch (error) {
-      message.error('突破请求失败：' + error.message)
+      await new Promise(resolve => setTimeout(resolve, 3000))
     }
   }
 

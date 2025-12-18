@@ -178,6 +178,50 @@ class APIService {
   }
   
   /**
+   * 获取玩家累积的灵力增长量
+   * @param {string} token - 认证令牌
+   * @returns {Promise<Object>} 灵力增长量信息
+   */
+  static async getPlayerSpiritGain(token) {
+    const response = await fetch(`${API_BASE_URL}/player/spirit/gain`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error('获取灵力增长量失败');
+    }
+    
+    return response.json();
+  }
+  
+  /**
+   * 应用灵力增长（写入数据库并清空缓存）
+   * @param {string} token - 认证令牌
+   * @param {number} spiritGain - 灵力增长量
+   * @returns {Promise<Object>} 应用结果
+   */
+  static async applySpiritGain(token, spiritGain) {
+    const response = await fetch(`${API_BASE_URL}/player/spirit/apply-gain`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ spiritGain })
+    });
+    
+    if (!response.ok) {
+      throw new Error('应用灵力增长失败');
+    }
+    
+    return response.json();
+  }
+  
+  /**
    * 增量更新玩家数据
    * @param {string} token - 认证令牌
    * @param {Object} data - 要更新的数据

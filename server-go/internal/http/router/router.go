@@ -39,6 +39,8 @@ func RegisterRoutes(r *gin.Engine) {
 		playerGroup.GET("/data", player.GetPlayerData)
 		playerGroup.GET("/spirit", player.GetPlayerSpirit)
 		playerGroup.PUT("/spirit", player.UpdateSpirit)
+		playerGroup.GET("/spirit/gain", player.GetPlayerSpiritGain)
+		playerGroup.POST("/spirit/apply-gain", player.ApplySpiritGain)
 		playerGroup.PATCH("/data", player.UpdatePlayerData)
 		playerGroup.DELETE("/items", player.DeleteItems)
 		playerGroup.DELETE("/pets", player.DeletePets)
@@ -96,7 +98,6 @@ func RegisterRoutes(r *gin.Engine) {
 	{
 		cultivationGroup.Use(middleware.Protect())
 		cultivationGroup.POST("/single", cultivation.SingleCultivate)
-		cultivationGroup.POST("/breakthrough", cultivation.CultivateUntilBreakthrough)
 		// cultivationGroup.POST("/auto", cultivation.AutoCultivate)
 		cultivationGroup.GET("/data", cultivation.GetCultivationData)
 	}

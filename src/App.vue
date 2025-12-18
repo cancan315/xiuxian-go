@@ -273,7 +273,7 @@ const getMenuOptions = () => {
         playerInfoStore.spiritRate = response.data.spiritRate // 灵力获取倍率
         playerInfoStore.spiritStones = response.data.spiritStones // 灵石数量
         playerInfoStore.reinforceStones = response.data.reinforceStones // 强化石数量
-        message.success('五灵之体，自动吸纳天地灵气，增加灵力5点')
+        
       }
     } catch (error) {
       console.error('同步修为数据失败:', error)
@@ -397,20 +397,26 @@ const startSpiritSyncTimer = (token) => {
     clearInterval(spiritSyncTimer)
   }
 
-  // 每10秒同步一次玩家数据（包括灵力）
+  // 每10秒同步一次玩家灵力数据
   spiritSyncTimer = setInterval(async () => {
     try {
-      const response = await APIService.getPlayerData(token)
-      if (response.success) {
-        // 更新玩家数据
-        playerInfoStore.spirit = response.spirit
-        playerInfoStore.cultivation = response.cultivation
-        playerInfoStore.level = response.level
-        playerInfoStore.realm = response.realm
-        playerInfoStore.maxCultivation = response.maxCultivation
+      // ✅ 新流程：先获取Redis中累积的灵力增长量
+      const gainResponse = await APIService.getPlayerSpiritGain(token)
+      if (gainResponse.success && gainResponse.spiritGain > 0) {
+        // 将灵力增长量应用到数据库
+        const applyResponse = await APIService.applySpiritGain(token, gainResponse.spiritGain)
+        if (applyResponse.success) {
+          // 更新本地状态
+          playerInfoStore.spirit = applyResponse.newSpirit
+          console.log('[Spirit] 灵力已更新', {
+            gain: gainResponse.spiritGain,
+            newSpirit: applyResponse.newSpirit
+          })
+          message.success(`五灵之体，自动吸纳天地灵气，增加灵力${gainResponse.spiritGain}点`)
+        }
       }
     } catch (error) {
-      console.error('[App.vue] 灵力同步失败:', error)
+      console.error('[App.vue] 灵力增长同步失败:', error)
     }
   }, 10000)  // 10秒同步一次
 }

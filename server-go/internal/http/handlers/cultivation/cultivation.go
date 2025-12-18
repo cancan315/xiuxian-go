@@ -51,39 +51,6 @@ func SingleCultivate(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
-// CultivateUntilBreakthrough 一键突破
-// POST /api/cultivation/breakthrough
-func CultivateUntilBreakthrough(c *gin.Context) {
-	userID, ok := c.Get("userID")
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"message": "用户未授权"})
-		return
-	}
-
-	uid := userID.(uint)
-	logger, _ := c.Get("zap_logger")
-	zapLogger := logger.(*zap.Logger)
-
-	zapLogger.Info("CultivateUntilBreakthrough 入参",
-		zap.Uint("userID", uid))
-
-	service := cultivationSvc.NewCultivationService(uid)
-	resp, err := service.CultivateUntilBreakthrough()
-	if err != nil {
-		zapLogger.Error("breakthrough failed",
-			zap.Uint("userID", uid),
-			zap.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "突破失败", "error": err.Error()})
-		return
-	}
-
-	zapLogger.Info("CultivateUntilBreakthrough 出参",
-		zap.Uint("userID", uid),
-		zap.Bool("success", resp.Success))
-
-	c.JSON(http.StatusOK, resp)
-}
-
 // GetCultivationData 获取修炼数据
 // GET /api/cultivation/data
 func GetCultivationData(c *gin.Context) {

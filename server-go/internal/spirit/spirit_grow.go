@@ -28,7 +28,7 @@ type SpiritGrowManager struct {
 func NewSpiritGrowManager(logger *zap.Logger) *SpiritGrowManager {
 	return &SpiritGrowManager{
 		logger:        logger,
-		checkInterval: 1 * time.Second,
+		checkInterval: 5 * time.Second,
 		syncInterval:  30 * time.Second, // 每30秒同步一次数据库
 		stopChan:      make(chan struct{}),
 	}
@@ -82,17 +82,31 @@ func (m *SpiritGrowManager) processOnlinePlayersSpiritGrow() {
 		return
 	}
 
-	// 处理每个在线玩家的灵力增长（仅在Redis中累积）
+	// 处理每个在线玩家的灵力增长（直接写入数据库）
 	for _, playerID := range onlinePlayerIDs {
-		m.calculateSpiritGainInRedis(playerID)
+		m.calculateSpiritGainInDatabase(playerID)
 	}
 }
 
-// calculateSpiritGainInRedis 计算灵力增长并在Redis中累积
-func (m *SpiritGrowManager) calculateSpiritGainInRedis(playerID string) {
+// calculateSpiritGainInDatabase 计算灵力增长并累加到Redis
+func (m *SpiritGrowManager) calculateSpiritGainInDatabase(playerID string) {
 	// ✅ 检查玩家是否在线
 	exists, err := redis.Client.Exists(redis.Ctx, "player:online:"+playerID).Result()
 	if err != nil || exists == 0 {
+		// 玩家不在线，清理相关的Redis键
+		parsedID, parseErr := strconv.ParseUint(playerID, 10, 32)
+		if parseErr != nil {
+			m.logger.Warn("无效的玩家ID", zap.String("playerID", playerID), zap.Error(parseErr))
+			return
+		}
+
+		userID := uint(parsedID)
+		lastGainTimeKey := fmt.Sprintf("player:spirit:lastGainTime:%d", userID)
+		spiritGainKey := fmt.Sprintf("player:spirit:gain:%d", userID)
+
+		// 清理Redis键
+		redis.Client.Del(redis.Ctx, lastGainTimeKey, spiritGainKey)
+		m.logger.Debug("玩家不在线，已清理Redis键", zap.Uint("userID", userID))
 		return
 	}
 
@@ -107,7 +121,14 @@ func (m *SpiritGrowManager) calculateSpiritGainInRedis(playerID string) {
 
 	// Redis key 定义
 	lastGainTimeKey := fmt.Sprintf("player:spirit:lastGainTime:%d", userID)
-	spiritCacheKey := fmt.Sprintf("player:spirit:cache:%d", userID)
+	spiritGainKey := fmt.Sprintf("player:spirit:gain:%d", userID)
+
+	// 从数据库获取玩家信息
+	var user models.User
+	if err := db.DB.First(&user, userID).Error; err != nil {
+		m.logger.Warn("玩家不存在", zap.Uint("userID", userID))
+		return
+	}
 
 	// 获取上次计算时间
 	lastTimeStr, err := redis.Client.Get(redis.Ctx, lastGainTimeKey).Result()
@@ -120,13 +141,8 @@ func (m *SpiritGrowManager) calculateSpiritGainInRedis(playerID string) {
 		return
 	}
 
-	// 若Redis中无记录，从数据库查询
+	// 若Redis中无记录，使用数据库中的上次计算时间
 	if err != nil && err.Error() == "redis: nil" {
-		var user models.User
-		if err := db.DB.First(&user, userID).Error; err != nil {
-			m.logger.Warn("玩家不存在", zap.Uint("userID", userID))
-			return
-		}
 		lastTime = user.LastSpiritGainTime
 	} else {
 		// 解析Redis中的时间
@@ -147,58 +163,23 @@ func (m *SpiritGrowManager) calculateSpiritGainInRedis(playerID string) {
 		return
 	}
 
-	// 获取玩家当前灵力（优先从Redis缓存，否则从数据库）
-	currentSpiritStr, err := redis.Client.Get(redis.Ctx, spiritCacheKey).Result()
-	var currentSpirit float64
-
-	if err != nil && err.Error() == "redis: nil" {
-		// Redis中无缓存，从数据库读取
-		var user models.User
-		if err := db.DB.First(&user, userID).Error; err != nil {
-			m.logger.Warn("玩家不存在", zap.Uint("userID", userID))
-			return
-		}
-		currentSpirit = user.Spirit
-	} else if err != nil {
-		m.logger.Error("获取Redis灵力缓存失败",
-			zap.Uint("userID", userID),
-			zap.Error(err))
-		return
-	} else {
-		// 从Redis字符串转换为float64
-		parsedSpirit, err := strconv.ParseFloat(currentSpiritStr, 64)
-		if err != nil {
-			m.logger.Warn("解析灵力值失败",
-				zap.Uint("userID", userID),
-				zap.Error(err))
-			return
-		}
-		currentSpirit = parsedSpirit
-	}
-
 	// 计算灵力增长
-	var user models.User
-	if err := db.DB.First(&user, userID).Error; err != nil {
-		return
-	}
-
 	spiritRate := m.getPlayerSpiritRate(&user)
 	spiritGain := 1.0 * spiritRate * elapsedSeconds
 
 	// 保留两位小数
-	newSpirit := math.Round((currentSpirit+spiritGain)*100) / 100
+	spiritGain = math.Round(spiritGain*100) / 100
 
-	// 将新值存储到Redis缓存中（不立即写数据库）
-	spiritStr := fmt.Sprintf("%.2f", newSpirit)
-	err = redis.Client.Set(redis.Ctx, spiritCacheKey, spiritStr, 0).Err()
+	// 将灵力增长量累加到Redis
+	err = redis.Client.IncrByFloat(redis.Ctx, spiritGainKey, spiritGain).Err()
 	if err != nil {
-		m.logger.Error("更新Redis灵力缓存失败",
+		m.logger.Error("更新Redis灵力增长缓存失败",
 			zap.Uint("userID", userID),
 			zap.Error(err))
 		return
 	}
 
-	// 更新Redis中的上次计算时间
+	// 更新Redis中的上次计算时间（仅用于下次计算）
 	err = redis.Client.Set(redis.Ctx, lastGainTimeKey, now.Format(time.RFC3339Nano), 0).Err()
 	if err != nil {
 		m.logger.Error("更新Redis灵力计算时间失败",
@@ -207,8 +188,9 @@ func (m *SpiritGrowManager) calculateSpiritGainInRedis(playerID string) {
 		return
 	}
 
-	// 推送灵力增长事件给客户端（实时反馈）
-	// ✅ WebSocket已移除，改为定期同步到数据库
+	m.logger.Debug("已更新玩家灵力增长到Redis",
+		zap.Uint("userID", userID),
+		zap.Float64("spiritGain", spiritGain))
 }
 
 // syncAllPlayersSpirit 将所有玩家的灵力从Redis同步到数据库
@@ -225,7 +207,7 @@ func (m *SpiritGrowManager) syncAllPlayersSpirit() {
 	}
 }
 
-// syncPlayerSpiritToDatabase 将单个玩家的灵力从Redis同步到数据库
+// syncPlayerSpiritToDatabase 将单个玩家的灵力从Redis同步到数据库（仅在停止时使用）
 func (m *SpiritGrowManager) syncPlayerSpiritToDatabase(playerID string) {
 	parsedID, err := strconv.ParseUint(playerID, 10, 32)
 	if err != nil {
@@ -233,34 +215,14 @@ func (m *SpiritGrowManager) syncPlayerSpiritToDatabase(playerID string) {
 	}
 
 	userID := uint(parsedID)
-
-	// Redis key 定义
-	spiritCacheKey := fmt.Sprintf("player:spirit:cache:%d", userID)
 	lastGainTimeKey := fmt.Sprintf("player:spirit:lastGainTime:%d", userID)
 
-	// 从Redis获取缓存的灵力值
-	spiritStr, err := redis.Client.Get(redis.Ctx, spiritCacheKey).Result()
+	// 从Redis获取上次更新时间
+	lastTimeStr, err := redis.Client.Get(redis.Ctx, lastGainTimeKey).Result()
 	if err != nil && err.Error() == "redis: nil" {
 		// Redis中无缓存，无需同步
 		return
 	}
-	if err != nil {
-		m.logger.Error("获取Redis灵力缓存失败",
-			zap.Uint("userID", userID),
-			zap.Error(err))
-		return
-	}
-
-	newSpirit, err := strconv.ParseFloat(spiritStr, 64)
-	if err != nil {
-		m.logger.Error("解析灵力值失败",
-			zap.Uint("userID", userID),
-			zap.Error(err))
-		return
-	}
-
-	// 从Redis获取上次更新时间
-	lastTimeStr, err := redis.Client.Get(redis.Ctx, lastGainTimeKey).Result()
 	if err != nil {
 		m.logger.Error("获取上次更新时间失败",
 			zap.Uint("userID", userID),
@@ -276,36 +238,21 @@ func (m *SpiritGrowManager) syncPlayerSpiritToDatabase(playerID string) {
 		return
 	}
 
-	// 同步到数据库
-	if err := db.DB.Model(&models.User{}).Where("id = ?", userID).Updates(map[string]interface{}{
-		"spirit":                newSpirit,
-		"last_spirit_gain_time": lastTime,
-	}).Error; err != nil {
-		m.logger.Error("同步灵力到数据库失败",
+	// 更新数据库中的上次计算时间
+	if err := db.DB.Model(&models.User{}).Where("id = ?", userID).Update("last_spirit_gain_time", lastTime).Error; err != nil {
+		m.logger.Error("同步上次计算时间到数据库失败",
 			zap.Uint("userID", userID),
 			zap.Error(err))
 		return
 	}
 
-	m.logger.Debug("已同步玩家灵力到数据库",
-		zap.Uint("userID", userID),
-		zap.Float64("spirit", newSpirit))
+	m.logger.Debug("已同步玩家上次计算时间到数据库",
+		zap.Uint("userID", userID))
 }
 
-// GetPlayerSpiritFromCache 获取玩家的灵力值（先查Redis后查数据库）
+// GetPlayerSpiritFromCache 获取玩家的灵力值（直接从数据库查询）
 func (m *SpiritGrowManager) GetPlayerSpiritFromCache(userID uint) float64 {
-	spiritCacheKey := fmt.Sprintf("player:spirit:cache:%d", userID)
-
-	// 优先从Redis获取
-	spiritStr, err := redis.Client.Get(redis.Ctx, spiritCacheKey).Result()
-	if err == nil {
-		spirit, err := strconv.ParseFloat(spiritStr, 64)
-		if err == nil {
-			return spirit
-		}
-	}
-
-	// 降级到数据库查询
+	// 直接从数据库查询（不再使用Redis缓存）
 	var user models.User
 	if err := db.DB.First(&user, userID).Error; err != nil {
 		return 0
@@ -313,15 +260,56 @@ func (m *SpiritGrowManager) GetPlayerSpiritFromCache(userID uint) float64 {
 	return user.Spirit
 }
 
-// SyncPlayerSpiritOnLogout 玩家离线时强制同步灵力
+// GetPlayerSpiritGain 获取玩家在Redis中累积的灵力增长量
+func (m *SpiritGrowManager) GetPlayerSpiritGain(userID uint) (float64, error) {
+	spiritGainKey := fmt.Sprintf("player:spirit:gain:%d", userID)
+
+	result, err := redis.Client.Get(redis.Ctx, spiritGainKey).Result()
+	if err != nil && err.Error() == "redis: nil" {
+		// 键不存在，返回0
+		return 0, nil
+	}
+	if err != nil {
+		m.logger.Error("获取Redis灵力增长失败",
+			zap.Uint("userID", userID),
+			zap.Error(err))
+		return 0, err
+	}
+
+	spiritGain, err := strconv.ParseFloat(result, 64)
+	if err != nil {
+		m.logger.Error("解析灵力增长值失败",
+			zap.Uint("userID", userID),
+			zap.Error(err))
+		return 0, err
+	}
+
+	return spiritGain, nil
+}
+
+// ClearPlayerSpiritGain 清空玩家在Redis中的灵力增长数据
+func (m *SpiritGrowManager) ClearPlayerSpiritGain(userID uint) error {
+	spiritGainKey := fmt.Sprintf("player:spirit:gain:%d", userID)
+
+	err := redis.Client.Del(redis.Ctx, spiritGainKey).Err()
+	if err != nil {
+		m.logger.Error("清空玩家灵力增长缓存失败",
+			zap.Uint("userID", userID),
+			zap.Error(err))
+		return err
+	}
+
+	m.logger.Debug("已清空玩家灵力增长缓存",
+		zap.Uint("userID", userID))
+	return nil
+}
+
+// SyncPlayerSpiritOnLogout 玩家离线时清理Redis缓存
 func (m *SpiritGrowManager) SyncPlayerSpiritOnLogout(userID uint) {
-	m.syncPlayerSpiritToDatabase(strconv.FormatUint(uint64(userID), 10))
-
-	// 清理Redis缓存
-	spiritCacheKey := fmt.Sprintf("player:spirit:cache:%d", userID)
+	// 清理Redis缓存中的计算时间和灵力增长
 	lastGainTimeKey := fmt.Sprintf("player:spirit:lastGainTime:%d", userID)
-
-	redis.Client.Del(redis.Ctx, spiritCacheKey, lastGainTimeKey)
+	spiritGainKey := fmt.Sprintf("player:spirit:gain:%d", userID)
+	redis.Client.Del(redis.Ctx, lastGainTimeKey, spiritGainKey)
 }
 
 // getPlayerSpiritRate 获取玩家的灵力倍率

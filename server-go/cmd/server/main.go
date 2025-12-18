@@ -68,16 +68,14 @@ func main() {
 	spiritManager.Start()
 	defer spiritManager.Stop()
 
-	// ✅ 删除了译简化后的HeartbeatMonitor——玩家心跳是通过前端主动调用heartbeat API来维护的
-
-	// 注册路由
-	router.RegisterRoutes(r)
-
-	// 将灵力增长管理器注入到上下文中
+	// ✅ 将灵力增长管理器注入到上下文中（必须在注册路由之前）
 	r.Use(func(c *gin.Context) {
 		c.Set("spirit_manager", spiritManager)
 		c.Next()
 	})
+
+	// 注册路由
+	router.RegisterRoutes(r)
 
 	port := os.Getenv("PORT")
 	if port == "" {

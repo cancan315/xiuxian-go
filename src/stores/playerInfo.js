@@ -386,6 +386,14 @@ export const usePlayerInfoStore = defineStore('playerInfo', {
       this.currentPage = 1
     },
     
+    setGachaResults(results) {
+      this.gachaResults = results
+    },
+    
+    toggleResultModal(show) {
+      this.showResultModal = show
+    },
+    
     // ===== 来自 pillsStore 方法 =====
     gainPillFragment(recipeId) {
       if (!this.pillFragments[recipeId]) {
