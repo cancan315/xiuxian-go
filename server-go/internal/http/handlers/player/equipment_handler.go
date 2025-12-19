@@ -721,14 +721,18 @@ func EquipEquipment(c *gin.Context) {
 		zap.Any("combatResistance", combatRes),
 		zap.Any("specialAttributes", specialAttrs))
 
+	// ✅ 改进：使用属性管理器统一处理
+	attrMgr := NewAttributeManager(baseAttrs, combatAttrs, combatRes, specialAttrs)
+
 	// 处理灵宠属性（如果有出战灵宠）
 	var activePet models.Pet
 	hasActivePet := db.DB.Where("user_id = ? AND is_active = ?", userID, true).First(&activePet).Error == nil
-	petCombat := jsonToFloatMap(activePet.CombatAttributes)
+	var petCombat map[string]float64
 
-	// 如果有出战灵宠，先移除灵宠加成
+	// ✅ 改进：先移除灵宠加成
 	if hasActivePet {
-		removePetBonuses(baseAttrs, combatAttrs, combatRes, specialAttrs, &activePet, petCombat)
+		petCombat = jsonToFloatMap(activePet.CombatAttributes)
+		attrMgr.RemovePetBonuses(&activePet, petCombat)
 	}
 
 	// 查找同类型已装备的装备，移除其属性
@@ -737,7 +741,7 @@ func EquipEquipment(c *gin.Context) {
 		userID, equipTypeForQuery, id, true).Find(&oldEquipment).Error; err == nil {
 		for _, old := range oldEquipment {
 			oldEquipStats := jsonToFloatMap(old.Stats)
-			removeEquipmentStats(baseAttrs, combatAttrs, combatRes, specialAttrs, oldEquipStats)
+			attrMgr.RemoveEquipmentStats(oldEquipStats)
 		}
 	}
 
@@ -764,28 +768,28 @@ func EquipEquipment(c *gin.Context) {
 		return
 	}
 
-	// 应用装备属性加成
-	applyEquipmentStats(baseAttrs, combatAttrs, combatRes, specialAttrs, equipStats)
+	// ✅ 改进：使用属性管理器应用装备属性⭥灵宠加成
+	attrMgr.ApplyEquipmentStats(equipStats)
 
 	// 如果有出战灵宠，重新应用灵宠加成
 	if hasActivePet {
-		applyPetBonuses(baseAttrs, combatAttrs, combatRes, specialAttrs, &activePet, petCombat)
+		attrMgr.ApplyPetBonuses(&activePet, petCombat)
 	}
 
 	// 打印穿戴后玩家属性
 	zapLogger.Info("穿戴装备后的玩家属性",
 		zap.Uint("userID", userID),
-		zap.Any("baseAttributes", baseAttrs),
-		zap.Any("combatAttributes", combatAttrs),
-		zap.Any("combatResistance", combatRes),
-		zap.Any("specialAttributes", specialAttrs))
+		zap.Any("baseAttributes", attrMgr.BaseAttrs),
+		zap.Any("combatAttributes", attrMgr.CombatAttrs),
+		zap.Any("combatResistance", attrMgr.CombatRes),
+		zap.Any("specialAttributes", attrMgr.SpecialAttrs))
 
 	// 更新用户属性
 	updates := map[string]interface{}{
-		"base_attributes":    toJSON(baseAttrs),
-		"combat_attributes":  toJSON(combatAttrs),
-		"combat_resistance":  toJSON(combatRes),
-		"special_attributes": toJSON(specialAttrs),
+		"base_attributes":    toJSON(attrMgr.BaseAttrs),
+		"combat_attributes":  toJSON(attrMgr.CombatAttrs),
+		"combat_resistance":  toJSON(attrMgr.CombatRes),
+		"special_attributes": toJSON(attrMgr.SpecialAttrs),
 	}
 	if err := db.DB.Model(&models.User{}).Where("id = ?", userID).Updates(updates).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "服务器错误", "error": err.Error()})
@@ -798,10 +802,10 @@ func EquipEquipment(c *gin.Context) {
 		"message":   "装备穿戴成功",
 		"equipment": equipment,
 		"user": gin.H{
-			"baseAttributes":    baseAttrs,
-			"combatAttributes":  combatAttrs,
-			"combatResistance":  combatRes,
-			"specialAttributes": specialAttrs,
+			"baseAttributes":    attrMgr.BaseAttrs,
+			"combatAttributes":  attrMgr.CombatAttrs,
+			"combatResistance":  attrMgr.CombatRes,
+			"specialAttributes": attrMgr.SpecialAttrs,
 			"reinforce_stones":  user.ReinforceStones,
 			"refinement_stones": user.RefinementStones,
 		},
@@ -860,31 +864,34 @@ func UnequipEquipment(c *gin.Context) {
 	combatRes := jsonToFloatMap(user.CombatResistance)
 	specialAttrs := jsonToFloatMap(user.SpecialAttributes)
 
+	// ✅ 改进：使用属性管理器统一处理
+	attrMgr := NewAttributeManager(baseAttrs, combatAttrs, combatRes, specialAttrs)
+
 	// 处理灵宠属性（如果有出战灵宠）
 	var activePet models.Pet
 	hasActivePet := db.DB.Where("user_id = ? AND is_active = ?", userID, true).First(&activePet).Error == nil
 
-	// 如果有出战灵宠，先移除灵宠加成
+	// ✅ 改进：先移除灵宠加成
 	if hasActivePet {
 		petCombat := jsonToFloatMap(activePet.CombatAttributes)
-		removePetBonuses(baseAttrs, combatAttrs, combatRes, specialAttrs, &activePet, petCombat)
+		attrMgr.RemovePetBonuses(&activePet, petCombat)
 	}
 
-	// 移除装备属性加成
-	removeEquipmentStats(baseAttrs, combatAttrs, combatRes, specialAttrs, equipStats)
+	// ✅ 改进：使用属性管理器移除装备属性
+	attrMgr.RemoveEquipmentStats(equipStats)
 
-	// 如果有出战灵宠，重新应用灵宠加成
+	// ✅ 改进：如果有出战灵宠，重新应用灵宠加成
 	if hasActivePet {
 		petCombat := jsonToFloatMap(activePet.CombatAttributes)
-		applyPetBonuses(baseAttrs, combatAttrs, combatRes, specialAttrs, &activePet, petCombat)
+		attrMgr.ApplyPetBonuses(&activePet, petCombat)
 	}
 
 	// 更新用户属性
 	updates := map[string]interface{}{
-		"base_attributes":    toJSON(baseAttrs),
-		"combat_attributes":  toJSON(combatAttrs),
-		"combat_resistance":  toJSON(combatRes),
-		"special_attributes": toJSON(specialAttrs),
+		"base_attributes":    toJSON(attrMgr.BaseAttrs),
+		"combat_attributes":  toJSON(attrMgr.CombatAttrs),
+		"combat_resistance":  toJSON(attrMgr.CombatRes),
+		"special_attributes": toJSON(attrMgr.SpecialAttrs),
 	}
 	if err := db.DB.Model(&models.User{}).Where("id = ?", userID).Updates(updates).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "服务器错误", "error": err.Error()})
@@ -897,10 +904,10 @@ func UnequipEquipment(c *gin.Context) {
 		"message":   "装备卸下成功",
 		"equipment": equipment,
 		"user": gin.H{
-			"baseAttributes":    baseAttrs,
-			"combatAttributes":  combatAttrs,
-			"combatResistance":  combatRes,
-			"specialAttributes": specialAttrs,
+			"baseAttributes":    attrMgr.BaseAttrs,
+			"combatAttributes":  attrMgr.CombatAttrs,
+			"combatResistance":  attrMgr.CombatRes,
+			"specialAttributes": attrMgr.SpecialAttrs,
 			"reinforce_stones":  user.ReinforceStones,
 			"refinement_stones": user.RefinementStones,
 		},

@@ -76,6 +76,9 @@ func DeployPet(c *gin.Context) {
 		zap.Any("combatResistance", combatRes),
 		zap.Any("specialAttributes", specialAttrs))
 
+	// ✅ 改进：使用属性管理器来统一处理属性变更
+	attrMgr := NewAttributeManager(baseAttrs, combatAttrs, combatRes, specialAttrs)
+
 	// 检查是否已有出战灵宠
 	var activePet models.Pet
 	if err := db.DB.Where("user_id = ? AND is_active = ?", userID, true).First(&activePet).Error; err == nil {
@@ -85,65 +88,9 @@ func DeployPet(c *gin.Context) {
 			return
 		}
 
-		// 召回当前出战灵宠并移除其属性
+		// ✅ 改进：统一使用 removePetBonuses 移除旧灵宠加成
 		activePetCombat := jsonToFloatMap(activePet.CombatAttributes)
-
-		// 先移除基础属性百分比加成
-		if activePet.AttackBonus != 0 {
-			baseAttrs["attack"] = baseAttrs["attack"] / (1 + activePet.AttackBonus)
-		}
-		if activePet.DefenseBonus != 0 {
-			baseAttrs["defense"] = baseAttrs["defense"] / (1 + activePet.DefenseBonus)
-		}
-		if activePet.HealthBonus != 0 {
-			baseAttrs["health"] = baseAttrs["health"] / (1 + activePet.HealthBonus)
-		}
-
-		// 再移除 combatAttributes 数值
-		if v, ok := activePetCombat["attack"]; ok {
-			baseAttrs["attack"] = baseAttrs["attack"] - v
-		}
-		if v, ok := activePetCombat["defense"]; ok {
-			baseAttrs["defense"] = baseAttrs["defense"] - v
-		}
-		if v, ok := activePetCombat["health"]; ok {
-			baseAttrs["health"] = baseAttrs["health"] - v
-		}
-		if v, ok := activePetCombat["speed"]; ok {
-			baseAttrs["speed"] = baseAttrs["speed"] - v
-		}
-
-		clampZero := func(m map[string]float64, key string, delta float64) {
-			if delta == 0 {
-				return
-			}
-			m[key] = m[key] - delta
-			if m[key] < 0 {
-				m[key] = 0
-			}
-		}
-		clampZero(combatAttrs, "critRate", activePetCombat["critRate"])
-		clampZero(combatAttrs, "comboRate", activePetCombat["comboRate"])
-		clampZero(combatAttrs, "counterRate", activePetCombat["counterRate"])
-		clampZero(combatAttrs, "stunRate", activePetCombat["stunRate"])
-		clampZero(combatAttrs, "dodgeRate", activePetCombat["dodgeRate"])
-		clampZero(combatAttrs, "vampireRate", activePetCombat["vampireRate"])
-
-		clampZero(combatRes, "critResist", activePetCombat["critResist"])
-		clampZero(combatRes, "comboResist", activePetCombat["comboResist"])
-		clampZero(combatRes, "counterResist", activePetCombat["counterResist"])
-		clampZero(combatRes, "stunResist", activePetCombat["stunResist"])
-		clampZero(combatRes, "dodgeResist", activePetCombat["dodgeResist"])
-		clampZero(combatRes, "vampireResist", activePetCombat["vampireResist"])
-
-		for _, key := range []string{"healBoost", "critDamageBoost", "critDamageReduce", "finalDamageBoost", "finalDamageReduce", "combatBoost", "resistanceBoost"} {
-			if v, ok := activePetCombat[key]; ok {
-				specialAttrs[key] = specialAttrs[key] - v
-				if specialAttrs[key] < 0 {
-					specialAttrs[key] = 0
-				}
-			}
-		}
+		attrMgr.RemovePetBonuses(&activePet, activePetCombat)
 
 		// 召回当前出战灵宠
 		if err := db.DB.Model(&models.Pet{}).Where("user_id = ? AND is_active = ?", userID, true).
@@ -152,6 +99,10 @@ func DeployPet(c *gin.Context) {
 			return
 		}
 	}
+
+	// ✅ 改进：不在此处重新应用装备属性
+	// 原因：玩家当前保存到DB的属性已经包含了已装备的装备属性
+	// 直接应用灵宠加成即可，装备属性已在用户属性中
 
 	// 标记目标灵宠为出战
 	if err := db.DB.Model(&models.Pet{}).
@@ -167,79 +118,32 @@ func DeployPet(c *gin.Context) {
 		return
 	}
 
-	// 解析灵宠 combatAttributes
+	// ✅ 改进：直接使用 AttributeManager 的统一应用方法
+	// 玩家属性中已包含装备属性，直接应用灵宠加成
 	petCombat = jsonToFloatMap(pet.CombatAttributes)
+	attrMgr.ApplyPetBonuses(&pet, petCombat)
 
-	// 按 Node 逻辑：先累加 combatAttributes 中的数值
-	if v, ok := petCombat["attack"]; ok {
-		baseAttrs["attack"] = baseAttrs["attack"] + v
-	}
-	if v, ok := petCombat["defense"]; ok {
-		baseAttrs["defense"] = baseAttrs["defense"] + v
-	}
-	if v, ok := petCombat["health"]; ok {
-		baseAttrs["health"] = baseAttrs["health"] + v
-	}
-	if v, ok := petCombat["speed"]; ok {
-		baseAttrs["speed"] = baseAttrs["speed"] + v
-	}
-
-	// 战斗属性（带 0-1 上限）
-	updateRate := func(m map[string]float64, key string, delta float64) {
-		if delta == 0 {
-			return
-		}
-		m[key] = m[key] + delta
-		if m[key] > 1 {
-			m[key] = 1
-		}
-	}
-	updateRate(combatAttrs, "critRate", petCombat["critRate"])
-	updateRate(combatAttrs, "comboRate", petCombat["comboRate"])
-	updateRate(combatAttrs, "counterRate", petCombat["counterRate"])
-	updateRate(combatAttrs, "stunRate", petCombat["stunRate"])
-	updateRate(combatAttrs, "dodgeRate", petCombat["dodgeRate"])
-	updateRate(combatAttrs, "vampireRate", petCombat["vampireRate"])
-
-	updateRate(combatRes, "critResist", petCombat["critResist"])
-	updateRate(combatRes, "comboResist", petCombat["comboResist"])
-	updateRate(combatRes, "counterResist", petCombat["counterResist"])
-	updateRate(combatRes, "stunResist", petCombat["stunResist"])
-	updateRate(combatRes, "dodgeResist", petCombat["dodgeResist"])
-	updateRate(combatRes, "vampireResist", petCombat["vampireResist"])
-
-	// 特殊属性：直接累加
-	for _, key := range []string{"healBoost", "critDamageBoost", "critDamageReduce", "finalDamageBoost", "finalDamageReduce", "combatBoost", "resistanceBoost"} {
-		if v, ok := petCombat[key]; ok {
-			specialAttrs[key] = specialAttrs[key] + v
-		}
-	}
-
-	// 基础属性百分比加成
-	if pet.AttackBonus != 0 {
-		baseAttrs["attack"] = baseAttrs["attack"] * (1 + pet.AttackBonus)
-	}
-	if pet.DefenseBonus != 0 {
-		baseAttrs["defense"] = baseAttrs["defense"] * (1 + pet.DefenseBonus)
-	}
-	if pet.HealthBonus != 0 {
-		baseAttrs["health"] = baseAttrs["health"] * (1 + pet.HealthBonus)
-	}
+	// ✅ 改进：打印属性应用顺序
+	zapLogger.Info("灵宠出战属性应用顺序",
+		zap.String("说明", "玩家属性已包含装备加成"),
+		zap.String("step1", "从数据库读取当前用户属性（包含装备属性）"),
+		zap.String("step2", "移除旧灵宠的属性加成"),
+		zap.String("step3", "应用新灵宠的属性加成（按数值→战斗→特殊→百分比顺序）"))
 
 	// 打印出战后玩家属性
 	zapLogger.Info("灵宠出战后的玩家属性",
 		zap.Uint("userID", userID),
-		zap.Any("baseAttributes", baseAttrs),
-		zap.Any("combatAttributes", combatAttrs),
-		zap.Any("combatResistance", combatRes),
-		zap.Any("specialAttributes", specialAttrs))
+		zap.Any("baseAttributes", attrMgr.BaseAttrs),
+		zap.Any("combatAttributes", attrMgr.CombatAttrs),
+		zap.Any("combatResistance", attrMgr.CombatRes),
+		zap.Any("specialAttributes", attrMgr.SpecialAttrs))
 
-	// 写回用户属性
+	// ✅ 改进：使用属性管理器中的属性值
 	updates := map[string]interface{}{
-		"base_attributes":    toJSON(baseAttrs),
-		"combat_attributes":  toJSON(combatAttrs),
-		"combat_resistance":  toJSON(combatRes),
-		"special_attributes": toJSON(specialAttrs),
+		"base_attributes":    toJSON(attrMgr.BaseAttrs),
+		"combat_attributes":  toJSON(attrMgr.CombatAttrs),
+		"combat_resistance":  toJSON(attrMgr.CombatRes),
+		"special_attributes": toJSON(attrMgr.SpecialAttrs),
 	}
 	if err := db.DB.Model(&models.User{}).Where("id = ?", userID).Updates(updates).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
@@ -300,14 +204,15 @@ func RecallPet(c *gin.Context) {
 	specialAttrs := jsonToFloatMap(user.SpecialAttributes)
 	petCombat := jsonToFloatMap(pet.CombatAttributes)
 
-	// ✅ 改进：使用统一的 removePetBonuses 函数移除灵宠加成
-	removePetBonuses(baseAttrs, combatAttrs, combatRes, specialAttrs, &pet, petCombat)
+	// ✅ 改进：使用属性管理器统一移除灵宠加成
+	attrMgr := NewAttributeManager(baseAttrs, combatAttrs, combatRes, specialAttrs)
+	attrMgr.RemovePetBonuses(&pet, petCombat)
 
 	updates := map[string]interface{}{
-		"base_attributes":    toJSON(baseAttrs),
-		"combat_attributes":  toJSON(combatAttrs),
-		"combat_resistance":  toJSON(combatRes),
-		"special_attributes": toJSON(specialAttrs),
+		"base_attributes":    toJSON(attrMgr.BaseAttrs),
+		"combat_attributes":  toJSON(attrMgr.CombatAttrs),
+		"combat_resistance":  toJSON(attrMgr.CombatRes),
+		"special_attributes": toJSON(attrMgr.SpecialAttrs),
 	}
 	if err := db.DB.Model(&models.User{}).Where("id = ?", userID).Updates(updates).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
