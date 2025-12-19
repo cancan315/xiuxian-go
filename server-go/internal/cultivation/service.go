@@ -390,7 +390,10 @@ func (s *CultivationService) GetCultivationData() (*CultivationData, error) {
 		SpiritRate:      spiritRate,
 		SpiritStones:    user.SpiritStones,
 		ReinforceStones: user.ReinforceStones,
-		UnlockedRealms:  unlockedRealms,
+		// ✅ 新增：洗练石和灵宠精华
+		RefinementStones: user.RefinementStones,
+		PetEssence:       user.PetEssence,
+		UnlockedRealms:   unlockedRealms,
 		// ✅ 新增：返回属性数据
 		BaseAttributes:    baseAttributes,
 		CombatAttributes:  combatAttributes,

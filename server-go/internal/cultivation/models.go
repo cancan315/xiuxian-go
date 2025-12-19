@@ -54,18 +54,21 @@ type AutoCultivationResponse struct {
 
 // 修炼数据
 type CultivationData struct {
-	Level           int      `json:"level"`
-	Realm           string   `json:"realm"`
-	Cultivation     float64  `json:"cultivation"`
-	MaxCultivation  float64  `json:"maxCultivation"`
-	Spirit          float64  `json:"spirit"`
-	SpiritCost      float64  `json:"spiritCost"`      // 灵力消耗
-	CultivationGain float64  `json:"cultivationGain"` // 修炼获得修为
-	CultivationRate float64  `json:"cultivationRate"`
-	SpiritRate      float64  `json:"spiritRate"`
-	SpiritStones    int      `json:"spiritStones"`    // 灵石数量
-	ReinforceStones int      `json:"reinforceStones"` // 强化数量
-	UnlockedRealms  []string `json:"unlockedRealms"`
+	Level           int     `json:"level"`
+	Realm           string  `json:"realm"`
+	Cultivation     float64 `json:"cultivation"`
+	MaxCultivation  float64 `json:"maxCultivation"`
+	Spirit          float64 `json:"spirit"`
+	SpiritCost      float64 `json:"spiritCost"`      // 灵力消耗
+	CultivationGain float64 `json:"cultivationGain"` // 修炼获得修为
+	CultivationRate float64 `json:"cultivationRate"`
+	SpiritRate      float64 `json:"spiritRate"`
+	SpiritStones    int     `json:"spiritStones"`    // 灵石数量
+	ReinforceStones int     `json:"reinforceStones"` // 强化石数量
+	// ✅ 新增：洗练石和灵宠精华
+	RefinementStones int      `json:"refinementStones"` // 洗练石数量
+	PetEssence       int      `json:"petEssence"`       // 灵宠精华数量
+	UnlockedRealms   []string `json:"unlockedRealms"`
 	// ✅ 新增：玩家属性数据
 	BaseAttributes    map[string]interface{} `json:"baseAttributes,omitempty"`    // 基础属性
 	CombatAttributes  map[string]interface{} `json:"combatAttributes,omitempty"`  // 战斗属性

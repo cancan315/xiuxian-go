@@ -1,10 +1,12 @@
 package player
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"math"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -12,6 +14,7 @@ import (
 
 	"xiuxian/server-go/internal/db"
 	"xiuxian/server-go/internal/models"
+	"xiuxian/server-go/internal/redis"
 	"xiuxian/server-go/internal/spirit"
 )
 
@@ -198,24 +201,54 @@ func GetLeaderboard(c *gin.Context) {
 	logger, _ := c.Get("zap_logger")
 	zapLogger := logger.(*zap.Logger)
 
-	// 从数据库查询排行榜数据
+	cacheKey := "leaderboard:top100"
+	cacheTTL := 120 * time.Second
+
+	// 尝试从Redis缓存读取
+	cachedData, err := redis.Client.Get(redis.Ctx, cacheKey).Result()
+	if err == nil {
+		// 缓存命中，解析并返回
+		var list []struct {
+			ID           uint   `gorm:"column:id" json:"id"`
+			PlayerName   string `gorm:"column:player_name" json:"playerName"`
+			Level        int    `gorm:"column:level" json:"level"`
+			Realm        string `gorm:"column:realm" json:"realm"`
+			SpiritStones int    `gorm:"column:spirit_stones" json:"spiritStones"`
+		}
+
+		if err := json.Unmarshal([]byte(cachedData), &list); err == nil {
+			zapLogger.Info("排行榜缓存命中", zap.String("cacheKey", cacheKey))
+			c.JSON(http.StatusOK, list)
+			return
+		}
+	}
+
+	// 缓存未命中或解析失败，从数据库查询排行榜数据
 	var list []struct {
-		ID           uint   `json:"id"`
-		PlayerName   string `json:"playerName"`
-		Level        int    `json:"level"`
-		Realm        string `json:"realm"`
-		SpiritStones int    `json:"spiritStones"`
+		ID           uint   `gorm:"column:id" json:"id"`
+		PlayerName   string `gorm:"column:player_name" json:"playerName"`
+		Level        int    `gorm:"column:level" json:"level"`
+		Realm        string `gorm:"column:realm" json:"realm"`
+		SpiritStones int    `gorm:"column:spirit_stones" json:"spiritStones"`
 	}
 
 	if err := db.DB.Model(&models.User{}).
-		Select("id, \"playerName\", level, realm, \"spiritStones\"").
+		Select("id, player_name, level, realm, spirit_stones").
 		Order("level DESC").
-		Order("\"spiritStones\" DESC").
+		Order("spirit_stones DESC").
 		Limit(100).
 		Scan(&list).Error; err != nil {
 		zapLogger.Error("获取排行榜失败", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
 		return
+	}
+
+	// 将结果写入Redis缓存
+	if data, err := json.Marshal(list); err == nil {
+		if err := redis.Client.Set(redis.Ctx, cacheKey, string(data), cacheTTL).Err(); err != nil {
+			zapLogger.Warn("排行榜缓存写入失败", zap.Error(err))
+			// 忽略缓存失败，继续返回数据
+		}
 	}
 
 	c.JSON(http.StatusOK, list)

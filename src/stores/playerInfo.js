@@ -146,7 +146,7 @@ export const usePlayerInfoStore = defineStore('playerInfo', {
     itemsFound: 0, // 获得物品数量
     eventTriggered: 0, // 触发事件次数
     unlockedPillRecipes: 0, // 解锁丹方数量
-    dungeonDifficulty: 1, // 难度选择
+    dungeonDifficulty: 'easy', // 难度选择（默认凡界）
     dungeonHighestFloor: 0, // 最高通关层数
     dungeonHighestFloor_2: 0,
     dungeonHighestFloor_5: 0,

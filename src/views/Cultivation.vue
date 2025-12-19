@@ -176,6 +176,9 @@
         playerInfoStore.spiritRate = response.data.spiritRate // 灵力获取倍率
         playerInfoStore.spiritStones = response.data.spiritStones // 灵石数量
         playerInfoStore.reinforceStones = response.data.reinforceStones // 强化石数量
+        // ✅ 新增：洗练石和灵宠精华
+        playerInfoStore.refinementStones = response.data.refinementStones // 洗练石数量
+        playerInfoStore.petEssence = response.data.petEssence // 灵宠精华数量
         
       }
     } catch (error) {

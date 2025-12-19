@@ -109,6 +109,8 @@ func RegisterRoutes(r *gin.Engine) {
 		dungeonGroup.POST("/start", dungeon.StartDungeon)
 		dungeonGroup.GET("/buffs/:floor", dungeon.GetBuffOptions)
 		dungeonGroup.POST("/select-buff", dungeon.SelectBuff)
+		dungeonGroup.POST("/save-buff", dungeon.SaveBuff)      // 新增: 保存已选增益
+		dungeonGroup.GET("/load-session", dungeon.LoadSession) // 新增: 加载断线重连的会话
 		dungeonGroup.POST("/fight", dungeon.StartFight)
 		dungeonGroup.POST("/end", dungeon.EndDungeon)
 	}

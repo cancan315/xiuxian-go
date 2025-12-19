@@ -46,6 +46,9 @@
                         <n-descriptions-item label="修为">
                           {{ playerInfoStore.cultivation }} / {{ playerInfoStore.maxCultivation }}
                         </n-descriptions-item>
+                        <n-descriptions-item label="灵根">
+                          {{ getSpiritRootName(playerInfoStore.spiritRate) }}
+                        </n-descriptions-item>
                         <n-descriptions-item label="灵力">
                           {{ playerInfoStore.spirit.toFixed(2) }}
                         </n-descriptions-item>
@@ -54,6 +57,12 @@
                         </n-descriptions-item>
                         <n-descriptions-item label="强化石">
                           {{ playerInfoStore.reinforceStones }}
+                        </n-descriptions-item>
+                        <n-descriptions-item label="洗炼石">
+                          {{ playerInfoStore.refinementStones }}
+                        </n-descriptions-item>
+                        <n-descriptions-item label="灵兽精华">
+                          {{ playerInfoStore.petEssence }}
                         </n-descriptions-item>
                       </n-descriptions>
                       <n-collapse>
@@ -240,6 +249,18 @@ const renderIcon = icon => {
   return () => h(NIcon, null, { default: () => h(icon) })
 }
 
+const getSpiritRootName = (value) => {
+  const map = {
+    1: '五灵根',
+    2: '四灵根',
+    3: '三灵根',
+    4: '二灵根',
+    5: '异灵根',
+    6: '天灵根'
+  }
+  return map[value] || '未知灵根'
+}
+
 const menuItems = [
   { label: '修炼', key: 'cultivation', icon: BookOutline },
   { label: '背包', key: 'inventory', icon: FlaskOutline },
@@ -262,20 +283,23 @@ const syncCultivationData = async () => {
     try {
       const token = getAuthToken();
       
-      // 获取修炼消耗和获得数据
+      // 获取修炎消耗和获得数据
       const response = await APIService.getCultivationData(token)
       if (response.success) {
-      //  console.log('[Cultivation] 修炼消耗:', response.data.spiritCost, '获得:', response.data.cultivationGain)
+      //  console.log('[Cultivation] 修炎消耗:', response.data.spiritCost, '获得:', response.data.cultivationGain)
         playerInfoStore.level = response.data.level // 境界等级
         playerInfoStore.realm = response.data.realm // 境界
         playerInfoStore.cultivation = response.data.cultivation // 当前修为
         playerInfoStore.maxCultivation = response.data.maxCultivation // 最大修为
         // playerInfoStore.spirit = response.data.spirit // 当前灵力
-        playerInfoStore.cultivationCost = response.data.spiritCost       // 修炼消耗灵力
-        playerInfoStore.cultivationGain = response.data.cultivationGain // 修炼获得修为
+        playerInfoStore.cultivationCost = response.data.spiritCost       // 修炎消耗灵力
+        playerInfoStore.cultivationGain = response.data.cultivationGain // 修炎获得修为
         playerInfoStore.spiritRate = response.data.spiritRate // 灵力获取倍率
         playerInfoStore.spiritStones = response.data.spiritStones // 灵石数量
         playerInfoStore.reinforceStones = response.data.reinforceStones // 强化石数量
+        // ✅ 新增：洗练石和灵宠精华
+        playerInfoStore.refinementStones = response.data.refinementStones // 洗练石数量
+        playerInfoStore.petEssence = response.data.petEssence // 灵宠精华数量
         
         // ✅ 新增：同步属性数据
         if (response.data.baseAttributes) {
@@ -294,9 +318,7 @@ const syncCultivationData = async () => {
     } catch (error) {
       console.error('同步修为数据失败:', error)
     }
-  }   
-
-// const interval = setInterval(syncCultivationData, 10000)
+  }
 
 // 初始化数据加载
 const getPlayerData = async () => {

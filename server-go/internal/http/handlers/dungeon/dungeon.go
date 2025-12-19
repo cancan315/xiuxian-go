@@ -148,7 +148,8 @@ func SelectBuff(c *gin.Context) {
 	}
 
 	service := dungeonSvc.NewDungeonService(uid)
-	buff, err := service.SelectBuff(req.SelectedBuffID)
+	// 调用 SelectBuffAndApplyEffects 以便不仅返回增益信息，还要应用增益效果
+	buff, err := service.SelectBuffAndApplyEffects(req.SelectedBuffID)
 	if err != nil {
 		zapLogger.Error("选择增益失败",
 			zap.Uint("userID", uid),
@@ -271,5 +272,125 @@ func EndDungeon(c *gin.Context) {
 		"success": true,
 		"data":    result,
 		"message": "秘境已结束",
+	})
+}
+
+// SaveBuff 保存已选增益
+// POST /api/dungeon/save-buff
+func SaveBuff(c *gin.Context) {
+	userID, ok := c.Get("userID")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "用户未授权"})
+		return
+	}
+
+	uid := userID.(uint)
+	logger, _ := c.Get("zap_logger")
+	zapLogger := logger.(*zap.Logger)
+
+	var req struct {
+		Floor      int    `json:"floor"`      // 当前桂层
+		Difficulty string `json:"difficulty"` // 难度
+		BuffID     string `json:"buffId"`     // 选择的增益 ID
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "请求参数错误"})
+		return
+	}
+
+	zapLogger.Info("SaveBuff 入参",
+		zap.Uint("userID", uid),
+		zap.String("buffID", req.BuffID),
+		zap.Int("floor", req.Floor))
+
+	// 验证buffID
+	if req.BuffID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "buffId参数必需"})
+		return
+	}
+
+	service := dungeonSvc.NewDungeonService(uid)
+
+	// 尝试从 Redis 加载现有会话
+	session, _ := service.LoadSessionFromRedis()
+
+	// 更新增益选择
+	buff, err := service.SelectBuffAndApplyEffects(req.BuffID)
+	if err != nil {
+		zapLogger.Error("保存增益失败",
+			zap.Uint("userID", uid),
+			zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "保存增益失败", "error": err.Error()})
+		return
+	}
+
+	// 保存更新的会话到 Redis
+	floor := req.Floor
+	if session != nil {
+		floor = session.Floor + 1 // 下一桂
+	}
+	if err := service.SaveSessionToRedis(floor, req.Difficulty); err != nil {
+		zapLogger.Warn("保存秘境会话到 Redis 失败",
+			zap.Uint("userID", uid),
+			zap.Error(err))
+		// 继续执行，不中断流程
+	}
+
+	zapLogger.Info("SaveBuff 出参",
+		zap.Uint("userID", uid),
+		zap.String("buffID", req.BuffID))
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    buff,
+		"message": "增益已保存",
+	})
+}
+
+// LoadSession 加载磐境会话（用于断线重连）
+// GET /api/dungeon/load-session
+func LoadSession(c *gin.Context) {
+	userID, ok := c.Get("userID")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "用户未授权"})
+		return
+	}
+
+	uid := userID.(uint)
+	logger, _ := c.Get("zap_logger")
+	zapLogger := logger.(*zap.Logger)
+
+	zapLogger.Info("LoadSession 入参",
+		zap.Uint("userID", uid))
+
+	service := dungeonSvc.NewDungeonService(uid)
+
+	// 从 Redis 中加载会话
+	session, err := service.LoadSessionFromRedis()
+	if err != nil {
+		// 会话不存在，返回空。前端需要检查 success 字段
+		zapLogger.Info("没有找到秘境会话",
+			zap.Uint("userID", uid))
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "不存在有效会话",
+		})
+		return
+	}
+
+	zapLogger.Info("LoadSession 出参",
+		zap.Uint("userID", uid),
+		zap.Int("floor", session.Floor))
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data": gin.H{
+			"floor":         session.Floor,
+			"difficulty":    session.Difficulty,
+			"refreshCount":  session.RefreshCount,
+			"selectedBuffs": session.SelectedBuffs,
+			"playerBuffs":   session.PlayerBuffs,
+		},
+		"message": "秘境会话已恢复",
 	})
 }

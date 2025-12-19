@@ -106,7 +106,7 @@ func (m *SpiritGrowManager) calculateSpiritGainInDatabase(playerID string) {
 
 		// 清理Redis键
 		redis.Client.Del(redis.Ctx, lastGainTimeKey, spiritGainKey)
-		m.logger.Debug("玩家不在线，已清理Redis键", zap.Uint("userID", userID))
+		// m.logger.Debug("玩家不在线，已清理Redis键", zap.Uint("userID", userID))
 		return
 	}
 
@@ -188,7 +188,7 @@ func (m *SpiritGrowManager) calculateSpiritGainInDatabase(playerID string) {
 		return
 	}
 
-	m.logger.Debug("已更新玩家灵力增长到Redis",
+	m.logger.Info("已更新玩家灵力增长到Redis",
 		zap.Uint("userID", userID),
 		zap.Float64("spiritGain", spiritGain))
 }
@@ -299,7 +299,7 @@ func (m *SpiritGrowManager) ClearPlayerSpiritGain(userID uint) error {
 		return err
 	}
 
-	m.logger.Debug("已清空玩家灵力增长缓存",
+	m.logger.Info("已清空玩家灵力增长缓存",
 		zap.Uint("userID", userID))
 	return nil
 }
