@@ -413,30 +413,33 @@ func EnhanceEquipment(c *gin.Context) {
 		return
 	}
 
-	// 重新穿戴装备
+	// 重新穿戴装备 - 改用 AttributeManager 统一处理
 	equipStats := jsonToFloatMap(equipment.Stats)
 	baseAttrs := jsonToFloatMap(userFresh.BaseAttributes)
 	combatAttrs := jsonToFloatMap(userFresh.CombatAttributes)
 	combatRes := jsonToFloatMap(userFresh.CombatResistance)
 	specialAttrs := jsonToFloatMap(userFresh.SpecialAttributes)
 
-	// 处理灵宠属性
+	// ✅ 改进：使用 AttributeManager 统一处理属性变更
+	attrMgr := NewAttributeManager(baseAttrs, combatAttrs, combatRes, specialAttrs)
+
+	// 处理灵宠属性：先移除旧灵宠加成
 	var activePet models.Pet
 	hasActivePet := db.DB.Where("user_id = ? AND is_active = ?", userID, true).First(&activePet).Error == nil
 	if hasActivePet {
 		petCombat := jsonToFloatMap(activePet.CombatAttributes)
-		removePetBonuses(baseAttrs, combatAttrs, combatRes, specialAttrs, &activePet, petCombat)
+		attrMgr.RemovePetBonuses(&activePet, petCombat)
 	}
 
 	// 应用新的装备属性
-	applyEquipmentStats(baseAttrs, combatAttrs, combatRes, specialAttrs, equipStats)
+	attrMgr.ApplyEquipmentStats(equipStats)
 
 	// 重新应用灵宠加成
 	if hasActivePet {
 		activePetFresh := models.Pet{}
 		db.DB.First(&activePetFresh, activePet.ID)
 		petCombat := jsonToFloatMap(activePetFresh.CombatAttributes)
-		applyPetBonuses(baseAttrs, combatAttrs, combatRes, specialAttrs, &activePetFresh, petCombat)
+		attrMgr.ApplyPetBonuses(&activePetFresh, petCombat)
 	}
 
 	// 更新装备状态为已穿戴
@@ -449,10 +452,10 @@ func EnhanceEquipment(c *gin.Context) {
 
 	// 更新用户属性
 	updates := map[string]interface{}{
-		"base_attributes":    toJSON(baseAttrs),
-		"combat_attributes":  toJSON(combatAttrs),
-		"combat_resistance":  toJSON(combatRes),
-		"special_attributes": toJSON(specialAttrs),
+		"base_attributes":    toJSON(attrMgr.BaseAttrs),
+		"combat_attributes":  toJSON(attrMgr.CombatAttrs),
+		"combat_resistance":  toJSON(attrMgr.CombatRes),
+		"special_attributes": toJSON(attrMgr.SpecialAttrs),
 	}
 	if err := db.DB.Model(&models.User{}).Where("id = ?", userID).Updates(updates).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "服务器错误", "error": err.Error()})
@@ -464,15 +467,15 @@ func EnhanceEquipment(c *gin.Context) {
 	equipmentJSON, _ := json.Marshal(equipment)
 	redisClient.Client.Set(c, equipmentCacheKey, string(equipmentJSON), 5*time.Second)
 
-	// ✅ 新增：记录强化后状态
-	zapLogger.Info("装备强化完成",
-		zap.String("equipmentID", equipment.ID),
-		zap.Int("newEnhanceLevel", equipment.EnhanceLevel),
-		zap.Int("costReinforceStones", cost),
-		zap.Any("oldStats", oldStats),
-		zap.Any("newStats", stats))
+	// ✅ 接变：打印强化后的属性变更
+	zapLogger.Info("装备强化后的用户属性",
+		zap.Uint("userID", userID),
+		zap.Any("baseAttributes", attrMgr.BaseAttrs),
+		zap.Any("combatAttributes", attrMgr.CombatAttrs),
+		zap.Any("combatResistance", attrMgr.CombatRes),
+		zap.Any("specialAttributes", attrMgr.SpecialAttrs))
 
-	// 返回强化结果
+	// ✅ 新增：返回强化结果（改用 AttributeManager 中的属性值）
 	c.JSON(http.StatusOK, gin.H{
 		"success":          true,
 		"message":          "强化成功",
@@ -482,10 +485,10 @@ func EnhanceEquipment(c *gin.Context) {
 		"newLevel":         equipment.EnhanceLevel,
 		"newRequiredRealm": newRequiredRealm,
 		"user": gin.H{
-			"baseAttributes":    baseAttrs,
-			"combatAttributes":  combatAttrs,
-			"combatResistance":  combatRes,
-			"specialAttributes": specialAttrs,
+			"baseAttributes":    attrMgr.BaseAttrs,
+			"combatAttributes":  attrMgr.CombatAttrs,
+			"combatResistance":  attrMgr.CombatRes,
+			"specialAttributes": attrMgr.SpecialAttrs,
 			"reinforce_stones":  userFresh.ReinforceStones - cost,
 		},
 	})
