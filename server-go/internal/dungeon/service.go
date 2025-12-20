@@ -8,6 +8,9 @@ import (
 	"time"
 
 	"xiuxian/server-go/internal/db"
+	"xiuxian/server-go/internal/dungeon/battle"
+	"xiuxian/server-go/internal/dungeon/battle/formula"
+	"xiuxian/server-go/internal/dungeon/battle/resolver"
 	"xiuxian/server-go/internal/models"
 	"xiuxian/server-go/internal/redis"
 )
@@ -29,26 +32,79 @@ func NewDungeonService(userID uint) *DungeonService {
 	}
 }
 
+// toCombatStats 将 dungeon.CombatStats 转换为 battle.CombatStats
+func toCombatStats(stats *CombatStats) *battle.CombatStats {
+	return &battle.CombatStats{
+		Health:            stats.Health,
+		MaxHealth:         stats.MaxHealth,
+		Damage:            stats.Damage,
+		Defense:           stats.Defense,
+		Speed:             stats.Speed,
+		CritRate:          stats.CritRate,
+		ComboRate:         stats.ComboRate,
+		CounterRate:       stats.CounterRate,
+		StunRate:          stats.StunRate,
+		DodgeRate:         stats.DodgeRate,
+		VampireRate:       stats.VampireRate,
+		CritResist:        stats.CritResist,
+		ComboResist:       stats.ComboResist,
+		CounterResist:     stats.CounterResist,
+		StunResist:        stats.StunResist,
+		DodgeResist:       stats.DodgeResist,
+		VampireResist:     stats.VampireResist,
+		HealBoost:         stats.HealBoost,
+		CritDamageBoost:   stats.CritDamageBoost,
+		CritDamageReduce:  stats.CritDamageReduce,
+		FinalDamageBoost:  stats.FinalDamageBoost,
+		FinalDamageReduce: stats.FinalDamageReduce,
+		CombatBoost:       stats.CombatBoost,
+		ResistanceBoost:   stats.ResistanceBoost,
+	}
+}
+
+// fromCombatStats 将 battle.CombatStats 转换为 dungeon.CombatStats
+func fromCombatStats(stats *battle.CombatStats) *CombatStats {
+	return &CombatStats{
+		Health:            stats.Health,
+		MaxHealth:         stats.MaxHealth,
+		Damage:            stats.Damage,
+		Defense:           stats.Defense,
+		Speed:             stats.Speed,
+		CritRate:          stats.CritRate,
+		ComboRate:         stats.ComboRate,
+		CounterRate:       stats.CounterRate,
+		StunRate:          stats.StunRate,
+		DodgeRate:         stats.DodgeRate,
+		VampireRate:       stats.VampireRate,
+		CritResist:        stats.CritResist,
+		ComboResist:       stats.ComboResist,
+		CounterResist:     stats.CounterResist,
+		StunResist:        stats.StunResist,
+		DodgeResist:       stats.DodgeResist,
+		VampireResist:     stats.VampireResist,
+		HealBoost:         stats.HealBoost,
+		CritDamageBoost:   stats.CritDamageBoost,
+		CritDamageReduce:  stats.CritDamageReduce,
+		FinalDamageBoost:  stats.FinalDamageBoost,
+		FinalDamageReduce: stats.FinalDamageReduce,
+		CombatBoost:       stats.CombatBoost,
+		ResistanceBoost:   stats.ResistanceBoost,
+	}
+}
+
 // GetRandomBuffs 获取随机增益选项
 func (s *DungeonService) GetRandomBuffs(floor int) ([]BuffOption, error) {
-	// 计算概率
-	commonChance := 0.7
+	// 计算概率 (common 通过 else 分支隐式处理)
 	rareChance := 0.25
 	epicChance := 0.05
 
 	if floor%10 == 0 {
-		commonChance = 0.5
 		rareChance = 0.3
 		epicChance = 0.2
 	} else if floor%5 == 0 {
-		commonChance = 0.5
 		rareChance = 0.35
 		epicChance = 0.15
 	}
-
-	_ = commonChance // 标记为已使用（虽然当前实现中暂未直接使用）
-	_ = rareChance
-	_ = epicChance
 
 	var options []BuffOption
 	usedIds := make(map[string]bool)
@@ -121,174 +177,15 @@ func (s *DungeonService) GetRandomBuffs(floor int) ([]BuffOption, error) {
 	return options, nil
 }
 
-// CalculateDamage 计算伤害 - 对应前端 calculateDamage 方法
-func (s *DungeonService) CalculateDamage(attacker *CombatStats, defender *CombatStats) *DamageResult {
-	result := &DamageResult{}
-
-	// 基础伤害 = damage * (1 + combatBoost)
-	damage := math.Abs(attacker.Damage * (1 + attacker.CombatBoost))
-
-	// 暴击判定：finalCritRate = MAX(0, MIN(0.8, critRate * (1 + combatBoost) - target.critResist * (1 + target.resistanceBoost)))
-	finalCritRate := math.Max(0, math.Min(0.8,
-		attacker.CritRate*(1+attacker.CombatBoost)-defender.CritResist*(1+defender.ResistanceBoost)))
-	if rand.Float64() < finalCritRate {
-		damage *= 1.5 + attacker.CritDamageBoost
-		result.IsCrit = true
-	}
-
-	// 连击判定：finalComboRate = MAX(0, MIN(0.8, comboRate * (1 + combatBoost) - target.comboResist))
-	finalComboRate := math.Max(0, math.Min(0.8,
-		attacker.ComboRate*(1+attacker.CombatBoost)-defender.ComboResist))
-	if rand.Float64() < finalComboRate {
-		damage *= 1.3
-		result.IsCombo = true
-	}
-
-	// 吸血判定：finalVampireRate = MAX(0, MIN(0.8, vampireRate * (1 + combatBoost) - target.vampireResist))
-	finalVampireRate := math.Max(0, math.Min(0.8,
-		attacker.VampireRate*(1+attacker.CombatBoost)-defender.VampireResist))
-	if rand.Float64() < finalVampireRate {
-		result.IsVampire = true
-	}
-
-	// 眩晕判定：finalStunRate = MAX(0, MIN(0.8, stunRate * (1 + combatBoost) - target.stunResist))
-	finalStunRate := math.Max(0, math.Min(0.8,
-		attacker.StunRate*(1+attacker.CombatBoost)-defender.StunResist))
-	if rand.Float64() < finalStunRate {
-		result.IsStun = true
-	}
-
-	// 最终伤害 = damage * (1 + finalDamageBoost)
-	damage *= 1 + attacker.FinalDamageBoost
-
-	result.Damage = math.Abs(damage)
-	return result
-}
-
-// CalculateDamageReduction 计算伤害减免 - 对应前端 calculateDamageReduction 方法
-func (s *DungeonService) CalculateDamageReduction(defender *CombatStats, incomingDamage float64, attacker *CombatStats) float64 {
-	damage := math.Abs(incomingDamage)
-
-	// 防御减伤 = damage * 100 / (100 + defense * (1 + combatBoost))
-	effectiveDefense := defender.Defense * (1 + defender.CombatBoost)
-	damage *= 100 / (100 + effectiveDefense)
-
-	// 如果是暴击伤害，应用暴击伤害减免 - damage *= (1 - critDamageReduce)
-	// 注：前端在这里检查attackerStats.isCrit，我们直接在这里判断
-	if attacker != nil && attacker.CritRate > 0 {
-		damage *= 1 - defender.CritDamageReduce
-	}
-
-	// 最终减伤 = damage *= (1 - finalDamageReduce)
-	damage *= 1 - defender.FinalDamageReduce
-
-	return math.Abs(damage)
-}
-
-// TakeDamage 被伤害 - 对应前端 takeDamage 方法
-func (s *DungeonService) TakeDamage(defender *CombatStats, currentHealth float64, incomingDamage float64, source *CombatStats) *TakeDamageResult {
-	result := &TakeDamageResult{}
-
-	// 闪避判定：actualDodgeRate = MAX(0, MIN(0.8, dodgeRate - (source ? source.dodgeResist : 0)))
-	var actualDodgeRate float64
-	if source != nil {
-		actualDodgeRate = math.Max(0, math.Min(0.8, defender.DodgeRate-source.DodgeResist))
-	} else {
-		actualDodgeRate = math.Max(0, math.Min(0.8, defender.DodgeRate))
-	}
-
-	// 闪避成功
-	if rand.Float64() < actualDodgeRate {
-		result.Dodged = true
-		result.Damage = 0
-		result.CurrentHealth = currentHealth
-		return result
-	}
-
-	// 计算实际伤害
-	reducedDamage := s.CalculateDamageReduction(defender, incomingDamage, source)
-	newHealth := math.Max(0, currentHealth-reducedDamage)
-
-	// 反击判定：finalCounterRate = MAX(0, MIN(0.8, counterRate - source.counterResist))
-	if source != nil {
-		finalCounterRate := math.Max(0, math.Min(0.8, defender.CounterRate-source.CounterResist))
-		if rand.Float64() < finalCounterRate {
-			result.IsCounter = true
-		}
-	}
-
-	result.Dodged = false
-	result.Damage = reducedDamage
-	result.CurrentHealth = newHealth
-	result.IsDead = newHealth <= 0
-
-	return result
-}
-
-// ApplyBuffEffectsToStats 将已选增益效果应用到战斗属性
-func (s *DungeonService) ApplyBuffEffectsToStats(stats *CombatStats) *CombatStats {
-	for key, value := range s.buffEffects {
-		if val, ok := value.(float64); ok {
-			switch key {
-			case "health":
-				stats.Health *= (1 + val)
-				stats.MaxHealth *= (1 + val)
-			case "finalDamageBoost", "damage":
-				stats.Damage *= (1 + val)
-			case "defense":
-				stats.Defense *= (1 + val)
-			case "speed":
-				stats.Speed *= (1 + val)
-			case "critRate":
-				stats.CritRate += val
-			case "dodgeRate":
-				stats.DodgeRate += val
-			case "comboRate":
-				stats.ComboRate += val
-			case "vampireRate":
-				stats.VampireRate += val
-			case "stunRate":
-				stats.StunRate += val
-			case "critDamageBoost":
-				stats.CritDamageBoost += val
-			case "finalDamageReduce":
-				stats.FinalDamageReduce += val
-			case "combatBoost":
-				stats.CombatBoost += val
-			case "resistanceBoost":
-				stats.ResistanceBoost += val
-			}
-		}
-	}
-	return stats
-}
-
-// RoundResult 单回合战斗结果
-type RoundResult struct {
-	Round        int      `json:"round"`
-	PlayerHealth float64  `json:"playerHealth"`
-	EnemyHealth  float64  `json:"enemyHealth"`
-	Log          []string `json:"log"`
-	BattleEnded  bool     `json:"battleEnded"`
-	Victory      bool     `json:"victory"`
-}
-
-// StartFight 开始战斗 - 完全按照前端逻辑实现
-func (s *DungeonService) StartFight(floor int, difficulty string) (*FightResult, error) {
-	var user models.User
-	if err := db.DB.First(&user, s.userID).Error; err != nil {
-		return nil, fmt.Errorf("用户不存在: %w", err)
-	}
-
-	modifier := GetDifficultyModifier(difficulty)
-
-	// 解析基础属性JSON (attack, health, defense, speed)
+// parsePlayerAttributes 从数据库用户数据中解析玩家属性
+func (s *DungeonService) parsePlayerAttributes(user *models.User) (*CombatStats, error) {
+	// 解析基础属性JSON
 	var baseAttrs map[string]interface{}
 	if err := json.Unmarshal(user.BaseAttributes, &baseAttrs); err != nil {
 		return nil, fmt.Errorf("解析基础属性失败: %w", err)
 	}
 
-	// 解析战斗属性JSON (critRate, comboRate, counterRate, stunRate, dodgeRate, vampireRate)
+	// 解析战斗属性JSON
 	var combatAttrs map[string]interface{}
 	if err := json.Unmarshal(user.CombatAttributes, &combatAttrs); err != nil {
 		return nil, fmt.Errorf("解析战斗属性失败: %w", err)
@@ -307,7 +204,8 @@ func (s *DungeonService) StartFight(floor int, difficulty string) (*FightResult,
 	}
 
 	// 从数据库中直接读取属性值
-	var health, attack, defense, speed, critRate, comboRate, counterRate, stunRate, dodgeRate, vampireRate float64
+	var health, attack, defense, speed float64
+	var critRate, comboRate, counterRate, stunRate, dodgeRate, vampireRate float64
 	var critResist, comboResist, counterResist, stunResist, dodgeResist, vampireResist float64
 	var healBoost, critDamageBoost, critDamageReduce, finalDamageBoost, finalDamageReduce, combatBoost, resistanceBoost float64
 
@@ -389,20 +287,20 @@ func (s *DungeonService) StartFight(floor int, difficulty string) (*FightResult,
 	}
 
 	// 初始化玩家战斗属性
-	playerStats := &CombatStats{
-		Health:            health,      // 当前生命值
-		MaxHealth:         health,      // 最大生命值 = 生命值
-		Damage:            attack,      // 伤害值 = attack
-		Defense:           defense,     // 防御力
-		Speed:             speed,       // 速度（决定先手）
-		CritRate:          critRate,    // 暴击率
-		ComboRate:         comboRate,   // 连击率
-		CounterRate:       counterRate, // 反击率
-		StunRate:          stunRate,    // 眩晕率
-		DodgeRate:         dodgeRate,   // 闪避率
-		VampireRate:       vampireRate, // 吸血率
-		CritResist:        critResist,  // 抗暴击
-		ComboResist:       comboResist, // 抗连击
+	return &CombatStats{
+		Health:            health,
+		MaxHealth:         health,
+		Damage:            attack,
+		Defense:           defense,
+		Speed:             speed,
+		CritRate:          critRate,
+		ComboRate:         comboRate,
+		CounterRate:       counterRate,
+		StunRate:          stunRate,
+		DodgeRate:         dodgeRate,
+		VampireRate:       vampireRate,
+		CritResist:        critResist,
+		ComboResist:       comboResist,
 		CounterResist:     counterResist,
 		StunResist:        stunResist,
 		DodgeResist:       dodgeResist,
@@ -414,18 +312,12 @@ func (s *DungeonService) StartFight(floor int, difficulty string) (*FightResult,
 		FinalDamageReduce: finalDamageReduce,
 		CombatBoost:       combatBoost,
 		ResistanceBoost:   resistanceBoost,
-	}
+	}, nil
+}
 
-	// 应用已选择的增益效果
-	playerStats = s.ApplyBuffEffectsToStats(playerStats)
-
-	// 应用难度修饰符
-	playerStats.Health *= modifier.HealthMod
-	playerStats.MaxHealth *= modifier.HealthMod
-	playerStats.Damage *= modifier.DamageMod
-
-	// 初始化敌人战斗属性（基于层数递增）
-	enemyStats := &CombatStats{
+// initEnemyStats 根据玩家属性和层数初始化敌人属性
+func (s *DungeonService) initEnemyStats(playerStats *CombatStats, floor int, modifier *DifficultyModifier) *CombatStats {
+	return &CombatStats{
 		Health:            playerStats.Health * (1 + float64(floor)*0.05),
 		MaxHealth:         playerStats.Health * (1 + float64(floor)*0.05),
 		Damage:            playerStats.Damage * (1 + float64(floor)*0.05),
@@ -451,6 +343,49 @@ func (s *DungeonService) StartFight(floor int, difficulty string) (*FightResult,
 		CombatBoost:       0.03 + float64(floor)*0.02,
 		ResistanceBoost:   0.03 + float64(floor)*0.02,
 	}
+}
+
+// RoundResult 单回合战斗结果
+type RoundResult struct {
+	Round        int      `json:"round"`
+	PlayerHealth float64  `json:"playerHealth"`
+	EnemyHealth  float64  `json:"enemyHealth"`
+	Log          []string `json:"log"`
+	BattleEnded  bool     `json:"battleEnded"`
+	Victory      bool     `json:"victory"`
+}
+
+// StartFight 开始战斗 - 完全按照前端逻辑实现
+func (s *DungeonService) StartFight(floor int, difficulty string) (*FightResult, error) {
+	var user models.User
+	if err := db.DB.First(&user, s.userID).Error; err != nil {
+		return nil, fmt.Errorf("用户不存在: %w", err)
+	}
+
+	modifier := GetDifficultyModifier(difficulty)
+
+	// 解析玩家属性
+	playerStats, err := s.parsePlayerAttributes(&user)
+	if err != nil {
+		return nil, err
+	}
+
+	// 应用已选择的增益效果
+	playerStats = fromCombatStats(resolver.ApplyBuffEffectsToStats(toCombatStats(playerStats), s.buffEffects))
+
+	// 应用难度修饰符
+	playerStats.Health *= modifier.HealthMod
+	playerStats.MaxHealth *= modifier.HealthMod
+	playerStats.Damage *= modifier.DamageMod
+
+	// 初始化敌人属性
+	enemyStats := s.initEnemyStats(playerStats, floor, &modifier)
+
+	// 将玩家和敌人属性存入Redis
+	if err := s.saveBattleStatsToRedis(playerStats, enemyStats, floor); err != nil {
+		// Redis存储失败不影响战斗流程，仅记录日志
+		fmt.Printf("保存战斗属性到Redis失败: %v\n", err)
+	}
 
 	// 执行战斗模拟（完整的回合制逻辑）
 	playerCurrentHealth := playerStats.MaxHealth
@@ -469,20 +404,31 @@ func (s *DungeonService) StartFight(floor int, difficulty string) (*FightResult,
 		if playerSpeed >= enemySpeed {
 			// ==================== 玩家先手 ====================
 			// 第1步：玩家攻击敌人
-			playerDmgResult := s.CalculateDamage(playerStats, enemyStats)
-			enemyTakeDmgResult := s.TakeDamage(enemyStats, enemyCurrentHealth, playerDmgResult.Damage, playerStats)
+			playerDmgResult := formula.CalculateDamage(toCombatStats(playerStats), toCombatStats(enemyStats))
+			enemyTakeDmgResult := resolver.TakeDamage(toCombatStats(enemyStats), enemyCurrentHealth, playerDmgResult.TotalDamage, toCombatStats(playerStats))
 			enemyCurrentHealth = enemyTakeDmgResult.CurrentHealth
 
-			// 记录日志
-			logMsg := fmt.Sprintf("第%d回合：玩家造成%.1f伤害", rounds, playerDmgResult.Damage)
+			// 吸血回复
+			if playerDmgResult.IsVampire {
+				playerCurrentHealth = playerCurrentHealth + playerDmgResult.VampireHeal
+				if playerCurrentHealth > playerStats.MaxHealth {
+					playerCurrentHealth = playerStats.MaxHealth
+				}
+			}
+
+			// 记录日志："伤害xxx，暴击伤害xxx，连击伤害xxx"
+			logMsg := fmt.Sprintf("第%d回合：玩家对敌人造成伤害%.0f", rounds, playerDmgResult.BaseDamage)
 			if playerDmgResult.IsCrit {
-				logMsg += "(暴击)"
+				logMsg += fmt.Sprintf("，暴击伤害%.0f", playerDmgResult.CritDamage)
 			}
 			if playerDmgResult.IsCombo {
-				logMsg += "(连击)"
+				logMsg += fmt.Sprintf("，连击伤害%.0f", playerDmgResult.ComboDamage)
+			}
+			if playerDmgResult.IsVampire {
+				logMsg += fmt.Sprintf("，吸血回复%.0f", playerDmgResult.VampireHeal)
 			}
 			if playerDmgResult.IsStun {
-				logMsg += "(眩晕)"
+				logMsg += "，敌人被眩晕一回合"
 			}
 			battleLog = append(battleLog, logMsg)
 
@@ -492,22 +438,33 @@ func (s *DungeonService) StartFight(floor int, difficulty string) (*FightResult,
 				break
 			}
 
-			// 第3步：敌人反击（如果没被眩晕）
+			// 第3步：敌人回合（如果没被眩晕）
 			if !playerDmgResult.IsStun {
-				enemyDmgResult := s.CalculateDamage(enemyStats, playerStats)
-				playerTakeDmgResult := s.TakeDamage(playerStats, playerCurrentHealth, enemyDmgResult.Damage, enemyStats)
+				enemyDmgResult := formula.CalculateDamage(toCombatStats(enemyStats), toCombatStats(playerStats))
+				playerTakeDmgResult := resolver.TakeDamage(toCombatStats(playerStats), playerCurrentHealth, enemyDmgResult.TotalDamage, toCombatStats(enemyStats))
 				playerCurrentHealth = playerTakeDmgResult.CurrentHealth
 
+				// 敌人吸血回复
+				if enemyDmgResult.IsVampire {
+					enemyCurrentHealth = enemyCurrentHealth + enemyDmgResult.VampireHeal
+					if enemyCurrentHealth > enemyStats.MaxHealth {
+						enemyCurrentHealth = enemyStats.MaxHealth
+					}
+				}
+
 				// 记录日志
-				logMsg := fmt.Sprintf("第%d回合：敌人造成%.1f伤害", rounds, enemyDmgResult.Damage)
+				logMsg := fmt.Sprintf("第%d回合：敌人对玩家造成伤害%.0f", rounds, enemyDmgResult.BaseDamage)
 				if enemyDmgResult.IsCrit {
-					logMsg += "(暴击)"
+					logMsg += fmt.Sprintf("，暴击伤害%.0f", enemyDmgResult.CritDamage)
 				}
 				if enemyDmgResult.IsCombo {
-					logMsg += "(连击)"
+					logMsg += fmt.Sprintf("，连击伤害%.0f", enemyDmgResult.ComboDamage)
 				}
-				if playerTakeDmgResult.IsCounter {
-					logMsg += "(玩家反击)"
+				if enemyDmgResult.IsVampire {
+					logMsg += fmt.Sprintf("，敌人吸血回复%.0f", enemyDmgResult.VampireHeal)
+				}
+				if enemyDmgResult.IsStun {
+					logMsg += "，玩家被眩晕一回合"
 				}
 				battleLog = append(battleLog, logMsg)
 
@@ -522,20 +479,31 @@ func (s *DungeonService) StartFight(floor int, difficulty string) (*FightResult,
 		} else {
 			// ==================== 敌人先手 ====================
 			// 第1步：敌人攻击玩家
-			enemyDmgResult := s.CalculateDamage(enemyStats, playerStats)
-			playerTakeDmgResult := s.TakeDamage(playerStats, playerCurrentHealth, enemyDmgResult.Damage, enemyStats)
+			enemyDmgResult := formula.CalculateDamage(toCombatStats(enemyStats), toCombatStats(playerStats))
+			playerTakeDmgResult := resolver.TakeDamage(toCombatStats(playerStats), playerCurrentHealth, enemyDmgResult.TotalDamage, toCombatStats(enemyStats))
 			playerCurrentHealth = playerTakeDmgResult.CurrentHealth
 
+			// 敌人吸血回复
+			if enemyDmgResult.IsVampire {
+				enemyCurrentHealth = enemyCurrentHealth + enemyDmgResult.VampireHeal
+				if enemyCurrentHealth > enemyStats.MaxHealth {
+					enemyCurrentHealth = enemyStats.MaxHealth
+				}
+			}
+
 			// 记录日志
-			logMsg := fmt.Sprintf("第%d回合：敌人造成%.1f伤害", rounds, enemyDmgResult.Damage)
+			logMsg := fmt.Sprintf("第%d回合：敌人对玩家造成伤害%.0f", rounds, enemyDmgResult.BaseDamage)
 			if enemyDmgResult.IsCrit {
-				logMsg += "(暴击)"
+				logMsg += fmt.Sprintf("，暴击伤害%.0f", enemyDmgResult.CritDamage)
 			}
 			if enemyDmgResult.IsCombo {
-				logMsg += "(连击)"
+				logMsg += fmt.Sprintf("，连击伤害%.0f", enemyDmgResult.ComboDamage)
+			}
+			if enemyDmgResult.IsVampire {
+				logMsg += fmt.Sprintf("，敌人吸血回复%.0f", enemyDmgResult.VampireHeal)
 			}
 			if enemyDmgResult.IsStun {
-				logMsg += "(眩晕)"
+				logMsg += "，玩家被眩晕一回合"
 			}
 			battleLog = append(battleLog, logMsg)
 
@@ -545,22 +513,33 @@ func (s *DungeonService) StartFight(floor int, difficulty string) (*FightResult,
 				break
 			}
 
-			// 第3步：玩家反击（如果没被眩晕）
+			// 第3步：玩家回合（如果没被眩晕）
 			if !enemyDmgResult.IsStun {
-				playerDmgResult := s.CalculateDamage(playerStats, enemyStats)
-				enemyTakeDmgResult := s.TakeDamage(enemyStats, enemyCurrentHealth, playerDmgResult.Damage, playerStats)
+				playerDmgResult := formula.CalculateDamage(toCombatStats(playerStats), toCombatStats(enemyStats))
+				enemyTakeDmgResult := resolver.TakeDamage(toCombatStats(enemyStats), enemyCurrentHealth, playerDmgResult.TotalDamage, toCombatStats(playerStats))
 				enemyCurrentHealth = enemyTakeDmgResult.CurrentHealth
 
+				// 玩家吸血回复
+				if playerDmgResult.IsVampire {
+					playerCurrentHealth = playerCurrentHealth + playerDmgResult.VampireHeal
+					if playerCurrentHealth > playerStats.MaxHealth {
+						playerCurrentHealth = playerStats.MaxHealth
+					}
+				}
+
 				// 记录日志
-				logMsg := fmt.Sprintf("第%d回合：玩家造成%.1f伤害", rounds, playerDmgResult.Damage)
+				logMsg := fmt.Sprintf("第%d回合：玩家对敌人造成伤害%.0f", rounds, playerDmgResult.BaseDamage)
 				if playerDmgResult.IsCrit {
-					logMsg += "(暴击)"
+					logMsg += fmt.Sprintf("，暴击伤害%.0f", playerDmgResult.CritDamage)
 				}
 				if playerDmgResult.IsCombo {
-					logMsg += "(连击)"
+					logMsg += fmt.Sprintf("，连击伤害%.0f", playerDmgResult.ComboDamage)
 				}
-				if enemyTakeDmgResult.IsCounter {
-					logMsg += "(敌人反击)"
+				if playerDmgResult.IsVampire {
+					logMsg += fmt.Sprintf("，吸血回复%.0f", playerDmgResult.VampireHeal)
+				}
+				if playerDmgResult.IsStun {
+					logMsg += "，敌人被眩晕一回合"
 				}
 				battleLog = append(battleLog, logMsg)
 
@@ -627,179 +606,22 @@ func (s *DungeonService) StartFightStreaming(floor int, difficulty string) (*Com
 
 	modifier := GetDifficultyModifier(difficulty)
 
-	// 解析基础属性JSON (attack, health, defense, speed)
-	var baseAttrs map[string]interface{}
-	if err := json.Unmarshal(user.BaseAttributes, &baseAttrs); err != nil {
-		return nil, nil, fmt.Errorf("解析基础属性失败: %w", err)
-	}
-
-	// 解析战斗属性JSON (critRate, comboRate, counterRate, stunRate, dodgeRate, vampireRate)
-	var combatAttrs map[string]interface{}
-	if err := json.Unmarshal(user.CombatAttributes, &combatAttrs); err != nil {
-		return nil, nil, fmt.Errorf("解析战斗属性失败: %w", err)
-	}
-
-	// 解析战斗抗性JSON
-	var combatResist map[string]interface{}
-	if err := json.Unmarshal(user.CombatResistance, &combatResist); err != nil {
-		return nil, nil, fmt.Errorf("解析战斗抗性失败: %w", err)
-	}
-
-	// 解析特殊属性JSON
-	var specialAttrs map[string]interface{}
-	if err := json.Unmarshal(user.SpecialAttributes, &specialAttrs); err != nil {
-		return nil, nil, fmt.Errorf("解析特殊属性失败: %w", err)
-	}
-
-	// 从数据库中直接读取属性值
-	var health, attack, defense, speed, critRate, comboRate, counterRate, stunRate, dodgeRate, vampireRate float64
-	var critResist, comboResist, counterResist, stunResist, dodgeResist, vampireResist float64
-	var healBoost, critDamageBoost, critDamageReduce, finalDamageBoost, finalDamageReduce, combatBoost, resistanceBoost float64
-
-	// 从 baseAttributes 读取基础属性
-	if v, ok := baseAttrs["health"].(float64); ok {
-		health = v
-	}
-	if v, ok := baseAttrs["attack"].(float64); ok {
-		attack = v
-	}
-	if v, ok := baseAttrs["defense"].(float64); ok {
-		defense = v
-	}
-	if v, ok := baseAttrs["speed"].(float64); ok {
-		speed = v
-	}
-
-	// 从 combatAttributes 读取战斗属性
-	if v, ok := combatAttrs["critRate"].(float64); ok {
-		critRate = v
-	}
-	if v, ok := combatAttrs["comboRate"].(float64); ok {
-		comboRate = v
-	}
-	if v, ok := combatAttrs["counterRate"].(float64); ok {
-		counterRate = v
-	}
-	if v, ok := combatAttrs["stunRate"].(float64); ok {
-		stunRate = v
-	}
-	if v, ok := combatAttrs["dodgeRate"].(float64); ok {
-		dodgeRate = v
-	}
-	if v, ok := combatAttrs["vampireRate"].(float64); ok {
-		vampireRate = v
-	}
-
-	// 从 combatResistance 读取战斗抗性
-	if v, ok := combatResist["critResist"].(float64); ok {
-		critResist = v
-	}
-	if v, ok := combatResist["comboResist"].(float64); ok {
-		comboResist = v
-	}
-	if v, ok := combatResist["counterResist"].(float64); ok {
-		counterResist = v
-	}
-	if v, ok := combatResist["stunResist"].(float64); ok {
-		stunResist = v
-	}
-	if v, ok := combatResist["dodgeResist"].(float64); ok {
-		dodgeResist = v
-	}
-	if v, ok := combatResist["vampireResist"].(float64); ok {
-		vampireResist = v
-	}
-
-	// 从 specialAttributes 读取特殊属性
-	if v, ok := specialAttrs["healBoost"].(float64); ok {
-		healBoost = v
-	}
-	if v, ok := specialAttrs["critDamageBoost"].(float64); ok {
-		critDamageBoost = v
-	}
-	if v, ok := specialAttrs["critDamageReduce"].(float64); ok {
-		critDamageReduce = v
-	}
-	if v, ok := specialAttrs["finalDamageBoost"].(float64); ok {
-		finalDamageBoost = v
-	}
-	if v, ok := specialAttrs["finalDamageReduce"].(float64); ok {
-		finalDamageReduce = v
-	}
-	if v, ok := specialAttrs["combatBoost"].(float64); ok {
-		combatBoost = v
-	}
-	if v, ok := specialAttrs["resistanceBoost"].(float64); ok {
-		resistanceBoost = v
-	}
-
-	// 初始化玩家战斗属性
-	playerStats := &CombatStats{
-		Health:            health,      // 当前生命值
-		MaxHealth:         health,      // 最大生命值 = 生命值
-		Damage:            attack,      // 伤害值 = attack
-		Defense:           defense,     // 防御力
-		Speed:             speed,       // 速度（决定先手）
-		CritRate:          critRate,    // 暴击率
-		ComboRate:         comboRate,   // 连击率
-		CounterRate:       counterRate, // 反击率
-		StunRate:          stunRate,    // 眩晕率
-		DodgeRate:         dodgeRate,   // 闪避率
-		VampireRate:       vampireRate, // 吸血率
-		CritResist:        critResist,  // 抗暴击
-		ComboResist:       comboResist, // 抗连击
-		CounterResist:     counterResist,
-		StunResist:        stunResist,
-		DodgeResist:       dodgeResist,
-		VampireResist:     vampireResist,
-		HealBoost:         healBoost,
-		CritDamageBoost:   critDamageBoost,
-		CritDamageReduce:  critDamageReduce,
-		FinalDamageBoost:  finalDamageBoost,
-		FinalDamageReduce: finalDamageReduce,
-		CombatBoost:       combatBoost,
-		ResistanceBoost:   resistanceBoost,
+	// 解析玩家属性
+	playerStats, err := s.parsePlayerAttributes(&user)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	// 应用已选择的增益效果
-	playerStats = s.ApplyBuffEffectsToStats(playerStats)
+	playerStats = fromCombatStats(resolver.ApplyBuffEffectsToStats(toCombatStats(playerStats), s.buffEffects))
 
 	// 应用难度修饰符
 	playerStats.Health *= modifier.HealthMod
 	playerStats.MaxHealth *= modifier.HealthMod
 	playerStats.Damage *= modifier.DamageMod
 
-	// 初始化敌人战斗属性（基于层数递增）
-	enemyStats := &CombatStats{
-		// 基础属性：随层数增长
-		Health:    playerStats.Health * (1 + float64(floor)*0.05),                       // 敌人血量 = 玩家血量 * (1 + 层数*5%)
-		MaxHealth: playerStats.Health * (1 + float64(floor)*0.05),                       // 敌人最大血量
-		Damage:    playerStats.Damage * (1 + float64(floor)*0.05),                       // 敌人伤害 = 玩家伤害 * (1 + 层数*5%)
-		Defense:   playerStats.Defense * modifier.DamageMod * (1 + float64(floor)*0.03), // 敌人防御 = 玩家防御 * 难度倍数 * (1 + 层数*3%)
-		Speed:     playerStats.Speed * (1 + float64(floor)*0.02),                        // 敌人速度 = 玩家速度 * (1 + 层数*2%)
-		// 战斗属性：随层数递增
-		CritRate:    0.05 + float64(floor)*0.02, // 敌人暴击率 = 5% + 层数*2%
-		ComboRate:   0.03 + float64(floor)*0.02, // 敌人连击率 = 3% + 层数*2%
-		CounterRate: 0.03 + float64(floor)*0.02, // 敌人反击率 = 3% + 层数*2%
-		StunRate:    0.02 + float64(floor)*0.01, // 敌人眩晕率 = 2% + 层数*1%
-		DodgeRate:   0.05 + float64(floor)*0.02, // 敌人闪避率 = 5% + 层数*2%
-		VampireRate: 0.02 + float64(floor)*0.01, // 敌人吸血率 = 2% + 层数*1%
-		// 战斗抗性：随层数递增
-		CritResist:    0.02 + float64(floor)*0.01, // 敌人抗暴击 = 2% + 层数*1%
-		ComboResist:   0.02 + float64(floor)*0.01, // 敌人抗连击 = 2% + 层数*1%
-		CounterResist: 0.02 + float64(floor)*0.01, // 敌人抗反击 = 2% + 层数*1%
-		StunResist:    0.02 + float64(floor)*0.01, // 敌人抗眩晕 = 2% + 层数*1%
-		DodgeResist:   0.02 + float64(floor)*0.01, // 敌人抗闪避 = 2% + 层数*1%
-		VampireResist: 0.02 + float64(floor)*0.01, // 敌人抗吸血 = 2% + 层数*1%
-		// 特殊属性：随层数递增
-		HealBoost:         0.05 + float64(floor)*0.02, // 敌人治疗强化 = 5% + 层数*2%
-		CritDamageBoost:   0.2 + float64(floor)*0.1,   // 敌人爆伤提升 = 20% + 层数*10%
-		CritDamageReduce:  0.1 + float64(floor)*0.05,  // 敌人爆伤减免 = 10% + 层数*5%
-		FinalDamageBoost:  0.05 + float64(floor)*0.02, // 敌人最终增伤 = 5% + 层数*2%
-		FinalDamageReduce: 0.05 + float64(floor)*0.02, // 敌人最终减伤 = 5% + 层数*2%
-		CombatBoost:       0.03 + float64(floor)*0.02, // 敌人战斗属性提升 = 3% + 层数*2%
-		ResistanceBoost:   0.03 + float64(floor)*0.02, // 敌人抗性提升 = 3% + 层数*2%
-	}
+	// 初始化敌人属性
+	enemyStats := s.initEnemyStats(playerStats, floor, &modifier)
 
 	return playerStats, enemyStats, nil
 }
@@ -851,7 +673,7 @@ func (s *DungeonService) SelectBuff(buffID string) (map[string]interface{}, erro
 		"description": selectedConfig.Description,
 		"effects":     selectedConfig.Effects,
 	}, nil
-}}
+}
 
 // EndDungeon 结束秘境
 // 次季：引入了rewardAmount字段，计算宁亭是她StartFight中计算的，这里翰撩直接返回
@@ -928,4 +750,63 @@ func (s *DungeonService) LoadSessionFromRedis() (*DungeonSession, error) {
 func (s *DungeonService) ClearSessionFromRedis() error {
 	key := fmt.Sprintf("dungeon:session:%d", s.userID)
 	return redis.Client.Del(redis.Ctx, key).Err()
+}
+
+// saveBattleStatsToRedis 将玩家和敌人属性存入Redis
+func (s *DungeonService) saveBattleStatsToRedis(playerStats, enemyStats *CombatStats, floor int) error {
+	// 玩家属性
+	playerKey := fmt.Sprintf("dungeon:battle:%d:player", s.userID)
+	playerData, err := json.Marshal(playerStats)
+	if err != nil {
+		return err
+	}
+	if err := redis.Client.Set(redis.Ctx, playerKey, string(playerData), 60*time.Minute).Err(); err != nil {
+		return err
+	}
+
+	// 敌人属性
+	enemyKey := fmt.Sprintf("dungeon:battle:%d:enemy", s.userID)
+	enemyData, err := json.Marshal(enemyStats)
+	if err != nil {
+		return err
+	}
+	if err := redis.Client.Set(redis.Ctx, enemyKey, string(enemyData), 60*time.Minute).Err(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// LoadBattleStatsFromRedis 从Redis加载玩家和敌人属性
+func (s *DungeonService) LoadBattleStatsFromRedis() (*CombatStats, *CombatStats, error) {
+	// 加载玩家属性
+	playerKey := fmt.Sprintf("dungeon:battle:%d:player", s.userID)
+	playerData, err := redis.Client.Get(redis.Ctx, playerKey).Result()
+	if err != nil {
+		return nil, nil, fmt.Errorf("加载玩家属性失败: %w", err)
+	}
+	var playerStats CombatStats
+	if err := json.Unmarshal([]byte(playerData), &playerStats); err != nil {
+		return nil, nil, err
+	}
+
+	// 加载敌人属性
+	enemyKey := fmt.Sprintf("dungeon:battle:%d:enemy", s.userID)
+	enemyData, err := redis.Client.Get(redis.Ctx, enemyKey).Result()
+	if err != nil {
+		return nil, nil, fmt.Errorf("加载敌人属性失败: %w", err)
+	}
+	var enemyStats CombatStats
+	if err := json.Unmarshal([]byte(enemyData), &enemyStats); err != nil {
+		return nil, nil, err
+	}
+
+	return &playerStats, &enemyStats, nil
+}
+
+// ClearBattleStatsFromRedis 清除Redis中的战斗属性
+func (s *DungeonService) ClearBattleStatsFromRedis() error {
+	playerKey := fmt.Sprintf("dungeon:battle:%d:player", s.userID)
+	enemyKey := fmt.Sprintf("dungeon:battle:%d:enemy", s.userID)
+	return redis.Client.Del(redis.Ctx, playerKey, enemyKey).Err()
 }
