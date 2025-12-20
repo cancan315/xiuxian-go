@@ -637,6 +637,16 @@
           selectedEquipment.value.requiredRealm = result.newRequiredRealm
         }
         
+        // ✅ 同步更新本地装备列表中的装备数据
+        const equipmentIndex = localEquipmentList.value.findIndex(e => e.id === selectedEquipment.value.id)
+        if (equipmentIndex !== -1) {
+          localEquipmentList.value[equipmentIndex].stats = { ...result.newStats }
+          localEquipmentList.value[equipmentIndex].enhanceLevel = result.newLevel
+          if (result.newRequiredRealm !== undefined) {
+            localEquipmentList.value[equipmentIndex].requiredRealm = result.newRequiredRealm
+          }
+        }
+        
         // ✅ 更新玩家属性
         if (result.user) {
           props.playerInfoStore.$patch({
@@ -663,10 +673,7 @@
     
     const token = getAuthToken()
     try {
-      // 直接从后端获取最新的洗练石数量
-      const userData = await APIService.getUser(token)
-      props.playerInfoStore.refinementStones = userData.refinementStones || 0
-      
+      // ✅ 直接使用本地的洗练石数量，无需每次都从后端查询
       const result = await APIService.reforgeEquipment(token, selectedEquipment.value.id, props.playerInfoStore.refinementStones)
       
       if (result.success) {

@@ -133,3 +133,30 @@ type TakeDamageResult struct {
 	IsDead        bool    // 是否死亡
 	IsCounter     bool    // 是否反击
 }
+
+// 回合战斗结果 - 单个回合的完整结果
+type RoundData struct {
+	Round        int           `json:"round"`             // 回合数
+	PlayerHealth float64       `json:"playerHealth"`      // 玩家血量
+	EnemyHealth  float64       `json:"enemyHealth"`       // 敌人血量
+	Logs         []string      `json:"logs"`              // 本回合日志
+	BattleEnded  bool          `json:"battleEnded"`       // 战斗是否结束
+	Victory      bool          `json:"victory"`           // 是否胜利 (战斗结束时有效)
+	Rewards      []interface{} `json:"rewards,omitempty"` // 奖励 (战斗结束时有效)
+}
+
+// 战斗状态 - 保存在Redis中的战斗状态信息
+type BattleStatus struct {
+	UserID          uint                   `json:"userID"`          // 用户ID
+	Floor           int                    `json:"floor"`           // 当前层数
+	Difficulty      string                 `json:"difficulty"`      // 难度
+	Round           int                    `json:"round"`           // 当前回合
+	PlayerHealth    float64                `json:"playerHealth"`    // 玩家当前血量
+	PlayerMaxHealth float64                `json:"playerMaxHealth"` // 玩家最大血量
+	EnemyHealth     float64                `json:"enemyHealth"`     // 敌人当前血量
+	EnemyMaxHealth  float64                `json:"enemyMaxHealth"`  // 敌人最大血量
+	PlayerStats     *CombatStats           `json:"playerStats"`     // 玩家战斗属性
+	EnemyStats      *CombatStats           `json:"enemyStats"`      // 敌人战斗属性
+	BuffEffects     map[string]interface{} `json:"buffEffects"`     // 玩家已选增益
+	BattleLog       []string               `json:"battleLog"`       // 完整战斗日志
+}

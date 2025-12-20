@@ -12,6 +12,7 @@ import (
 	"gorm.io/datatypes"
 
 	"xiuxian/server-go/internal/db"
+	playerHandler "xiuxian/server-go/internal/http/handlers/player"
 	"xiuxian/server-go/internal/models"
 )
 
@@ -52,7 +53,7 @@ func Register(c *gin.Context) {
 	// 获取zap logger
 	logger, _ := c.Get("zap_logger")
 	zapLogger := logger.(*zap.Logger)
-	
+
 	// 记录注册请求日志
 	zapLogger.Info("[注册] 收到注册请求",
 		zap.String("username", req.Username))
@@ -76,21 +77,21 @@ func Register(c *gin.Context) {
 	}
 
 	user := models.User{
-		Username:         req.Username,
-		Password:         string(hashed),
-		PlayerName:       "无名修士",
-		Level:            1,
-		Realm:            "练气期一层",
-		Cultivation:      0,
-		MaxCultivation:   100,
-		Spirit:           0,
-		SpiritStones:     20000,
-		ReinforceStones:  0,
-		RefinementStones: 0,
-		PetEssence:       0,
-		BaseAttributes:   datatypes.JSON([]byte("{\"attack\":10,\"health\":100,\"defense\":5,\"speed\":10}")),
-		CombatAttributes: datatypes.JSON([]byte("{\"critRate\":0,\"comboRate\":0,\"counterRate\":0,\"stunRate\":0,\"dodgeRate\":0,\"vampireRate\":0}")),
-		CombatResistance: datatypes.JSON([]byte("{\"critResist\":0,\"comboResist\":0,\"counterResist\":0,\"stunResist\":0,\"dodgeResist\":0,\"vampireResist\":0}")),
+		Username:          req.Username,
+		Password:          string(hashed),
+		PlayerName:        "无名修士",
+		Level:             1,
+		Realm:             "练气期一层",
+		Cultivation:       0,
+		MaxCultivation:    100,
+		Spirit:            0,
+		SpiritStones:      20000,
+		ReinforceStones:   0,
+		RefinementStones:  0,
+		PetEssence:        0,
+		BaseAttributes:    datatypes.JSON([]byte("{\"attack\":10,\"health\":100,\"defense\":5,\"speed\":10}")),
+		CombatAttributes:  datatypes.JSON([]byte("{\"critRate\":0,\"comboRate\":0,\"counterRate\":0,\"stunRate\":0,\"dodgeRate\":0,\"vampireRate\":0}")),
+		CombatResistance:  datatypes.JSON([]byte("{\"critResist\":0,\"comboResist\":0,\"counterResist\":0,\"stunResist\":0,\"dodgeResist\":0,\"vampireResist\":0}")),
 		SpecialAttributes: datatypes.JSON([]byte("{\"healBoost\":0,\"critDamageBoost\":0,\"critDamageReduce\":0,\"finalDamageBoost\":0,\"finalDamageReduce\":0,\"combatBoost\":0,\"resistanceBoost\":0}")),
 	}
 	if err := db.DB.Create(&user).Error; err != nil {
@@ -140,7 +141,7 @@ func Login(c *gin.Context) {
 	// 获取zap logger
 	logger, _ := c.Get("zap_logger")
 	zapLogger := logger.(*zap.Logger)
-	
+
 	// 记录登录请求日志
 	zapLogger.Info("[登录] 收到登录请求",
 		zap.String("username", req.Username))
@@ -169,6 +170,14 @@ func Login(c *gin.Context) {
 		return
 	}
 
+	// ✅ 新增：初始化装备资源缓存
+	if err := playerHandler.InitEquipmentResourcesCache(c, user.ID); err != nil {
+		zapLogger.Warn("[登录] 初始化装备资源缓存失败",
+			zap.Uint("userID", user.ID),
+			zap.Error(err))
+		// 不中断流程，只记录日志
+	}
+
 	zapLogger.Info("[登录] 用户登录成功",
 		zap.Uint("userID", user.ID),
 		zap.String("username", user.Username))
@@ -177,6 +186,37 @@ func Login(c *gin.Context) {
 		"username": user.Username,
 		"token":    token,
 	})
+}
+
+// Logout 对应登出
+func Logout(c *gin.Context) {
+	userIDVal, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "用户未授权"})
+		return
+	}
+
+	userID, ok := userIDVal.(uint)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "用户未授权"})
+		return
+	}
+
+	// 获取zap logger
+	logger, _ := c.Get("zap_logger")
+	zapLogger := logger.(*zap.Logger)
+
+	// ✅ 新增：同步装备资源缓存到数据库
+	if err := playerHandler.SyncEquipmentResourcesToDB(c, userID); err != nil {
+		zapLogger.Warn("[登出] 同步装备资源到数据库失败",
+			zap.Uint("userID", userID),
+			zap.Error(err))
+		// 不中断流程，只记录日志
+	}
+
+	zapLogger.Info("[登出] 用户登出成功",
+		zap.Uint("userID", userID))
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "已登出"})
 }
 
 // GetUser 对应 Node 的 getUser
@@ -196,7 +236,7 @@ func GetUser(c *gin.Context) {
 	// 获取zap logger
 	logger, _ := c.Get("zap_logger")
 	zapLogger := logger.(*zap.Logger)
-	
+
 	// 记录获取用户信息请求日志
 	zapLogger.Info("[获取用户信息] 收到请求",
 		zap.Uint("userID", userID))

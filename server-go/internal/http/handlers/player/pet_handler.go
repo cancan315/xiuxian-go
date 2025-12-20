@@ -274,44 +274,120 @@ func UpgradePet(c *gin.Context) {
 		return
 	}
 
-	// 计算新等级与加成
+	// ✅ 修改：升级前先保存旧属性（如果灵宠出战，需要用旧属性移除加成）
+	var isActive bool = pet.IsActive
+	var oldCombatAttrs map[string]float64
+	if isActive {
+		oldCombatAttrs = jsonToFloatMap(pet.CombatAttributes)
+	}
+
+	// 计算新等级与属性增长
 	newLevel := pet.Level + 1
-	qualityBonusMap := map[string]float64{
-		"mythic":    0.15,
-		"legendary": 0.12,
-		"epic":      0.09,
-		"rare":      0.06,
-		"uncommon":  0.03,
-		"common":    0.03,
+
+	// 获取灵宠当前的战斗属性
+	combatAttrs := jsonToFloatMap(pet.CombatAttributes)
+
+	// 提取基础属性字段，各自乘以2
+	baseAttack := combatAttrs["attack"]
+	if baseAttack == 0 {
+		baseAttack = 10
 	}
-	starBonusPerQuality := map[string]float64{
-		"mythic":    0.02,
-		"legendary": 0.01,
-		"epic":      0.01,
-		"rare":      0.01,
-		"uncommon":  0.01,
-		"common":    0.01,
+	newAttack := baseAttack * 2
+
+	baseHealth := combatAttrs["health"]
+	if baseHealth == 0 {
+		baseHealth = 100
 	}
-	baseBonus := qualityBonusMap[pet.Rarity]
-	starBonus := float64(pet.Star) * starBonusPerQuality[pet.Rarity]
-	levelBonus := float64(newLevel-1) * (baseBonus * 0.1)
-	phase := pet.Star / 5
-	phaseBonus := float64(phase) * (baseBonus * 0.5)
-	newBonus := baseBonus + starBonus + levelBonus + phaseBonus
+	newHealth := baseHealth * 2
+
+	baseDefense := combatAttrs["defense"]
+	if baseDefense == 0 {
+		baseDefense = 5
+	}
+	newDefense := baseDefense * 2
+
+	baseSpeed := combatAttrs["speed"]
+	if baseSpeed == 0 {
+		baseSpeed = 10
+	}
+	newSpeed := baseSpeed * 2
+
+	// 更新 CombatAttributes 中的属性值（各自乘以2）
+	combatAttrs["attack"] = newAttack
+	combatAttrs["health"] = newHealth
+	combatAttrs["defense"] = newDefense
+	combatAttrs["speed"] = newSpeed
+	updatedCombatAttrs := toJSON(combatAttrs)
 
 	if err := db.DB.Model(&models.Pet{}).
 		Where("user_id = ? AND (pet_id = ? OR id = ?)", userID, petID, petID).
 		Updates(map[string]interface{}{
-			"level":         newLevel,
-			"attack_bonus":  newBonus,
-			"defense_bonus": newBonus,
-			"health_bonus":  newBonus,
+			"level":             newLevel,
+			"combat_attributes": updatedCombatAttrs,
 		}).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "升级成功", "newLevel": newLevel})
+	// ✅ 新增：如果灵宠是出战状态，需要重新计算玩家属性
+	if isActive {
+		// 重新加载灵宠最新数据（已经被更新到DB）
+		if err := db.DB.Where("user_id = ? AND (pet_id = ? OR id = ?)", userID, petID, petID).First(&pet).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
+			return
+		}
+
+		// 重新计算玩家属性
+		baseAttrs := jsonToFloatMap(user.BaseAttributes)
+		combatAttrsUser := jsonToFloatMap(user.CombatAttributes)
+		combatRes := jsonToFloatMap(user.CombatResistance)
+		specialAttrs := jsonToFloatMap(user.SpecialAttributes)
+
+		// 使用属性管理器重新计算
+		attrMgr := NewAttributeManager(baseAttrs, combatAttrsUser, combatRes, specialAttrs)
+
+		// 第一步：移除旧属性加成
+		attrMgr.RemovePetBonuses(&pet, oldCombatAttrs)
+
+		// 第二步：应用新的灵宠属性加成
+		newCombatAttrs := jsonToFloatMap(pet.CombatAttributes)
+		attrMgr.ApplyPetBonuses(&pet, newCombatAttrs)
+
+		// 第三步：同步到数据库
+		updates := map[string]interface{}{
+			"base_attributes":    toJSON(attrMgr.BaseAttrs),
+			"combat_attributes":  toJSON(attrMgr.CombatAttrs),
+			"combat_resistance":  toJSON(attrMgr.CombatRes),
+			"special_attributes": toJSON(attrMgr.SpecialAttrs),
+		}
+		if err := db.DB.Model(&models.User{}).Where("id = ?", userID).Updates(updates).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
+			return
+		}
+
+		// 第四步：返回更新后的玩家属性
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"message": "升级成功",
+			"pet":     pet,
+			"user": gin.H{
+				"baseAttributes":    attrMgr.BaseAttrs,
+				"combatAttributes":  attrMgr.CombatAttrs,
+				"combatResistance":  attrMgr.CombatRes,
+				"specialAttributes": attrMgr.SpecialAttrs,
+			},
+		})
+		return
+	}
+
+	// 如果灵宠不是出战状态，直接返回升级后的灵宠数据
+	var updatedPet models.Pet
+	if err := db.DB.Where("user_id = ? AND (pet_id = ? OR id = ?)", userID, petID, petID).First(&updatedPet).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "升级成功", "pet": updatedPet})
 }
 
 // EvolvePet 对应 POST /api/player/pets/:id/evolve
@@ -362,6 +438,12 @@ func EvolvePet(c *gin.Context) {
 	}
 	isSuccess := rand.Float64() < successRate
 
+	// ✅ 修改：升星前先保存旧属性（需要用旧属性移除大会岗召a）
+	var isActive bool = targetPet.IsActive
+	var oldAttackBonus float64 = targetPet.AttackBonus
+	var oldDefenseBonus float64 = targetPet.DefenseBonus
+	var oldHealthBonus float64 = targetPet.HealthBonus
+
 	if isSuccess {
 		newStar := targetPet.Star + 1
 		qualityBonusMap := map[string]float64{
@@ -380,12 +462,12 @@ func EvolvePet(c *gin.Context) {
 			"uncommon":  0.01,
 			"common":    0.01,
 		}
-		baseBonus := qualityBonusMap[targetPet.Rarity]
-		starBonus := float64(newStar) * starBonusPerQuality[targetPet.Rarity]
-		levelBonus := float64(targetPet.Level-1) * (baseBonus * 0.1)
-		phase := newStar / 5
-		phaseBonus := float64(phase) * (baseBonus * 0.5)
-		newBonus := baseBonus + starBonus + levelBonus + phaseBonus
+		baseBonus := qualityBonusMap[targetPet.Rarity]                        // 品质基础加成（如mythic:0.15）
+		starBonus := float64(newStar) * starBonusPerQuality[targetPet.Rarity] // 星级加成（当前星级 * 品质星级系数）
+		levelBonus := float64(targetPet.Level-1) * (baseBonus * 0.1)          // 等级加成（(等级-1) * 基础加成 * 0.1）
+		phase := newStar / 5                                                  // 计算阶段（每5星为1个阶段）
+		phaseBonus := float64(phase) * (baseBonus * 0.5)                      // 阶段加成（阶段数 * 基础加成 * 0.5）
+		newBonus := baseBonus + starBonus + levelBonus + phaseBonus           // 合并计算新的属性加成值
 
 		if err := db.DB.Model(&models.Pet{}).
 			Where("user_id = ? AND (pet_id = ? OR id = ?)", userID, petID, petID).
@@ -399,9 +481,80 @@ func EvolvePet(c *gin.Context) {
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"success": true, "message": "升星成功", "newStar": newStar})
+		// ✅ 新增：如果灵宠是出战状态，需要重新计算玩家属性
+		if isActive {
+			// 重新加载灵宠最新数据（已经被更新到DB）
+			if err := db.DB.Where("user_id = ? AND (pet_id = ? OR id = ?)", userID, petID, petID).First(&targetPet).Error; err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
+				return
+			}
+
+			// 重新加载玩家数据
+			var user models.User
+			if err := db.DB.First(&user, userID).Error; err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
+				return
+			}
+
+			// 重新计算玩家属性
+			baseAttrs := jsonToFloatMap(user.BaseAttributes)
+			combatAttrsUser := jsonToFloatMap(user.CombatAttributes)
+			combatRes := jsonToFloatMap(user.CombatResistance)
+			specialAttrs := jsonToFloatMap(user.SpecialAttributes)
+
+			// 使用属性管理器重新计算
+			attrMgr := NewAttributeManager(baseAttrs, combatAttrsUser, combatRes, specialAttrs)
+
+			// 第一步：移除旧的属性加成
+			oldPet := targetPet
+			oldPet.AttackBonus = oldAttackBonus
+			oldPet.DefenseBonus = oldDefenseBonus
+			oldPet.HealthBonus = oldHealthBonus
+			attrMgr.RemovePetBonuses(&oldPet, nil)
+
+			// 第二步：应用新的灵宠属性加成
+			petCombatNew := jsonToFloatMap(targetPet.CombatAttributes)
+			attrMgr.ApplyPetBonuses(&targetPet, petCombatNew)
+
+			// 第三步：同步到数据库
+			updates := map[string]interface{}{
+				"base_attributes":    toJSON(attrMgr.BaseAttrs),
+				"combat_attributes":  toJSON(attrMgr.CombatAttrs),
+				"combat_resistance":  toJSON(attrMgr.CombatRes),
+				"special_attributes": toJSON(attrMgr.SpecialAttrs),
+			}
+			if err := db.DB.Model(&models.User{}).Where("id = ?", userID).Updates(updates).Error; err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
+				return
+			}
+
+			// 第四步：返回更新后的玩家属性
+			c.JSON(http.StatusOK, gin.H{
+				"success": true,
+				"message": "升星成功",
+				"pet":     targetPet,
+				"user": gin.H{
+					"baseAttributes":    attrMgr.BaseAttrs,
+					"combatAttributes":  attrMgr.CombatAttrs,
+					"combatResistance":  attrMgr.CombatRes,
+					"specialAttributes": attrMgr.SpecialAttrs,
+				},
+			})
+			return
+		}
+
+		// 如果灵宠不是出战状态，直接返回升星后的灵宠数据
+		var updatedPet models.Pet
+		if err := db.DB.Where("user_id = ? AND (pet_id = ? OR id = ?)", userID, petID, petID).First(&updatedPet).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"success": true, "message": "升星成功", "pet": updatedPet})
 	} else {
-		c.JSON(http.StatusOK, gin.H{"success": false, "message": "升星失败，材料已消耗"})
+		// 失败时返回成功率信息
+		successRatePercent := int(successRate * 100)
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "升星失败，材料已消耗", "successRate": successRatePercent})
 	}
 
 	// 删除材料灵宠

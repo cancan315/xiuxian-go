@@ -3,16 +3,14 @@ package player
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
-	"math/rand"
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
 	"xiuxian/server-go/internal/db"
+	"xiuxian/server-go/internal/gacha"
 	"xiuxian/server-go/internal/models"
 	redisClient "xiuxian/server-go/internal/redis"
 )
@@ -242,28 +240,28 @@ func EnhanceEquipment(c *gin.Context) {
 		return
 	}
 
-	// ✅ 新增：获取logger
+	// ✅ 获取logger
 	logger, _ := c.Get("zap_logger")
 	zapLogger := logger.(*zap.Logger)
 
-	userIDStr := fmt.Sprintf("%d", userID)
-	lockKey := fmt.Sprintf("user:%s:enhance_lock", userIDStr)
-
-	// ✅ 新增：检查是否已有强化在进行中（防并发）
-	lockVal, err := redisClient.Client.Get(c, lockKey).Result()
-	if err == nil && lockVal != "" {
+	// ✅ 使用 Redis 获取装备级锁（防并发）
+	acquired, err := redisClient.TryEnhanceLock(c, userID, id)
+	if err != nil {
+		zapLogger.Error("获取强化锁失败", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "服务器错误"})
+		return
+	}
+	if !acquired {
 		c.JSON(http.StatusConflict, gin.H{
 			"success": false,
-			"message": "装备强化正在进行中，请稍候",
+			"message": "该装备强化正在进行中，请稍候",
 		})
 		return
 	}
 
-	// ✅ 新增：设置强化锁
-	redisClient.Client.Set(c, lockKey, time.Now().Unix(), 10*time.Second)
+	// ✅ 确保锁被释放
 	defer func() {
-		// ✅ 新增：释放锁
-		redisClient.Client.Del(c, lockKey)
+		redisClient.ReleaseEnhanceLock(c, userID, id)
 	}()
 
 	// 查找装备
@@ -298,12 +296,25 @@ func EnhanceEquipment(c *gin.Context) {
 		_ = json.Unmarshal(equipment.Stats, &stats)
 	}
 
-	// 计算强化成本
+	// ✅ 计算强化成本
 	currentLevel := equipment.EnhanceLevel
 	cost := 10 * (currentLevel + 1)
 
-	// 检查强化石是否足够
-	if user.ReinforceStones < cost {
+	// ✅ 第一选择：优先使用 Redis 中的扰化石数量
+	var userReinforceStones int
+	cachedResources, err := redisClient.GetEquipmentResources(c, userID)
+	if err == nil && cachedResources != nil {
+		// Redis 中有技罫
+		userReinforceStones = int(cachedResources.ReinforceStones)
+		zapLogger.Debug("从 Redis 获取强化石", zap.Int("reinforceStones", userReinforceStones))
+	} else {
+		// Redis 中没有，使用数据库中的
+		userReinforceStones = user.ReinforceStones
+		zapLogger.Debug("从数据库获取强化石", zap.Int("reinforceStones", userReinforceStones))
+	}
+
+	// 检查强化石是否足处
+	if userReinforceStones < cost {
 		c.JSON(http.StatusOK, gin.H{
 			"success":  false,
 			"message":  "强化石不足",
@@ -463,9 +474,13 @@ func EnhanceEquipment(c *gin.Context) {
 	}
 
 	// ✅ 新增：缓存更新后的装备数据到Redis（可选，用于快速查询）
-	equipmentCacheKey := fmt.Sprintf("user:%s:equipment:%s", userIDStr, equipment.ID)
-	equipmentJSON, _ := json.Marshal(equipment)
-	redisClient.Client.Set(c, equipmentCacheKey, string(equipmentJSON), 5*time.Second)
+	redisClient.CacheEquipment(c, userID, equipment.ID, equipment)
+
+	// ✅ 新增：将更新后的强化石数量也缓存到 Redis
+	redisClient.SyncEquipmentResourcesToRedis(c, userID, int64(userFresh.ReinforceStones-cost), 0)
+
+	// ✅ 新增：清除该装备的缓存以便安整装备列表也更新
+	redisClient.InvalidateEquipmentListCache(c, userID)
 
 	// ✅ 接变：打印强化后的属性变更
 	zapLogger.Info("装备强化后的用户属性",
@@ -512,6 +527,30 @@ func ReforgeEquipment(c *gin.Context) {
 		return
 	}
 
+	// ✅ 新增：获取logger
+	logger, _ := c.Get("zap_logger")
+	zapLogger := logger.(*zap.Logger)
+
+	// ✅ 使用 Redis 获取装备洗练锁（防并发）
+	acquired, err := redisClient.TryReforgeLock(c, userID, id)
+	if err != nil {
+		zapLogger.Error("获取洗练锁失败", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "服务器错误"})
+		return
+	}
+	if !acquired {
+		c.JSON(http.StatusConflict, gin.H{
+			"success": false,
+			"message": "该装备洗练正在进行中，请稍候",
+		})
+		return
+	}
+
+	// ✅ 确保锁被释放
+	defer func() {
+		redisClient.ReleaseReforgeLock(c, userID, id)
+	}()
+
 	// 查找装备
 	var equipment models.Equipment
 	if err := db.DB.Where("id = ? AND user_id = ?", id, userID).First(&equipment).Error; err != nil {
@@ -533,8 +572,21 @@ func ReforgeEquipment(c *gin.Context) {
 	// 洗练成本定义
 	const refinementCost = 10
 
-	// 检查洗练石是否足够
-	if user.RefinementStones < refinementCost {
+	// ✅ 优先使用 Redis 中的洗练石数量
+	var userRefinementStones int
+	cachedResources, err := redisClient.GetEquipmentResources(c, userID)
+	if err == nil && cachedResources != nil {
+		// Redis 中有技罫
+		userRefinementStones = int(cachedResources.RefinementStones)
+		zapLogger.Debug("从 Redis 获取洗练石", zap.Int("refinementStones", userRefinementStones))
+	} else {
+		// Redis 中没有，使用数据库中的
+		userRefinementStones = user.RefinementStones
+		zapLogger.Debug("从数据库获取洗练石", zap.Int("refinementStones", userRefinementStones))
+	}
+
+	// 检查洗练石是否足处
+	if userRefinementStones < refinementCost {
 		c.JSON(http.StatusOK, gin.H{
 			"success": false,
 			"message": "洗练石不足",
@@ -561,12 +613,11 @@ func ReforgeEquipment(c *gin.Context) {
 		oldStats[k] = v
 	}
 
-	// 生成新属性（随机浮动±50%）
+	// 生成新属性（使用与装备生成相同的属性范围）
 	newStats := map[string]float64{}
-	for k, v := range stats {
-		delta := rand.Float64()*1.0 - 0.5 // 随机值 [-0.5, 0.5]
-		newVal := v * (1 + delta)
-		newStats[k] = newVal
+	for k := range stats {
+		// 调用 GenerateAttributeValue 生成相同范围的属性值
+		newStats[k] = gacha.GenerateAttributeValue(k, equipment.Quality, false)
 	}
 
 	// 返回洗练结果供用户确认
@@ -599,6 +650,10 @@ func ConfirmReforge(c *gin.Context) {
 		return
 	}
 
+	// ✅ 新增：获取logger
+	logger, _ := c.Get("zap_logger")
+	zapLogger := logger.(*zap.Logger)
+
 	// 洗练成本定义
 	const refinementCost = 10
 
@@ -629,6 +684,19 @@ func ConfirmReforge(c *gin.Context) {
 			return
 		}
 
+		// ✅ 新增：洗练成功后，清除 Redis 缓存
+		redisClient.InvalidateEquipmentCache(c, userID, equipment.ID)
+		redisClient.InvalidateEquipmentListCache(c, userID)
+
+		// ✅ 新增：更新洗练石缓存
+		cachedResources, _ := redisClient.GetEquipmentResources(c, userID)
+		var newRefinementStones int64 = 0
+		if cachedResources != nil {
+			newRefinementStones = cachedResources.RefinementStones - int64(refinementCost)
+			redisClient.SyncEquipmentResourcesToRedis(c, userID, cachedResources.ReinforceStones, newRefinementStones)
+			zapLogger.Debug("洗练成功，定上 Redis 缓存", zap.Int64("newRefinementStones", newRefinementStones))
+		}
+
 		c.JSON(http.StatusOK, gin.H{
 			"success": true,
 			"message": "洗练属性已应用",
@@ -638,6 +706,7 @@ func ConfirmReforge(c *gin.Context) {
 		return
 	}
 
+	// ✅ 新增：用户取消，也需要清除锁以执许下一次洗练
 	// 用户取消，保留原属性（不扣除洗练石）
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "已保留原有属性"})
 }

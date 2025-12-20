@@ -680,57 +680,106 @@
           }
         }
         
-        // 处理战斗结果
-        if (result.Victory) {
-          addBattleLog('战斗胜利！')
-          // 显示详细的战斗日志
-          if (result.message) {
-            // 解析后端返回的战斗日志，按换行符分割
-            const logLines = result.message.split('\n')
-            logLines.forEach(line => {
-              if (line.trim()) {
-                addBattleLog(line.trim())
-              }
-            })
-          }
-          if (result.Rewards) {
-            gainBattleReward(result.Rewards)
-          }
-        } else {
-          addBattleLog('战斗失败！')
-          // 显示详细的战斗日志
-          if (result.message) {
-            // 解析后端返回的战斗日志，按换行符分割
-            const logLines = result.message.split('\n')
-            logLines.forEach(line => {
-              if (line.trim()) {
-                addBattleLog(line.trim())
-              }
-            })
-          }
-        }
-        
-        // 结束战斗
-        setTimeout(() => {
-          dungeonState.value.inCombat = false
-          if (result.Victory) {
-            message.success('战斗胜利')
-            // 一段时间后会自动生成新的增益选项
-            setTimeout(() => {
-              dungeonState.value.showingOptions = true
-              generateOptions()
-            }, 2000)
-          } else {
-            message.error('战斗失败。懂悲，秘境探索结束')
-            // 结束秘境
-            endDungeon(false)
-          }
-        }, 3000)
+        // 启动轮询执行回合
+        addBattleLog('战斗已初始化，开始逐回合执行战斗...')
+        await pollAndExecuteRounds(token)
       } else {
         message.error(data.message || '开始战斗失败')
       }
     } catch (error) {
       message.error('网络错误：' + error.message)
+    }
+  }
+
+  // 轮询执行回合
+  const pollAndExecuteRounds = async (token) => {
+    let isVictory = false
+    let isDefeat = false
+    
+    while (dungeonState.value.inCombat && !isVictory && !isDefeat) {
+      try {
+        // 1. 调用后端执行当前回合
+        const executeRes = await APIService.post('/dungeon/execute-round', {
+          floor: dungeonState.value.floor,
+          difficulty: playerInfoStore.dungeonDifficulty
+        }, token)
+        
+        if (!executeRes.success) {
+          message.error('执行回合失败：' + executeRes.message)
+          break
+        }
+        
+        // 2. 轮询获取回合结果（每3秒查询一次）
+        let roundData = null
+        let pollCount = 0
+        const maxPolls = 5 // 最多轮询5次（15秒超时）
+        
+        while (pollCount < maxPolls && !roundData) {
+          await new Promise(resolve => setTimeout(resolve, 3000)) // 等待3秒
+          
+          const pollRes = await APIService.get('/dungeon/round-data', {}, token)
+          if (pollRes.success && pollRes.data) {
+            roundData = pollRes.data
+            break
+          }
+          
+          pollCount++
+        }
+        
+        if (!roundData) {
+          message.error('获取回合数据超时')
+          break
+        }
+        
+        // 3. 更新战斗界面
+        dungeonState.value.combatManager.round = roundData.round
+        dungeonState.value.combatManager.player.currentHealth = roundData.playerHealth
+        dungeonState.value.combatManager.enemy.currentHealth = roundData.enemyHealth
+        
+        // 4. 显示日志
+        if (roundData.logs && roundData.logs.length > 0) {
+          roundData.logs.forEach(log => {
+            addBattleLog(log)
+          })
+        }
+        
+        // 5. 检查战斗是否结束
+        if (roundData.battleEnded) {
+          if (roundData.victory) {
+            addBattleLog('战斗胜利！')
+            isVictory = true
+            if (roundData.rewards) {
+              gainBattleReward(roundData.rewards)
+            }
+          } else {
+            addBattleLog('战斗失败！')
+            isDefeat = true
+          }
+        }
+        
+        // 为了可视化效果，短暂延迟后继续下一回合
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        
+      } catch (error) {
+        message.error('轮询过程中出错：' + error.message)
+        break
+      }
+    }
+    
+    // 战斗结束处理
+    dungeonState.value.inCombat = false
+    
+    if (isVictory) {
+      message.success('战斗胜利')
+      // 一段时间后会自动生成新的增益选项
+      setTimeout(() => {
+        dungeonState.value.showingOptions = true
+        generateOptions()
+      }, 2000)
+    } else if (isDefeat) {
+      message.error('战斗失败，秘境探索结束')
+      // 结束秘境
+      endDungeon(false)
     }
   }
 
@@ -783,33 +832,8 @@
     infoShow.value = true
   }
 
-  // 检查並恢复之前的秘境会话（配合后端 Redis）
-  const checkAndRestoreSession = async () => {
-    try {
-      const token = getAuthToken()
-      if (!token) return // 没有 token 就不尝试恢复
-      
-      const data = await APIService.get('/dungeon/load-session', {}, token)
-      if (data.success && data.data) {
-        // 找到了有效会话，恢复状态
-        dungeonState.value.floor = data.data.floor
-        dungeonState.value.difficulty = data.data.difficulty
-        refreshNumber.value = data.data.refreshCount
-        message.info(`检测到之前的秘境进度（第 ${data.data.floor} 层），已自动恢复`)
-        // 显示增益选择界面
-        dungeonState.value.showingOptions = true
-        generateOptions()
-      }
-      // 如果 success === false 或不存在会话，不需要做介么，正常流程
-    } catch (error) {
-      // 网络错误或不存在会话，接受正常流程
-      // 不打印错误提示，避免混淆
-    }
-  }
-
   onMounted(() => {
-    // 组件挂载时，检查是否有未完成的秘境会话
-    checkAndRestoreSession()
+    // 组件挂载时的初始化
   })
 
   onUnmounted(() => {

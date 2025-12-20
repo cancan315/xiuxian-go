@@ -25,6 +25,7 @@ func RegisterRoutes(r *gin.Engine) {
 	{
 		authGroup.POST("/register", auth.Register)
 		authGroup.POST("/login", auth.Login)
+		authGroup.POST("/logout", middleware.Protect(), auth.Logout) // ✅ 新增：登出路由
 		authGroup.GET("/user", middleware.Protect(), auth.GetUser)
 	}
 
@@ -112,6 +113,8 @@ func RegisterRoutes(r *gin.Engine) {
 		dungeonGroup.POST("/save-buff", dungeon.SaveBuff)      // 新增: 保存已选增益
 		dungeonGroup.GET("/load-session", dungeon.LoadSession) // 新增: 加载断线重连的会话
 		dungeonGroup.POST("/fight", dungeon.StartFight)
+		dungeonGroup.GET("/round-data", dungeon.GetRoundData)     // 新增: 获取回合数据
+		dungeonGroup.POST("/execute-round", dungeon.ExecuteRound) // 新增: 执行回合
 		dungeonGroup.POST("/end", dungeon.EndDungeon)
 	}
 

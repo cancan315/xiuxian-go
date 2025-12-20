@@ -368,6 +368,26 @@
       const response = await APIService.upgradePet(token, pet.id, getUpgradeCost(pet))
       if (response.success) {
         message.success('升级成功')
+        // ✅ 立即更新本地灵宠数据
+        if (response.pet) {
+          const petIndex = props.playerInfoStore.pets.findIndex(p => p.id === pet.id)
+          if (petIndex !== -1) {
+            props.playerInfoStore.pets[petIndex] = response.pet
+            // ✅ 同时更新弹窗中显示的灵宠详情
+            if (selectedPet.value && selectedPet.value.id === pet.id) {
+              selectedPet.value = response.pet
+            }
+          }
+        }
+        // ✅ 新增：如果灵宠是出战状态，后端会返回更新后的玩家属性，需要同步
+        if (response.user) {
+          props.playerInfoStore.$patch({
+            baseAttributes: response.user.baseAttributes,
+            combatAttributes: response.user.combatAttributes,
+            combatResistance: response.user.combatResistance,
+            specialAttributes: response.user.specialAttributes
+          })
+        }
       } else {
         message.error(response.message || '升级失败')
       }
@@ -389,16 +409,43 @@
       message.error('升星材料灵宠不存在')
       return
     }
-    
+      
     const token = getAuthToken()
     try {
       const response = await APIService.evolvePet(token, pet.id, foodPet.id)
       if (response.success) {
         message.success('升星成功')
+        // ✅ 立即更新本地灵宠数据
+        if (response.pet) {
+          const petIndex = props.playerInfoStore.pets.findIndex(p => p.id === pet.id)
+          if (petIndex !== -1) {
+            props.playerInfoStore.pets[petIndex] = response.pet
+            // ✅ 同时更新弹窗中显示的灵宠详情（关闭ui前）
+            if (selectedPet.value && selectedPet.value.id === pet.id) {
+              selectedPet.value = response.pet
+            }
+          }
+          // 移除材料灵宠
+          const foodPetIndex = props.playerInfoStore.pets.findIndex(p => p.id === foodPet.id)
+          if (foodPetIndex !== -1) {
+            props.playerInfoStore.pets.splice(foodPetIndex, 1)
+          }
+        }
+        // ✅ 新增：如果灵宠是出战状态，后端会返回更新后的玩家属性，需要同步
+        if (response.user) {
+          props.playerInfoStore.$patch({
+            baseAttributes: response.user.baseAttributes,
+            combatAttributes: response.user.combatAttributes,
+            combatResistance: response.user.combatResistance,
+            specialAttributes: response.user.specialAttributes
+          })
+        }
         selectedFoodPet.value = null
         showPetModal.value = false
       } else {
-        message.error(response.message || '升星失败')
+        // 升星失败，昺示成功率信息
+        const successRateInfo = response.successRate ? ` (成功率${response.successRate}%)` : ''
+        message.error(response.message + successRateInfo)
       }
     } catch (error) {
       console.error('升星灵宠失败:', error)

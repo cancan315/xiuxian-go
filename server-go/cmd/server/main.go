@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	"xiuxian/server-go/internal/db"
+	"xiuxian/server-go/internal/http/handlers/online"
 	"xiuxian/server-go/internal/http/router"
 	"xiuxian/server-go/internal/redis"
 	"xiuxian/server-go/internal/spirit"
@@ -67,6 +68,9 @@ func main() {
 	spiritManager := spirit.NewSpiritGrowManager(logger)
 	spiritManager.Start()
 	defer spiritManager.Stop()
+
+	// ✅ 启动心跳监控任务（清理超时玩家和战斗数据）
+	online.StartHeartbeatMonitor(logger)
 
 	// ✅ 将灵力增长管理器注入到上下文中（必须在注册路由之前）
 	r.Use(func(c *gin.Context) {

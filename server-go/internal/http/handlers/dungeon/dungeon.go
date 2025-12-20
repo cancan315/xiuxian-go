@@ -394,3 +394,96 @@ func LoadSession(c *gin.Context) {
 		"message": "秘境会话已恢复",
 	})
 }
+
+// GetRoundData 获取单回合的战斗数据
+// GET /api/dungeon/round-data
+func GetRoundData(c *gin.Context) {
+	userID, ok := c.Get("userID")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "用户未授权"})
+		return
+	}
+
+	uid := userID.(uint)
+	logger, _ := c.Get("zap_logger")
+	zapLogger := logger.(*zap.Logger)
+
+	zapLogger.Info("GetRoundData 入参",
+		zap.Uint("userID", uid))
+
+	service := dungeonSvc.NewDungeonService(uid)
+
+	// 从Redis获取回合数据
+	roundData, err := service.GetRoundDataFromRedis()
+	if err != nil {
+		// 回合数据不存在，返回失败
+		zapLogger.Warn("GetRoundData - 回合数据不存在",
+			zap.Uint("userID", uid),
+			zap.Error(err))
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "回合数据不存在",
+		})
+		return
+	}
+
+	zapLogger.Info("GetRoundData 出参",
+		zap.Uint("userID", uid),
+		zap.Int("round", roundData.Round),
+		zap.Bool("battleEnded", roundData.BattleEnded))
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    roundData,
+	})
+}
+
+// ExecuteRound 执行单个回合战斗
+// POST /api/dungeon/execute-round
+func ExecuteRound(c *gin.Context) {
+	userID, ok := c.Get("userID")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "用户未授权"})
+		return
+	}
+
+	uid := userID.(uint)
+	logger, _ := c.Get("zap_logger")
+	zapLogger := logger.(*zap.Logger)
+
+	zapLogger.Info("ExecuteRound 入参",
+		zap.Uint("userID", uid))
+
+	service := dungeonSvc.NewDungeonService(uid)
+
+	// 执行一回合
+	roundData, err := service.ExecuteRound()
+	if err != nil {
+		zapLogger.Error("ExecuteRound - 执行失败",
+			zap.Uint("userID", uid),
+			zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "执行回合失败",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	zapLogger.Info("ExecuteRound 出参",
+		zap.Uint("userID", uid),
+		zap.Int("round", roundData.Round),
+		zap.Bool("battleEnded", roundData.BattleEnded))
+
+	// 保存回合数据到Redis以供前端获取
+	if err := service.SaveRoundDataToRedis(roundData); err != nil {
+		zapLogger.Warn("ExecuteRound - 保存回合数据失败",
+			zap.Uint("userID", uid),
+			zap.Error(err))
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    roundData,
+	})
+}

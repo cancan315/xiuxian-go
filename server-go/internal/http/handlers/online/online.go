@@ -22,6 +22,24 @@ func client() *redisv9.Client {
 	return redisc.Client
 }
 
+// cleanupDungeonData 清理玩家的秘境战斗数据
+// 当玩家下线或心跳超时时调用
+func cleanupDungeonData(playerID uint, rdb *redisv9.Client, zapLogger *zap.Logger) {
+	battleStatusKey := fmt.Sprintf("dungeon:battle:status:%d", playerID)
+	roundDataKey := fmt.Sprintf("dungeon:battle:round:%d", playerID)
+
+	if err := rdb.Del(redisc.Ctx, battleStatusKey, roundDataKey).Err(); err != nil {
+		zapLogger.Warn("清理战斗数据失败",
+			zap.Uint("userID", playerID),
+			zap.Error(err))
+	} else {
+		zapLogger.Info("已清理玩家战斗数据",
+			zap.Uint("userID", playerID),
+			zap.String("battleStatusKey", battleStatusKey),
+			zap.String("roundDataKey", roundDataKey))
+	}
+}
+
 // Login 标记玩家上线，对应 POST /api/online/login
 // 会初始化玩家的灵力增长时间戳
 func Login(c *gin.Context) {
@@ -247,6 +265,9 @@ func Logout(c *gin.Context) {
 			zap.Error(err))
 		// 不中断，继续执行
 	}
+
+	// ✅ 清理玩家战斗数据
+	cleanupDungeonData(playerID, rdb, zapLogger)
 
 	// ✅ 成功离线
 	zapLogger.Info("玩家离线成功",
