@@ -20,13 +20,15 @@ var logger *zap.Logger
 func InitTasks(zapLogger *zap.Logger) {
 	logger = zapLogger
 
-	// 启动装备资源定期同步任务（每 5 分钟）
-	StartEquipmentResourcesSyncTask(5 * time.Minute)
+	// ✅ 优化：改为每1秒检查一次，根据操作时间戳判断是否需要同步
+	// 检查频率：1秒
+	// 同步条件：用户5秒钟未操作
+	StartEquipmentResourcesSyncTask(1 * time.Second)
 
-	// 启动灵宠资源定期同步任务（每 5 分钟）
-	StartPetResourcesSyncTask(5 * time.Minute)
+	// 灵宠资源定期同步任务（同样改为1秒检查频率）
+	StartPetResourcesSyncTask(1 * time.Second)
 
-	logger.Info("后台同步任务已启动")
+	logger.Info("后台同步任务已启动", zap.String("checkInterval", "1秒"), zap.String("syncCondition", "5秒未操作"))
 }
 
 // ============================================
@@ -34,13 +36,16 @@ func InitTasks(zapLogger *zap.Logger) {
 // ============================================
 
 // StartEquipmentResourcesSyncTask 启动装备资源定期同步任务
-// 每隔指定时间扫描 Redis 中的装备资源缓存，并同步到数据库
+// ✅ 优化：改为每1秒检查一次时间戳，根据是否超过5秒未操作来决定是否同步
 func StartEquipmentResourcesSyncTask(interval time.Duration) {
 	go func() {
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 
-		logger.Info("启动装备资源定期同步任务", zap.Duration("interval", interval))
+		logger.Info("启动装备资源定期同步任务",
+			zap.Duration("checkInterval", interval),
+			zap.String("strategy", "基于操作时间戳的智能同步"),
+			zap.Int("syncTimeoutSeconds", 5))
 
 		for range ticker.C {
 			syncAllEquipmentResources()
@@ -49,7 +54,7 @@ func StartEquipmentResourcesSyncTask(interval time.Duration) {
 }
 
 // syncAllEquipmentResources 同步所有用户的装备资源缓存到数据库
-// ✅ 优化：仅在用户5秒内未操作时才同步回DB
+// ✅ 优化：5秒未操作后，同步到DB并清理缓存
 func syncAllEquipmentResources() {
 	ctx := context.Background()
 
@@ -78,11 +83,8 @@ func syncAllEquipmentResources() {
 	}
 
 	if len(keys) == 0 {
-		logger.Debug("没有需要同步的装备资源缓存")
 		return
 	}
-
-	logger.Info("开始同步装备资源", zap.Int("count", len(keys)))
 
 	// ✅ 优化：只同步5秒内未操作的用户
 	// 对每个键进行处理
@@ -96,14 +98,12 @@ func syncAllEquipmentResources() {
 		// 键格式：user:USER_ID:equipment:resources
 		userID, err := parseUserIDFromKey(key)
 		if err != nil {
-			logger.Warn("解析用户 ID 失败",
-				zap.String("key", key),
-				zap.Error(err))
 			failedCount++
 			continue
 		}
 
-		// ✅ 优化：判断是否需要同步
+		// ✅ 关键：检查该用户的最后操作时间戳 (user:{id}:equipment:last_operation_time)
+		// 只有超过5秒未操作的用户才会被同步
 		if !redisc.ShouldSyncEquipmentToDb(ctx, userID, syncTimeoutSeconds) {
 			// 最近5秒内有操作，暂时不同步
 			skippedCount++
@@ -113,9 +113,6 @@ func syncAllEquipmentResources() {
 		// 获取 Redis 中的资源数据
 		resources, err := redisc.GetEquipmentResources(ctx, userID)
 		if err != nil {
-			logger.Debug("获取装备资源缓存失败",
-				zap.Uint("userID", userID),
-				zap.Error(err))
 			failedCount++
 			continue
 		}
@@ -128,21 +125,31 @@ func syncAllEquipmentResources() {
 				"refinement_stones": resources.RefinementStones,
 			}).Error; err != nil {
 
-			logger.Error("同步装备资源到数据库失败",
-				zap.Uint("userID", userID),
-				zap.Error(err))
 			failedCount++
 			continue
+		}
+
+		// ✅ 优化：同步后清理装备资源缓存和时间戳
+		if err := redisc.Client.Del(ctx, fmt.Sprintf(redisc.EquipmentResourceKeyFormat, userID)).Err(); err != nil {
+			logger.Warn("清理装备资源缓存失败", zap.Uint("userID", userID), zap.Error(err))
+		}
+
+		// 清理时间戳键
+		if err := redisc.Client.Del(ctx, fmt.Sprintf(redisc.EquipmentLastOperationTimeKeyFormat, userID)).Err(); err != nil {
+			logger.Warn("清理时间戳键失败", zap.Uint("userID", userID), zap.Error(err))
 		}
 
 		successCount++
 	}
 
-	logger.Info("装备资源同步完成",
-		zap.Int("total", len(keys)),
-		zap.Int("success", successCount),
-		zap.Int("failed", failedCount),
-		zap.Int("skipped", skippedCount))
+	// 只在有实际操作时才输出日志
+	if successCount > 0 || failedCount > 0 {
+		logger.Info("装备资源同步完成",
+			zap.Int("total", len(keys)),
+			zap.Int("success", successCount),
+			zap.Int("failed", failedCount),
+			zap.Int("skipped", skippedCount))
+	}
 }
 
 // ============================================
@@ -150,13 +157,16 @@ func syncAllEquipmentResources() {
 // ============================================
 
 // StartPetResourcesSyncTask 启动灵宠资源定期同步任务
-// 每隔指定时间扫描 Redis 中的灵宠资源缓存，并同步到数据库
+// ✅ 优化：改为每1秒检查一次时间戳，根据是否超过5秒未操作来决定是否同步
 func StartPetResourcesSyncTask(interval time.Duration) {
 	go func() {
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 
-		logger.Info("启动灵宠资源定期同步任务", zap.Duration("interval", interval))
+		logger.Info("启动灵宠资源定期同步任务",
+			zap.Duration("checkInterval", interval),
+			zap.String("strategy", "基于操作时间戳的智能同步"),
+			zap.Int("syncTimeoutSeconds", 5))
 
 		for range ticker.C {
 			syncAllPetResources()
@@ -165,7 +175,7 @@ func StartPetResourcesSyncTask(interval time.Duration) {
 }
 
 // syncAllPetResources 同步所有用户的灵宠资源缓存到数据库
-// ✅ 优化：仅在用户5秒内未操作时才同步回DB
+// ✅ 策略：5秒未操作后，同步到DB并清理缓存
 func syncAllPetResources() {
 	ctx := context.Background()
 
@@ -193,11 +203,8 @@ func syncAllPetResources() {
 	}
 
 	if len(keys) == 0 {
-		logger.Debug("没有需要同步的灵宠资源缓存")
 		return
 	}
-
-	logger.Info("开始同步灵宠资源", zap.Int("count", len(keys)))
 
 	// ✅ 优化：只同步5秒内未操作的用户
 	// 对每个键进行处理
@@ -211,14 +218,12 @@ func syncAllPetResources() {
 		// 键格式：user:USER_ID:pet:resources
 		userID, err := parseUserIDFromKey(key)
 		if err != nil {
-			logger.Warn("解析用户 ID 失败",
-				zap.String("key", key),
-				zap.Error(err))
 			failedCount++
 			continue
 		}
 
-		// ✅ 优化：判断是否需要同步
+		// ✅ 关键：检查该用户的最后操作时间戳 (user:{id}:pet:last_operation_time)
+		// 只有超过5秒未操作的用户才会被同步
 		if !redisc.ShouldSyncPetToDb(ctx, userID, syncTimeoutSeconds) {
 			// 最近5秒内有操作，暂时不同步
 			skippedCount++
@@ -228,9 +233,6 @@ func syncAllPetResources() {
 		// 获取 Redis 中的资源数据
 		resources, err := redisc.GetPetResources(ctx, userID)
 		if err != nil {
-			logger.Debug("获取灵宠资源缓存失败",
-				zap.Uint("userID", userID),
-				zap.Error(err))
 			failedCount++
 			continue
 		}
@@ -242,21 +244,31 @@ func syncAllPetResources() {
 				"pet_essence": resources.PetEssence,
 			}).Error; err != nil {
 
-			logger.Error("同步灵宠资源到数据库失败",
-				zap.Uint("userID", userID),
-				zap.Error(err))
 			failedCount++
 			continue
+		}
+
+		// ✅ 优化：同步后清理灵宠资源缓存和时间戳
+		if err := redisc.Client.Del(ctx, fmt.Sprintf(redisc.PetResourceKeyFormat, userID)).Err(); err != nil {
+			logger.Warn("清理灵宠资源缓存失败", zap.Uint("userID", userID), zap.Error(err))
+		}
+
+		// 清理时间戳键
+		if err := redisc.Client.Del(ctx, fmt.Sprintf(redisc.PetLastOperationTimeKeyFormat, userID)).Err(); err != nil {
+			logger.Warn("清理时间戳键失败", zap.Uint("userID", userID), zap.Error(err))
 		}
 
 		successCount++
 	}
 
-	logger.Info("灵宠资源同步完成",
-		zap.Int("total", len(keys)),
-		zap.Int("success", successCount),
-		zap.Int("failed", failedCount),
-		zap.Int("skipped", skippedCount))
+	// 只在有实际操作时才输出日志
+	if successCount > 0 || failedCount > 0 {
+		logger.Info("灵宠资源同步完成",
+			zap.Int("total", len(keys)),
+			zap.Int("success", successCount),
+			zap.Int("failed", failedCount),
+			zap.Int("skipped", skippedCount))
+	}
 }
 
 // ============================================

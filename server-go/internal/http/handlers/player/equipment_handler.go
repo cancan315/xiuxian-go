@@ -3,6 +3,7 @@ package player
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -264,6 +265,20 @@ func EnhanceEquipment(c *gin.Context) {
 		redisClient.ReleaseEnhanceLock(c, userID, id)
 	}()
 
+	// ✅ 优化：只有第一次操作时清理缓存、强制从 DB 读取最新数据
+	// 检查是否存在操作时间戳（第一次操作时不存在）
+	_, errTs := redisClient.GetEquipmentLastOperationTime(c.Request.Context(), userID)
+	if errTs != nil {
+		// 不存在 - 第一次操作，清理缓存强制从 DB 读取
+		if delErr := redisClient.Client.Del(c.Request.Context(), fmt.Sprintf(redisClient.EquipmentResourceKeyFormat, userID)).Err(); delErr != nil {
+			zapLogger.Warn("清理装备资源缓存失败", zap.Uint("userID", userID), zap.Error(delErr))
+		}
+		zapLogger.Debug("第一次操作，清理缓存从 DB 读取", zap.Uint("userID", userID))
+	} else {
+		// 存在 - 后续操作，不清理、直接使用 Redis
+		zapLogger.Debug("后续操作，不清理缓存直接用 Redis", zap.Uint("userID", userID))
+	}
+
 	// 查找装备
 	var equipment models.Equipment
 	if err := db.DB.Where("id = ? AND user_id = ?", id, userID).First(&equipment).Error; err != nil {
@@ -282,7 +297,7 @@ func EnhanceEquipment(c *gin.Context) {
 		return
 	}
 
-	// ✅ 新增：记录强化前状态
+	// ✅ 优化：记录强化前状态
 	zapLogger.Info("装备强化开始",
 		zap.Uint("userID", userID),
 		zap.String("equipmentID", equipment.ID),
@@ -296,21 +311,30 @@ func EnhanceEquipment(c *gin.Context) {
 		_ = json.Unmarshal(equipment.Stats, &stats)
 	}
 
-	// ✅ 计算强化成本
+	// ✅ 优化：计算强化成本
 	currentLevel := equipment.EnhanceLevel
 	cost := 10 * (currentLevel + 1)
 
-	// ✅ 第一选择：优先使用 Redis 中的扰化石数量
+	// ✅ 优化：第一优先级求 - 优先呈用 Redis 中的强化石数量
+	// 但如果 Redis中不存在，则第一次会先通过数据库初始化缓存
 	var userReinforceStones int
 	cachedResources, err := redisClient.GetEquipmentResources(c, userID)
 	if err == nil && cachedResources != nil {
-		// Redis 中有技罫
+		// Redis 中有缓存
 		userReinforceStones = int(cachedResources.ReinforceStones)
 		zapLogger.Debug("从 Redis 获取强化石", zap.Int("reinforceStones", userReinforceStones))
 	} else {
-		// Redis 中没有，使用数据库中的
+		// Redis 中不存在或检查失败 - 延迟成储，使用数据库中的值
 		userReinforceStones = user.ReinforceStones
 		zapLogger.Debug("从数据库获取强化石", zap.Int("reinforceStones", userReinforceStones))
+
+		// ✅ 优化：第一次操作时初始化缓存
+		if err := redisClient.SetEquipmentResources(c, userID, int64(user.ReinforceStones), int64(user.RefinementStones)); err != nil {
+			zapLogger.Warn("初始化装备资源缓存失败",
+				zap.Uint("userID", userID),
+				zap.Error(err))
+			// 不中断流程，扔需扥托控制
+		}
 	}
 
 	// 检查强化石是否足处
@@ -589,6 +613,20 @@ func ReforgeEquipment(c *gin.Context) {
 		redisClient.ReleaseReforgeLock(c, userID, id)
 	}()
 
+	// ✅ 优化：只有第一次操作时清理缓存、强制从 DB 读取最新数据
+	// 检查是否存在操作时间戳（第一次操作时不存在）
+	_, errTs := redisClient.GetEquipmentLastOperationTime(c.Request.Context(), userID)
+	if errTs != nil {
+		// 不存在 - 第一次操作，清理缓存强制从 DB 读取
+		if delErr := redisClient.Client.Del(c.Request.Context(), fmt.Sprintf(redisClient.EquipmentResourceKeyFormat, userID)).Err(); delErr != nil {
+			zapLogger.Warn("清理装备资源缓存失败", zap.Uint("userID", userID), zap.Error(delErr))
+		}
+		zapLogger.Debug("第一次操作，清理缓存从 DB 读取", zap.Uint("userID", userID))
+	} else {
+		// 存在 - 后续操作，不清理、直接使用 Redis
+		zapLogger.Debug("后续操作，不清理缓存直接用 Redis", zap.Uint("userID", userID))
+	}
+
 	// 查找装备
 	var equipment models.Equipment
 	if err := db.DB.Where("id = ? AND user_id = ?", id, userID).First(&equipment).Error; err != nil {
@@ -689,17 +727,26 @@ func ReforgeEquipment(c *gin.Context) {
 	// 洗练成本定义
 	const refinementCost = 10
 
-	// ✅ 优先使用 Redis 中的洗练石数量
+	// ✅ 优化：优先使用 Redis 中的洗练石数量
+	// 但如果 Redis中不存在，则第一次会先通过数据库初始化缓存
 	var userRefinementStones int
 	cachedResources, err := redisClient.GetEquipmentResources(c, userID)
 	if err == nil && cachedResources != nil {
-		// Redis 中有技罫
+		// Redis 中有缓存
 		userRefinementStones = int(cachedResources.RefinementStones)
 		zapLogger.Debug("从 Redis 获取洗练石", zap.Int("refinementStones", userRefinementStones))
 	} else {
-		// Redis 中没有，使用数据库中的
+		// Redis 中不存在或检查失败 - 延迟成储，使用数据库中的值
 		userRefinementStones = user.RefinementStones
 		zapLogger.Debug("从数据库获取洗练石", zap.Int("refinementStones", userRefinementStones))
+
+		// ✅ 优化：第一次操作时初始化缓存
+		if err := redisClient.SetEquipmentResources(c, userID, int64(user.ReinforceStones), int64(user.RefinementStones)); err != nil {
+			zapLogger.Warn("初始化装备资源缓存失败",
+				zap.Uint("userID", userID),
+				zap.Error(err))
+			// 不中断流程，程序一样重续
+		}
 	}
 
 	// 检查洗练石是否足处
@@ -1238,6 +1285,10 @@ func SellEquipment(c *gin.Context) {
 		return
 	}
 
+	// ✅ 获取logger
+	logger, _ := c.Get("zap_logger")
+	zapLogger := logger.(*zap.Logger)
+
 	id := c.Param("id")
 
 	// 查找装备
@@ -1278,6 +1329,18 @@ func SellEquipment(c *gin.Context) {
 		return
 	}
 
+	// ✅ 优化：卖装备不使用 Redis 缓存
+	// 原因：卖装备是低频操作，无操作锁保护，容易产生并发竞态
+	// 改为只清理缓存，让后续操作重新加载
+	if err := redisClient.Client.Del(c.Request.Context(), fmt.Sprintf(redisClient.EquipmentResourceKeyFormat, userID)).Err(); err != nil {
+		zapLogger.Debug("清理装备资源缓存失败", zap.Uint("userID", userID), zap.Error(err))
+	}
+
+	// ✅ 清除装备列表缓存，确保下次查询时获取最新数据
+	if err := redisClient.InvalidateEquipmentListCache(c, userID); err != nil {
+		zapLogger.Debug("清除装备列表缓存失败", zap.Error(err))
+	}
+
 	// 返回出售结果
 	c.JSON(http.StatusOK, gin.H{
 		"success":        true,
@@ -1294,6 +1357,10 @@ func BatchSellEquipment(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "用户未授权"})
 		return
 	}
+
+	// ✅ 获取logger
+	logger, _ := c.Get("zap_logger")
+	zapLogger := logger.(*zap.Logger)
 
 	// 解析请求参数
 	var req struct {
@@ -1362,7 +1429,19 @@ func BatchSellEquipment(c *gin.Context) {
 		return
 	}
 
-	// 返回批量出売结果
+	// ✅ 优化：卖装备不使用 Redis 缓存
+	// 原因：卖装备是低频操作，无操作锁保护，容易产生并发竞态
+	// 改为只清理缓存，让后续操作重新加载
+	if err := redisClient.Client.Del(c.Request.Context(), fmt.Sprintf(redisClient.EquipmentResourceKeyFormat, userID)).Err(); err != nil {
+		zapLogger.Debug("清理装备资源缓存失败", zap.Uint("userID", userID), zap.Error(err))
+	}
+
+	// ✅ 新增：清除装备列表缓存，确保下次查询时获取最新数据
+	if err := redisClient.InvalidateEquipmentListCache(c, userID); err != nil {
+		zapLogger.Debug("清除装备列表缓存失败", zap.Error(err))
+	}
+
+	// 返回批量出售结果
 	c.JSON(http.StatusOK, gin.H{
 		"success":        true,
 		"message":        "成功出売装备",

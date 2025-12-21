@@ -2,6 +2,7 @@ package player
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"math"
 	"math/rand"
@@ -261,6 +262,20 @@ func UpgradePet(c *gin.Context) {
 	}
 	defer redisc.ReleaseUpgradeLock(c.Request.Context(), userID, petID)
 
+	// ✅ 优化：只有第一次操作时清理缓存、强制从 DB 读取最新数据
+	// 检查是否存在操作时间戳（第一次操作时不存在）
+	_, errTs := redisc.GetPetLastOperationTime(c.Request.Context(), userID)
+	if errTs != nil {
+		// 不存在 - 第一次操作，清理缓存强制从 DB 读取
+		if delErr := redisc.Client.Del(c.Request.Context(), fmt.Sprintf(redisc.PetResourceKeyFormat, userID)).Err(); delErr != nil {
+			log.Printf("清理上牡资源缓存失败: %v", delErr)
+		}
+		log.Printf("第一次操作，清理缓存从 DB 读取")
+	} else {
+		// 存在 - 后续操作，不清理、直接使用 Redis
+		log.Printf("后续操作，不清理缓存直接用 Redis")
+	}
+
 	var pet models.Pet
 	if err := db.DB.Where("user_id = ? AND (pet_id = ? OR id = ?)", userID, petID, petID).First(&pet).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -277,12 +292,19 @@ func UpgradePet(c *gin.Context) {
 		return
 	}
 
-	// ✅ 新增：优先从 Redis 读灵宠精华
+	// ✅ 优化：优先从 Redis 读灵宠精华
+	// 但如果 Redis中不存在，则第一次会先通过数据库初始化缓存
 	var userPetEssence int64 = int64(user.PetEssence)
 	cachedResources, err := redisc.GetPetResources(c.Request.Context(), userID)
 	if err == nil && cachedResources != nil {
 		userPetEssence = cachedResources.PetEssence
-	} // 降级到 DB
+	} else {
+		// Redis 中不存在或检查失败 - 延迟初始化缓存
+		if err := redisc.SetPetResources(c.Request.Context(), userID, int64(user.PetEssence)); err != nil {
+			// 不中断流程，继滚重迎
+			log.Printf("初始化灵宠缓存失败: %v", err)
+		}
+	}
 
 	if userPetEssence < int64(req.EssenceCount) {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "灵宠精华不足"})
@@ -457,6 +479,20 @@ func EvolvePet(c *gin.Context) {
 		return
 	}
 	defer redisc.ReleaseEvolveLock(c.Request.Context(), userID, petID)
+
+	// ✅ 优化：只有第一次操作时清理缓存、强制从 DB 读取最新数据
+	// 检查是否存在操作时间戳（第一次操作时不存在）
+	_, errTs := redisc.GetPetLastOperationTime(c.Request.Context(), userID)
+	if errTs != nil {
+		// 不存在 - 第一次操作，清理缓存强制从 DB 读取
+		if delErr := redisc.Client.Del(c.Request.Context(), fmt.Sprintf(redisc.PetResourceKeyFormat, userID)).Err(); delErr != nil {
+			log.Printf("清理灵宠资源缓存失败: %v", delErr)
+		}
+		log.Printf("第一次操作，清理缓存从 DB 读取")
+	} else {
+		// 存在 - 后续操作，不清理、直接使用 Redis
+		log.Printf("后续操作，不清理缓存直接用 Redis")
+	}
 
 	var targetPet models.Pet
 	if err := db.DB.Where("user_id = ? AND (pet_id = ? OR id = ?)", userID, petID, petID).First(&targetPet).Error; err != nil {

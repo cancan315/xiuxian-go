@@ -170,21 +170,9 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	// ✅ 新增：初始化装备资源缓存
-	if err := playerHandler.InitEquipmentResourcesCache(c, user.ID); err != nil {
-		zapLogger.Warn("[登录] 初始化装备资源缓存失败",
-			zap.Uint("userID", user.ID),
-			zap.Error(err))
-		// 不中断流程，只记录日志
-	}
-
-	// ✅ 新增：初始化灵宠资源缓存
-	if err := playerHandler.InitPetResourcesCache(c, user.ID); err != nil {
-		zapLogger.Warn("[登录] 初始化灵宠资源缓存失败",
-			zap.Uint("userID", user.ID),
-			zap.Error(err))
-		// 不中断流程，只记录日志
-	}
+	// ✅ 优化：移除登录时的缓存初始化
+	// 改为延迟加载：首次操作（强化/洗练/升级/升星）时才缓存数据
+	// 这样可以减少登录时的数据库查询和Redis写入
 
 	zapLogger.Info("[登录] 用户登录成功",
 		zap.Uint("userID", user.ID),
