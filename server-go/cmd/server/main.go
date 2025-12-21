@@ -15,6 +15,7 @@ import (
 	"xiuxian/server-go/internal/http/router"
 	"xiuxian/server-go/internal/redis"
 	"xiuxian/server-go/internal/spirit"
+	"xiuxian/server-go/internal/tasks"
 
 	"github.com/gin-contrib/gzip"
 )
@@ -71,6 +72,9 @@ func main() {
 
 	// ✅ 启动心跳监控任务（清理超时玩家和战斗数据）
 	online.StartHeartbeatMonitor(logger)
+
+	// ✅ 启动后台定期同步任务（装备和灵宠资源）
+	tasks.InitTasks(logger)
 
 	// ✅ 将灵力增长管理器注入到上下文中（必须在注册路由之前）
 	r.Use(func(c *gin.Context) {

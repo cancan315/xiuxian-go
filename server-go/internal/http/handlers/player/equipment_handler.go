@@ -405,24 +405,44 @@ func EnhanceEquipment(c *gin.Context) {
 		return
 	}
 
-	// 扣除用户强化石
+	// 扤除用户强化石
 	if err := db.DB.Model(&models.User{}).Where("id = ?", userID).
 		Update("reinforce_stones", gorm.Expr("reinforce_stones - ?", cost)).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "服务器错误", "error": err.Error()})
 		return
 	}
 
-	// ✅ 新增：第三步 - 强化后自动穿戴装备
-	zapLogger.Info("装备强化完成，准备重新穿戴",
-		zap.String("equipmentID", equipment.ID),
-		zap.Int("newEnhanceLevel", equipment.EnhanceLevel))
-
-	// 刷新用户数据
+	// ✅ 新增：刷新用户数据（定义 userFresh 应在强化后检查境界削下之前）
 	var userFresh models.User
 	if err := db.DB.First(&userFresh, userID).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "服务器错误", "error": err.Error()})
 		return
 	}
+
+	// ✅ 新增：第三步 - 判断强化后是否需要卸下装备
+	// 如果强化后的装备境界要求大于玩家当前境界，则卸下装备
+	playerLevel := userFresh.Level             // 玩家当前境界等级
+	equipmentRequiredLevel := newRequiredRealm // 装备强化后的境界要求
+
+	zapLogger.Info("检查强化后装备是否需要卸下",
+		zap.Int("playerLevel", playerLevel),
+		zap.Int("equipmentRequiredLevel", equipmentRequiredLevel),
+		zap.Bool("shouldUnequip", equipmentRequiredLevel > 1 && playerLevel < equipmentRequiredLevel && equipment.Equipped))
+
+	// 检查装备是否应该卸下
+	shouldUnequip := false
+	if equipmentRequiredLevel > 1 && playerLevel < equipmentRequiredLevel { // 家師要求的境界 > 玩家当前境界
+		shouldUnequip = true
+		zapLogger.Warn("装备强化后境界要求提升，将卸下该装备",
+			zap.String("equipmentID", equipment.ID),
+			zap.Int("playerLevel", playerLevel),
+			zap.Int("equipmentRequiredLevel", equipmentRequiredLevel))
+	}
+
+	// ✅ 新增：第四步 - 强化后自动穿戴或卸下装备
+	zapLogger.Info("装备强化完成，准备重新穿戴",
+		zap.String("equipmentID", equipment.ID),
+		zap.Int("newEnhanceLevel", equipment.EnhanceLevel))
 
 	// 重新穿戴装备 - 改用 AttributeManager 统一处理
 	equipStats := jsonToFloatMap(equipment.Stats)
@@ -442,8 +462,28 @@ func EnhanceEquipment(c *gin.Context) {
 		attrMgr.RemovePetBonuses(&activePet, petCombat)
 	}
 
-	// 应用新的装备属性
-	attrMgr.ApplyEquipmentStats(equipStats)
+	// ✅ 新增：根据 shouldUnequip 决定是穿戴还是卸下装备
+	if shouldUnequip {
+		// 装备需要卸下：移除装备属性加成
+		zapLogger.Info("装备强化后境界不符，卸下装备",
+			zap.String("equipmentID", equipment.ID))
+
+		// 移除装备属性（因为装备已穿戴，需要移除其属性加成）
+		equipStats := jsonToFloatMap(equipment.Stats)
+		attrMgr.RemoveEquipmentStats(equipStats)
+
+		// 更新装备状态为未穿戴
+		equipment.Equipped = false
+		equipment.Slot = nil
+	} else {
+		// 装备满足境界要求：穿戴或继续穿戴装备
+		// 应用新的装备属性
+		attrMgr.ApplyEquipmentStats(equipStats)
+
+		// 更新装备状态为已穿戴
+		equipment.Equipped = true
+		equipment.Slot = equipment.EquipType
+	}
 
 	// 重新应用灵宠加成
 	if hasActivePet {
@@ -453,9 +493,7 @@ func EnhanceEquipment(c *gin.Context) {
 		attrMgr.ApplyPetBonuses(&activePetFresh, petCombat)
 	}
 
-	// 更新装备状态为已穿戴
-	equipment.Equipped = true
-	equipment.Slot = equipment.EquipType
+	// 保存装备状态
 	if err := db.DB.Save(&equipment).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "服务器错误", "error": err.Error()})
 		return
@@ -560,6 +598,85 @@ func ReforgeEquipment(c *gin.Context) {
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "服务器错误", "error": err.Error()})
 		return
+	}
+
+	// ✅ 新增：禁止对已强化的装备进行洗练
+	if equipment.EnhanceLevel > 0 {
+		zapLogger.Warn("尝试对已强化的装备进行洗练",
+			zap.Uint("userID", userID),
+			zap.String("equipmentID", equipment.ID),
+			zap.Int("enhanceLevel", equipment.EnhanceLevel))
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "已强化的装备禁止洗练",
+		})
+		return
+	}
+
+	// ✅ 新增：检查装备是否处于穿戴状态，如果是需要先卸下
+	var userBeforeReforge models.User
+	var attrMgrBeforeReforge *AttributeManager
+	var activePetBeforeReforge models.Pet
+	var hasActivePetBeforeReforge bool
+
+	if equipment.Equipped {
+		// 获取用户信息以保存属性状态
+		if err := db.DB.First(&userBeforeReforge, userID).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "服务器错误", "error": err.Error()})
+			return
+		}
+
+		// 解析用户属性
+		baseAttrs := jsonToFloatMap(userBeforeReforge.BaseAttributes)
+		combatAttrs := jsonToFloatMap(userBeforeReforge.CombatAttributes)
+		combatRes := jsonToFloatMap(userBeforeReforge.CombatResistance)
+		specialAttrs := jsonToFloatMap(userBeforeReforge.SpecialAttributes)
+
+		attrMgrBeforeReforge = NewAttributeManager(baseAttrs, combatAttrs, combatRes, specialAttrs)
+
+		// 检查是否有出战灵宠
+		hasActivePetBeforeReforge = db.DB.Where("user_id = ? AND is_active = ?", userID, true).First(&activePetBeforeReforge).Error == nil
+
+		// 先移除灵宠加成
+		if hasActivePetBeforeReforge {
+			petCombat := jsonToFloatMap(activePetBeforeReforge.CombatAttributes)
+			attrMgrBeforeReforge.RemovePetBonuses(&activePetBeforeReforge, petCombat)
+		}
+
+		// 移除装备属性
+		equipStatsBeforeReforge := jsonToFloatMap(equipment.Stats)
+		attrMgrBeforeReforge.RemoveEquipmentStats(equipStatsBeforeReforge)
+
+		// 重新应用灵宠加成
+		if hasActivePetBeforeReforge {
+			petCombat := jsonToFloatMap(activePetBeforeReforge.CombatAttributes)
+			attrMgrBeforeReforge.ApplyPetBonuses(&activePetBeforeReforge, petCombat)
+		}
+
+		// 卸下装备
+		equipment.Equipped = false
+		equipment.Slot = nil
+		if err := db.DB.Save(&equipment).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "服务器错误", "error": err.Error()})
+			return
+		}
+
+		// 保存卸下装备后的玩家属性
+		updates := map[string]interface{}{
+			"base_attributes":    toJSON(attrMgrBeforeReforge.BaseAttrs),
+			"combat_attributes":  toJSON(attrMgrBeforeReforge.CombatAttrs),
+			"combat_resistance":  toJSON(attrMgrBeforeReforge.CombatRes),
+			"special_attributes": toJSON(attrMgrBeforeReforge.SpecialAttrs),
+		}
+		if err := db.DB.Model(&models.User{}).Where("id = ?", userID).Updates(updates).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "服务器错误", "error": err.Error()})
+			return
+		}
+
+		zapLogger.Info("洗练前卸下装备",
+			zap.Uint("userID", userID),
+			zap.String("equipmentID", equipment.ID),
+			zap.Bool("wasEquipped", true))
 	}
 
 	// 获取用户信息检查洗练石
@@ -684,6 +801,69 @@ func ConfirmReforge(c *gin.Context) {
 			return
 		}
 
+		// ✅ 新增：洗练成功后，需要重新穿戴
+		// 获取用户当前信息
+		var user models.User
+		if err := db.DB.First(&user, userID).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "服务器错误", "error": err.Error()})
+			return
+		}
+
+		// 解析用户属性
+		baseAttrs := jsonToFloatMap(user.BaseAttributes)
+		combatAttrs := jsonToFloatMap(user.CombatAttributes)
+		combatRes := jsonToFloatMap(user.CombatResistance)
+		specialAttrs := jsonToFloatMap(user.SpecialAttributes)
+
+		attrMgr := NewAttributeManager(baseAttrs, combatAttrs, combatRes, specialAttrs)
+
+		// 检查是否有出战灵宠
+		var activePet models.Pet
+		hasActivePet := db.DB.Where("user_id = ? AND is_active = ?", userID, true).First(&activePet).Error == nil
+
+		// 先移除灵宠加成
+		if hasActivePet {
+			petCombat := jsonToFloatMap(activePet.CombatAttributes)
+			attrMgr.RemovePetBonuses(&activePet, petCombat)
+		}
+
+		// 应用新的装备属性
+		newEquipStats := jsonToFloatMap(equipment.Stats)
+		attrMgr.ApplyEquipmentStats(newEquipStats)
+
+		// 重新应用灵宠加成
+		if hasActivePet {
+			petCombat := jsonToFloatMap(activePet.CombatAttributes)
+			attrMgr.ApplyPetBonuses(&activePet, petCombat)
+		}
+
+		// 穿戴装备
+		equipment.Equipped = true
+		if equipment.EquipType != nil {
+			s := *equipment.EquipType
+			equipment.Slot = &s
+		}
+		if err := db.DB.Save(&equipment).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "服务器错误", "error": err.Error()})
+			return
+		}
+
+		// 保存更新后的玩家属性
+		updates := map[string]interface{}{
+			"base_attributes":    toJSON(attrMgr.BaseAttrs),
+			"combat_attributes":  toJSON(attrMgr.CombatAttrs),
+			"combat_resistance":  toJSON(attrMgr.CombatRes),
+			"special_attributes": toJSON(attrMgr.SpecialAttrs),
+		}
+		if err := db.DB.Model(&models.User{}).Where("id = ?", userID).Updates(updates).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "服务器错误", "error": err.Error()})
+			return
+		}
+
+		zapLogger.Info("洗练后重新穿戴装备",
+			zap.Uint("userID", userID),
+			zap.String("equipmentID", equipment.ID))
+
 		// ✅ 新增：洗练成功后，清除 Redis 缓存
 		redisClient.InvalidateEquipmentCache(c, userID, equipment.ID)
 		redisClient.InvalidateEquipmentListCache(c, userID)
@@ -706,8 +886,71 @@ func ConfirmReforge(c *gin.Context) {
 		return
 	}
 
-	// ✅ 新增：用户取消，也需要清除锁以执许下一次洗练
+	// ✅ 新增：用户取消，需要恢复装备的穿戴状态
 	// 用户取消，保留原属性（不扣除洗练石）
+	// 直接恢复装备穿戴
+	// 获取用户当前信息
+	var user models.User
+	if err := db.DB.First(&user, userID).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "服务器错误", "error": err.Error()})
+		return
+	}
+
+	// 解析用户属性
+	baseAttrs := jsonToFloatMap(user.BaseAttributes)
+	combatAttrs := jsonToFloatMap(user.CombatAttributes)
+	combatRes := jsonToFloatMap(user.CombatResistance)
+	specialAttrs := jsonToFloatMap(user.SpecialAttributes)
+
+	attrMgr := NewAttributeManager(baseAttrs, combatAttrs, combatRes, specialAttrs)
+
+	// 检查是否有出战灵宠
+	var activePet models.Pet
+	hasActivePet := db.DB.Where("user_id = ? AND is_active = ?", userID, true).First(&activePet).Error == nil
+
+	// 先移除灵宠加成
+	if hasActivePet {
+		petCombat := jsonToFloatMap(activePet.CombatAttributes)
+		attrMgr.RemovePetBonuses(&activePet, petCombat)
+	}
+
+	// 重新应用装备属性
+	equipStats := jsonToFloatMap(equipment.Stats)
+	attrMgr.ApplyEquipmentStats(equipStats)
+
+	// 重新应用灵宠加成
+	if hasActivePet {
+		petCombat := jsonToFloatMap(activePet.CombatAttributes)
+		attrMgr.ApplyPetBonuses(&activePet, petCombat)
+	}
+
+	// 恢复装备穿戴
+	equipment.Equipped = true
+	if equipment.EquipType != nil {
+		s := *equipment.EquipType
+		equipment.Slot = &s
+	}
+	if err := db.DB.Save(&equipment).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "服务器错误", "error": err.Error()})
+		return
+	}
+
+	// 保存恢复后的玩家属性
+	updates := map[string]interface{}{
+		"base_attributes":    toJSON(attrMgr.BaseAttrs),
+		"combat_attributes":  toJSON(attrMgr.CombatAttrs),
+		"combat_resistance":  toJSON(attrMgr.CombatRes),
+		"special_attributes": toJSON(attrMgr.SpecialAttrs),
+	}
+	if err := db.DB.Model(&models.User{}).Where("id = ?", userID).Updates(updates).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "服务器错误", "error": err.Error()})
+		return
+	}
+
+	zapLogger.Info("洗练取消后恢复装备穿戴",
+		zap.Uint("userID", userID),
+		zap.String("equipmentID", equipment.ID))
+
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "已保留原有属性"})
 }
 
@@ -1119,10 +1362,10 @@ func BatchSellEquipment(c *gin.Context) {
 		return
 	}
 
-	// 返回批量出售结果
+	// 返回批量出売结果
 	c.JSON(http.StatusOK, gin.H{
 		"success":        true,
-		"message":        "成功出售装备",
+		"message":        "成功出売装备",
 		"equipmentSold":  len(list),
 		"stonesReceived": totalStones,
 	})

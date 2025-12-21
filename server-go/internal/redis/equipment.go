@@ -21,12 +21,14 @@ const (
 	EquipmentEnhanceLockKeyFormat = "user:%d:equipment:%s:enhance:lock"
 	// 装备洗练锁（防并发）
 	EquipmentReforgeLockKeyFormat = "user:%d:equipment:%s:reforge:lock"
-	// 装备操作缓存过期时间
-	EquipmentCacheTTL = 10 * time.Second
+	// ✅ 新增：装备操作最后修改时间戳 - 用于判断是否需要同步到DB
+	EquipmentLastOperationTimeKeyFormat = "user:%d:equipment:last_operation_time"
+	// 装备操作缓存过期时间（必须 > 心跳超时时间15s，确保离线同步数据不丢失）
+	EquipmentCacheTTL = 20 * time.Second
 	// 装备列表缓存过期时间
 	EquipmentListCacheTTL = 5 * time.Second
-	// 操作锁超时时间
-	OperationLockTTL = 10 * time.Second
+	// 操作锁超时时间（必须 > 心跳超时时间15s）
+	OperationLockTTL = 20 * time.Second
 )
 
 // EquipmentResources 装备资源（强化石、洗练石数量）
@@ -68,7 +70,14 @@ func SetEquipmentResources(ctx context.Context, userID uint, reinforceStones, re
 		return err
 	}
 
-	return Client.Set(ctx, key, string(data), EquipmentCacheTTL).Err()
+	if err := Client.Set(ctx, key, string(data), EquipmentCacheTTL).Err(); err != nil {
+		return err
+	}
+
+	// ✅ 新增：记录操作时间戳
+	UpdateEquipmentLastOperationTime(ctx, userID)
+
+	return nil
 }
 
 // DecrementReinforceStones 原子性地减少强化石数量（直接在 Redis 操作）
@@ -91,6 +100,11 @@ func DecrementReinforceStones(ctx context.Context, userID uint, amount int64) (i
 	// 更新回 Redis
 	data, _ := json.Marshal(resources)
 	err = Client.Set(ctx, key, string(data), EquipmentCacheTTL).Err()
+
+	if err == nil {
+		// ✅ 新增：记录操作时间戳
+		UpdateEquipmentLastOperationTime(ctx, userID)
+	}
 
 	return newValue, err
 }
@@ -115,6 +129,11 @@ func DecrementRefinementStones(ctx context.Context, userID uint, amount int64) (
 	// 更新回 Redis
 	data, _ := json.Marshal(resources)
 	err = Client.Set(ctx, key, string(data), EquipmentCacheTTL).Err()
+
+	if err == nil {
+		// ✅ 新增：记录操作时间戳
+		UpdateEquipmentLastOperationTime(ctx, userID)
+	}
 
 	return newValue, err
 }
@@ -189,4 +208,41 @@ func GetCachedEquipment(ctx context.Context, userID uint, equipmentID string) (m
 // 这个函数应该在用户登录或资源改变时调用
 func SyncEquipmentResourcesToRedis(ctx context.Context, userID uint, reinforceStones, refinementStones int64) error {
 	return SetEquipmentResources(ctx, userID, reinforceStones, refinementStones)
+}
+
+// ============================================
+// ✅ 新增：操作时间戳管理
+// ============================================
+
+// UpdateEquipmentLastOperationTime 更新装备操作的最后修改时间戳
+func UpdateEquipmentLastOperationTime(ctx context.Context, userID uint) error {
+	key := fmt.Sprintf(EquipmentLastOperationTimeKeyFormat, userID)
+	now := time.Now().Unix()
+	return Client.Set(ctx, key, now, EquipmentCacheTTL).Err()
+}
+
+// GetEquipmentLastOperationTime 获取装备操作的最后修改时间戳
+func GetEquipmentLastOperationTime(ctx context.Context, userID uint) (int64, error) {
+	key := fmt.Sprintf(EquipmentLastOperationTimeKeyFormat, userID)
+	val, err := Client.Get(ctx, key).Result()
+	if err != nil {
+		return 0, err
+	}
+
+	var timestamp int64
+	fmt.Sscanf(val, "%d", &timestamp)
+	return timestamp, nil
+}
+
+// ShouldSyncEquipmentToDb 判断装备资源是否需要同步到数据库
+// 如果距离上次操作已超过5秒，返回 true
+func ShouldSyncEquipmentToDb(ctx context.Context, userID uint, timeoutSeconds int64) bool {
+	lastOpTime, err := GetEquipmentLastOperationTime(ctx, userID)
+	if err != nil {
+		// 如果获取时间戳失败，说明还没有操作过，不需要同步
+		return false
+	}
+
+	elapsed := time.Now().Unix() - lastOpTime
+	return elapsed >= timeoutSeconds
 }

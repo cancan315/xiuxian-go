@@ -178,6 +178,14 @@ func Login(c *gin.Context) {
 		// 不中断流程，只记录日志
 	}
 
+	// ✅ 新增：初始化灵宠资源缓存
+	if err := playerHandler.InitPetResourcesCache(c, user.ID); err != nil {
+		zapLogger.Warn("[登录] 初始化灵宠资源缓存失败",
+			zap.Uint("userID", user.ID),
+			zap.Error(err))
+		// 不中断流程，只记录日志
+	}
+
 	zapLogger.Info("[登录] 用户登录成功",
 		zap.Uint("userID", user.ID),
 		zap.String("username", user.Username))

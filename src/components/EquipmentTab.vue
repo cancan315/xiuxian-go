@@ -18,6 +18,7 @@
           <template #footer>
             <n-space justify="space-between">
               <span>{{ equipmentTypes[type] }}</span>
+              <span>境界要求：{{ getRealmPeriodName(props.playerInfoStore.equippedArtifacts[type]?.requiredRealm) || '无装备' }}</span>
               <n-button
                 size="small"
                 type="info"

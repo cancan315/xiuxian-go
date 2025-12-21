@@ -332,6 +332,7 @@ func (s *CultivationService) unlockRealm(user *models.User, attrs *map[string]in
 }
 
 // GetCultivationData 获取修炼数据
+// ✅ 改进：包括并重新计算已穿戴装备和出战灵宠的属性加成
 func (s *CultivationService) GetCultivationData() (*CultivationData, error) {
 	var user models.User
 	if err := db.DB.First(&user, s.userID).Error; err != nil {

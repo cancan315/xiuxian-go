@@ -14,6 +14,7 @@ import (
 
 	"xiuxian/server-go/internal/db"
 	"xiuxian/server-go/internal/models"
+	redisc "xiuxian/server-go/internal/redis"
 )
 
 // DeployPet 对应 POST /api/player/pets/:id/deploy
@@ -247,6 +248,19 @@ func UpgradePet(c *gin.Context) {
 		return
 	}
 
+	// ✅ 新增：尝试获取升级锁（防止并发升级）
+	// 如果已有升级在进行，直接拒绝请求
+	acquired, err := redisc.TryUpgradeLock(c.Request.Context(), userID, petID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
+		return
+	}
+	if !acquired {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "灵宠升级正在进行中"})
+		return
+	}
+	defer redisc.ReleaseUpgradeLock(c.Request.Context(), userID, petID)
+
 	var pet models.Pet
 	if err := db.DB.Where("user_id = ? AND (pet_id = ? OR id = ?)", userID, petID, petID).First(&pet).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -262,12 +276,27 @@ func UpgradePet(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
 		return
 	}
-	if user.PetEssence < req.EssenceCount {
+
+	// ✅ 新增：优先从 Redis 读灵宠精华
+	var userPetEssence int64 = int64(user.PetEssence)
+	cachedResources, err := redisc.GetPetResources(c.Request.Context(), userID)
+	if err == nil && cachedResources != nil {
+		userPetEssence = cachedResources.PetEssence
+	} // 降级到 DB
+
+	if userPetEssence < int64(req.EssenceCount) {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "灵宠精华不足"})
 		return
 	}
 
-	// 扣除灵宠精华
+	// ✅ 新增：从 Redis 扣除精华（快速更新缓存）
+	newEssence, err := redisc.DecrementPetEssence(c.Request.Context(), userID, int64(req.EssenceCount))
+	if err == nil {
+		// Redis 操作成功，缓存已更新
+		userPetEssence = newEssence
+	}
+
+	// 扣除灵宠精华（同步到数据库）
 	if err := db.DB.Model(&models.User{}).Where("id = ?", userID).
 		Update("pet_essence", gorm.Expr("pet_essence - ?", req.EssenceCount)).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
@@ -366,6 +395,11 @@ func UpgradePet(c *gin.Context) {
 		}
 
 		// 第四步：返回更新后的玩家属性
+		// ✅ 新增：更新 Redis 缓存
+		redisc.CachePet(c.Request.Context(), userID, petID, pet)
+		redisc.InvalidatePetListCache(c.Request.Context(), userID)
+		redisc.SyncPetResourcesToRedis(c.Request.Context(), userID, userPetEssence)
+
 		c.JSON(http.StatusOK, gin.H{
 			"success": true,
 			"message": "升级成功",
@@ -387,6 +421,11 @@ func UpgradePet(c *gin.Context) {
 		return
 	}
 
+	// ✅ 新增：更新 Redis 缓存
+	redisc.CachePet(c.Request.Context(), userID, petID, updatedPet)
+	redisc.InvalidatePetListCache(c.Request.Context(), userID)
+	redisc.SyncPetResourcesToRedis(c.Request.Context(), userID, userPetEssence)
+
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "升级成功", "pet": updatedPet})
 }
 
@@ -406,6 +445,18 @@ func EvolvePet(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "请求参数错误"})
 		return
 	}
+
+	// ✅ 新增：尝试获取升星锁（防止并发升星）
+	acquired, err := redisc.TryEvolveLock(c.Request.Context(), userID, petID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
+		return
+	}
+	if !acquired {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "灵宠升星正在进行中"})
+		return
+	}
+	defer redisc.ReleaseEvolveLock(c.Request.Context(), userID, petID)
 
 	var targetPet models.Pet
 	if err := db.DB.Where("user_id = ? AND (pet_id = ? OR id = ?)", userID, petID, petID).First(&targetPet).Error; err != nil {
@@ -540,6 +591,14 @@ func EvolvePet(c *gin.Context) {
 					"specialAttributes": attrMgr.SpecialAttrs,
 				},
 			})
+
+			// ✅ 新增：删除材料灵宠之前，先返回给前端
+			// 删除材料灵宠
+			if err := db.DB.Where("user_id = ? AND (pet_id = ? OR id = ?)", userID, req.FoodPetID, req.FoodPetID).
+				Delete(&models.Pet{}).Error; err != nil {
+				// 这里记录错误，但不改变前面升星结果
+				log.Printf("删除材料灵宠失败: %v", err)
+			}
 			return
 		}
 
@@ -550,18 +609,35 @@ func EvolvePet(c *gin.Context) {
 			return
 		}
 
+		// ✅ 新增：更新 Redis 缓存
+		redisc.CachePet(c.Request.Context(), userID, petID, updatedPet)
+		redisc.InvalidatePetCache(c.Request.Context(), userID, req.FoodPetID) // 材料灵宠也清缓存
+		redisc.InvalidatePetListCache(c.Request.Context(), userID)
+
 		c.JSON(http.StatusOK, gin.H{"success": true, "message": "升星成功", "pet": updatedPet})
+
+		// ✅ 新增：删除材料灵宠之前，先返回给前端
+		// 删除材料灵宠
+		if err := db.DB.Where("user_id = ? AND (pet_id = ? OR id = ?)", userID, req.FoodPetID, req.FoodPetID).
+			Delete(&models.Pet{}).Error; err != nil {
+			// 这里记录错误，但不改变前面升星结果
+			log.Printf("删除材料灵宠失败: %v", err)
+		}
+		return
 	} else {
 		// 失败时返回成功率信息
+		// ✅ 新增：升星失败也清除灵宠缓存（因为材料灵宠已消耗）
+		redisc.InvalidatePetCache(c.Request.Context(), userID, req.FoodPetID)
+		redisc.InvalidatePetListCache(c.Request.Context(), userID)
+
 		successRatePercent := int(successRate * 100)
 		c.JSON(http.StatusOK, gin.H{"success": false, "message": "升星失败，材料已消耗", "successRate": successRatePercent})
-	}
 
-	// 删除材料灵宠
-	if err := db.DB.Where("user_id = ? AND (pet_id = ? OR id = ?)", userID, req.FoodPetID, req.FoodPetID).
-		Delete(&models.Pet{}).Error; err != nil {
-		// 这里记录错误，但不改变前面升星结果
-		log.Printf("删除材料灵宠失败: %v", err)
+		// ✅ 新增：升星失败，删除材料灵宠
+		if err := db.DB.Where("user_id = ? AND (pet_id = ? OR id = ?)", userID, req.FoodPetID, req.FoodPetID).
+			Delete(&models.Pet{}).Error; err != nil {
+			log.Printf("删除材料灵宠失败: %v", err)
+		}
 	}
 }
 

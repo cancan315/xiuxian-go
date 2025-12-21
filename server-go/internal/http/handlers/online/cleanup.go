@@ -100,6 +100,38 @@ func checkAndCleanupTimeoutPlayers(logger *zap.Logger) {
 				// 不中断清理流程
 			}
 
+			// ✅ 新增：同步灵宠资源缓存到数据库
+			if err := syncPetResourcesOnTimeout(ctx, playerID, logger); err != nil {
+				logger.Warn("同步灵宠资源到数据库失败",
+					zap.Uint("userID", playerID),
+					zap.Error(err))
+				// 不中断清理流程
+			}
+
+			// ✅ 新增：清理灵宠升级升星缓存
+			if err := cleanupPetCache(playerID, logger); err != nil {
+				logger.Warn("清理灵宠缓存失败",
+					zap.Uint("userID", playerID),
+					zap.Error(err))
+				// 不中断清理流程
+			}
+
+			// ✅ 新增：同步灵宠资源缓存到数据库
+			if err := syncPetResourcesOnTimeout(ctx, playerID, logger); err != nil {
+				logger.Warn("同步灵宠资源到数据库失败",
+					zap.Uint("userID", playerID),
+					zap.Error(err))
+				// 不中断清理流程
+			}
+
+			// ✅ 新增：清理灵宠升级升星缓存
+			if err := cleanupPetCache(playerID, logger); err != nil {
+				logger.Warn("清理灵宠缓存失败",
+					zap.Uint("userID", playerID),
+					zap.Error(err))
+				// 不中断清理流程
+			}
+
 			// 删除在线状态
 			if err := rdb.Del(ctx, key).Err(); err != nil {
 				logger.Error("删除超时玩家在线状态失败",
@@ -236,6 +268,105 @@ func cleanupEquipmentCache(playerID uint, logger *zap.Logger) error {
 		}
 
 		logger.Info("已清理装备缓存",
+			zap.Uint("userID", playerID),
+			zap.Int("keysCount", len(keysToDelete)))
+	}
+
+	return nil
+}
+
+// syncPetResourcesOnTimeout 心跳超时时同步灵宠资源缓存到数据库
+// 将 Redis 中的灵宠精华数量同步回数据库
+func syncPetResourcesOnTimeout(ctx context.Context, playerID uint, logger *zap.Logger) error {
+	// 从 Redis 获取灵宠资源缓存
+	resources, err := redisc.GetPetResources(ctx, playerID)
+	if err != nil {
+		// 缓存不存在，说明没有进行过灵宠操作，无需同步
+		return nil
+	}
+
+	// 更新数据库
+	if err := db.DB.Model(&models.User{}).
+		Where("id = ?", playerID).
+		Updates(map[string]interface{}{
+			"pet_essence": resources.PetEssence,
+		}).Error; err != nil {
+		logger.Error("同步灵宠资源到数据库失败",
+			zap.Uint("userID", playerID),
+			zap.Error(err))
+		return err
+	}
+
+	logger.Info("已同步灵宠资源到数据库",
+		zap.Uint("userID", playerID),
+		zap.Int64("petEssence", resources.PetEssence))
+
+	return nil
+}
+
+// cleanupPetCache 清理玩家的灵宠缓存（升级和升星）
+// 清理以下缓存键：
+// - user:{userID}:pet:resources (灵宠精华资源)
+// - user:{userID}:pet:{petID}:upgrade:lock (升级锁)
+// - user:{userID}:pet:{petID}:evolve:lock (升星锁)
+// - user:{userID}:pet:{petID} (灵宠数据缓存)
+// - user:{userID}:pet:list (灵宠列表缓存)
+func cleanupPetCache(playerID uint, logger *zap.Logger) error {
+	ctx := context.Background()
+	rdb := redisc.Client
+
+	// 清理灵宠资源缓存
+	petResourceKey := fmt.Sprintf("user:%d:pet:resources", playerID)
+	if err := rdb.Del(ctx, petResourceKey).Err(); err != nil {
+		logger.Warn("删除灵宠资源缓存失败",
+			zap.Uint("userID", playerID),
+			zap.String("key", petResourceKey),
+			zap.Error(err))
+	}
+
+	// 清理灵宠列表缓存
+	petListKey := fmt.Sprintf("user:%d:pet:list", playerID)
+	if err := rdb.Del(ctx, petListKey).Err(); err != nil {
+		logger.Warn("删除灵宠列表缓存失败",
+			zap.Uint("userID", playerID),
+			zap.String("key", petListKey),
+			zap.Error(err))
+	}
+
+	// 使用 SCAN 扫描并清理所有该用户的灵宠相关缓存键
+	// 包括：user:{userID}:pet:*
+	pattern := fmt.Sprintf("user:%d:pet:*", playerID)
+	var cursor uint64
+	keysToDelete := []string{}
+
+	for {
+		keys, nextCursor, err := rdb.Scan(ctx, cursor, pattern, 100).Result()
+		if err != nil {
+			logger.Warn("扫描灵宠缓存键失败",
+				zap.Uint("userID", playerID),
+				zap.Error(err))
+			break
+		}
+
+		keysToDelete = append(keysToDelete, keys...)
+		cursor = nextCursor
+
+		if cursor == 0 {
+			break
+		}
+	}
+
+	// 批量删除所有扫描到的键
+	if len(keysToDelete) > 0 {
+		if err := rdb.Del(ctx, keysToDelete...).Err(); err != nil {
+			logger.Warn("批量删除灵宠缓存失败",
+				zap.Uint("userID", playerID),
+				zap.Int("keysCount", len(keysToDelete)),
+				zap.Error(err))
+			return err
+		}
+
+		logger.Info("已清理灵宠缓存",
 			zap.Uint("userID", playerID),
 			zap.Int("keysCount", len(keysToDelete)))
 	}

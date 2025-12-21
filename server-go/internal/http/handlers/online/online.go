@@ -1,6 +1,7 @@
 package online
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -269,6 +270,21 @@ func Logout(c *gin.Context) {
 	// ✅ 清理玩家战斗数据
 	cleanupDungeonData(playerID, rdb, zapLogger)
 
+	// ✅ 新增：同步装备资源缓存到数据库
+	ctx := redisc.Ctx
+	if err := syncEquipmentResourcesBeforeLogout(ctx, playerID, zapLogger); err != nil {
+		zapLogger.Warn("同步装备资源到数据库失败",
+			zap.Uint("userID", playerID),
+			zap.Error(err))
+	}
+
+	// ✅ 新增：同步灵宠资源缓存到数据库
+	if err := syncPetResourcesBeforeLogout(ctx, playerID, zapLogger); err != nil {
+		zapLogger.Warn("同步灵宠资源到数据库失败",
+			zap.Uint("userID", playerID),
+			zap.Error(err))
+	}
+
 	// ✅ 成功离线
 	zapLogger.Info("玩家离线成功",
 		zap.Uint("userID", playerID),
@@ -342,4 +358,62 @@ func GetPlayerOnlineStatus(c *gin.Context) {
 		"lastHeartbeat": lastHeartbeat,
 		"ip":            data["ip"],
 	})
+}
+
+// syncEquipmentResourcesBeforeLogout 玉家队下线时同步装备资源缓存到数据库
+func syncEquipmentResourcesBeforeLogout(ctx context.Context, playerID uint, logger *zap.Logger) error {
+	// 从 Redis 获取装备资源缓存
+	resources, err := redisc.GetEquipmentResources(ctx, playerID)
+	if err != nil {
+		// 缓存不存在，说明没有进行过装备操作，无需同步
+		return nil
+	}
+
+	// 更新数据库
+	if err := db.DB.Model(&models.User{}).
+		Where("id = ?", playerID).
+		Updates(map[string]interface{}{
+			"reinforce_stones":  resources.ReinforceStones,
+			"refinement_stones": resources.RefinementStones,
+		}).Error; err != nil {
+		logger.Error("同步装备资源到数据库失败",
+			zap.Uint("userID", playerID),
+			zap.Error(err))
+		return err
+	}
+
+	logger.Info("已同步装备资源到数据库",
+		zap.Uint("userID", playerID),
+		zap.Int64("reinforceStones", resources.ReinforceStones),
+		zap.Int64("refinementStones", resources.RefinementStones))
+
+	return nil
+}
+
+// syncPetResourcesBeforeLogout 玉家队下线时同步灵宠资源缓存到数据库
+func syncPetResourcesBeforeLogout(ctx context.Context, playerID uint, logger *zap.Logger) error {
+	// 从 Redis 获取灵宠资源缓存
+	resources, err := redisc.GetPetResources(ctx, playerID)
+	if err != nil {
+		// 缓存不存在，说明没有进行过灵宠操作，无需同步
+		return nil
+	}
+
+	// 更新数据库
+	if err := db.DB.Model(&models.User{}).
+		Where("id = ?", playerID).
+		Updates(map[string]interface{}{
+			"pet_essence": resources.PetEssence,
+		}).Error; err != nil {
+		logger.Error("同步灵宠资源到数据库失败",
+			zap.Uint("userID", playerID),
+			zap.Error(err))
+		return err
+	}
+
+	logger.Info("已同步灵宠资源到数据库",
+		zap.Uint("userID", playerID),
+		zap.Int64("petEssence", resources.PetEssence))
+
+	return nil
 }
