@@ -1323,9 +1323,18 @@ func SellEquipment(c *gin.Context) {
 	}
 
 	// 增加用户强化石数量
-	if err := db.DB.Model(&models.User{}).Where("id = ?", userID).
-		Update("reinforce_stones", gorm.Expr("reinforce_stones + ?", stones)).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "服务器错误", "error": err.Error()})
+	if err := db.DB.Model(&models.User{}).
+		Where("id = ?", userID).
+		Updates(map[string]interface{}{
+			"reinforce_stones":  gorm.Expr("reinforce_stones + ?", stones),
+			"refinement_stones": gorm.Expr("refinement_stones + ?", stones),
+		}).Error; err != nil {
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "服务器错误",
+			"error":   err.Error(),
+		})
 		return
 	}
 
@@ -1378,7 +1387,7 @@ func BatchSellEquipment(c *gin.Context) {
 		query = query.Where("quality = ?", req.Quality)
 	}
 	if req.Type != "" {
-		query = query.Where("equipType = ?", req.Type)
+		query = query.Where("equip_type = ?", req.Type)
 	}
 
 	// 查询符合条件的装备列表
@@ -1423,9 +1432,18 @@ func BatchSellEquipment(c *gin.Context) {
 	}
 
 	// 增加用户强化石数量
-	if err := db.DB.Model(&models.User{}).Where("id = ?", userID).
-		Update("reinforce_stones", gorm.Expr("reinforce_stones + ?", totalStones)).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "服务器错误", "error": err.Error()})
+	if err := db.DB.Model(&models.User{}).
+		Where("id = ?", userID).
+		Updates(map[string]interface{}{
+			"reinforce_stones":  gorm.Expr("reinforce_stones + ?", totalStones),
+			"refinement_stones": gorm.Expr("refinement_stones + ?", totalStones),
+		}).Error; err != nil {
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "服务器错误",
+			"error":   err.Error(),
+		})
 		return
 	}
 

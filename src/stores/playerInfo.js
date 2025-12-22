@@ -298,7 +298,7 @@ export const usePlayerInfoStore = defineStore('playerInfo', {
             this.items.splice(index, 1)
           }
           console.log(`[装备] 成功卖出装备: ${equipment.name}`)
-          return { success: true, message: `成功卖出装备，获得${response.stonesReceived || 0}个强化石` }
+          return { success: true, message: `成功卖出装备，获得${response.stonesReceived || 0}个强化石，${response.stonesReceived || 0}个洗练石` }
         } else {
           console.log(`[装备] 卖出装备失败: ${response.message || '\u672a\u77e5\u9519\u8bef'}`);
           return { success: false, message: response.message || '出售失败' }
@@ -332,7 +332,7 @@ export const usePlayerInfoStore = defineStore('playerInfo', {
           console.log(`[装备] 批量卖出装备成功`)
           return {
             success: true,
-            message: `成功卖出${response.equipmentSold || 0}件装备，获得${response.stonesReceived || 0}个强化石`
+            message: `成功卖出${response.equipmentSold || 0}件装备，获得${response.stonesReceived || 0}个强化石，${response.stonesReceived || 0}个洗练石`
           }
         } else {
           console.log(`[装备] 批量卖出装备失败`)

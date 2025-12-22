@@ -587,7 +587,6 @@
     const result = await props.playerInfoStore.batchSellEquipments(
       selectedQuality.value === 'all' ? null : selectedQuality.value,
       selectedEquipmentType.value,
-      props.inventoryStore,
       token
     )
     

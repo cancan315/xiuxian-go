@@ -37,6 +37,48 @@ services:
       timeout: 5s
       retries: 5
 
+  # ✅ Loki 日志服务
+  loki:
+    image: registry.cn-hongkong.aliyuncs.com/velero/loki:k286-9085453
+    container_name: xiuxian-loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    environment:
+      LOKI_ADDRESS: 0.0.0.0:3100
+    volumes:
+      - ./loki-config.yml:/etc/loki/local-config.yml
+      - loki_data:/loki
+    command: -config.file=/etc/loki/local-config.yml
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3100/loki/api/v1/status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ✅ Grafana 可视化面板
+  grafana:
+    image: registry.cn-hongkong.aliyuncs.com/velero/grafana:10.2.3
+    container_name: xiuxian-grafana
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-simple-json-datasource
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana-provisioning:/etc/grafana/provisioning
+    depends_on:
+      - loki
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   postgres_data:
   redis_data:
+  loki_data:
+  grafana_data:
