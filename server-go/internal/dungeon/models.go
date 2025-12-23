@@ -55,11 +55,13 @@ type FightResponse struct {
 
 // 战斗结果
 type FightResult struct {
-	Success bool          `json:"success"`
-	Victory bool          `json:"victory"`
-	Floor   int           `json:"floor"`
-	Message string        `json:"message"`
-	Rewards []interface{} `json:"rewards"`
+	Success    bool          `json:"success"`
+	Victory    bool          `json:"victory"`
+	Floor      int           `json:"floor"`
+	Message    string        `json:"message"`
+	Rewards    []interface{} `json:"rewards"`
+	SpiritCost int           `json:"spiritCost"` // 消耗灵力
+	StoneCost  int           `json:"stoneCost"`  // 消耗灵石
 }
 
 // 难度修饰符

@@ -3,6 +3,7 @@ package dungeon
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"math/rand"
 	"time"
 
@@ -18,9 +19,11 @@ const (
 	RequireSpiritStones = 1000
 )
 
-func checkDungeonEntryCost(user *models.User) error {
-	if user.Spirit < 10000 || user.SpiritStones < 1000 {
-		return fmt.Errorf("进入秘境需要灵力10000、灵石1000")
+func checkDungeonEntryCost(user *models.User, floor int) error {
+	spiritCost := int(float64(floor) * 1000)
+	stoneCost := int(float64(floor) * 50)
+	if user.Spirit < float64(spiritCost) || user.SpiritStones < stoneCost {
+		return fmt.Errorf("进入秘境需要灵力%d、灵石%d", spiritCost, stoneCost)
 	}
 	return nil
 }
@@ -413,10 +416,23 @@ func (s *DungeonService) StartFight(floor int, difficulty string) (*FightResult,
 		return nil, fmt.Errorf("用户不存在: %w", err)
 	}
 	// 检查进入秘境的消耗灵力10000，灵石1000
-	if err := checkDungeonEntryCost(&user); err != nil {
+	if err := checkDungeonEntryCost(&user, floor); err != nil {
 		return nil, err
 	}
-
+	// 立即扣除消耗 (动态计算)
+	spiritCost := int(float64(floor) * 1000) // 灵力消耗
+	stoneCost := int(float64(floor) * 50)    // 灵石消耗
+	user.Spirit = math.Max(0, user.Spirit-float64(spiritCost))
+	user.SpiritStones -= stoneCost
+	if user.SpiritStones < 0 {
+		user.SpiritStones = 0
+	}
+	if err := db.DB.Model(&user).Updates(map[string]interface{}{
+		"spirit":        user.Spirit,
+		"spirit_stones": user.SpiritStones,
+	}).Error; err != nil {
+		return nil, fmt.Errorf("扣除消耗失败: %w", err)
+	}
 	modifier := GetDifficultyModifier(difficulty)
 
 	// 解析玩家属性
@@ -459,47 +475,15 @@ func (s *DungeonService) StartFight(floor int, difficulty string) (*FightResult,
 
 	// 返回战斗初始化成功
 	result := &FightResult{
-		Success: true,
-		Victory: false,
-		Floor:   floor,
-		Message: fmt.Sprintf("战斗已初始化，请调用执行回合接口开始战斗"),
+		Success:    true,
+		Victory:    false,
+		Floor:      floor,
+		Message:    fmt.Sprintf("战斗已初始化，消耗%d灵力、%d灵石，请调用执行回合接口开始战斗", spiritCost, stoneCost),
+		SpiritCost: spiritCost,
+		StoneCost:  stoneCost,
 	}
 
 	return result, nil
-}
-
-// StartFightStreaming 流式战斗 - 支持逐回合执行（用于每秒一回合的实时显示）
-// 返回初始化的战斗状态和战斗实体，由调用者逐步调用 ExecuteFightRound
-func (s *DungeonService) StartFightStreaming(floor int, difficulty string) (*CombatStats, *CombatStats, error) {
-	var user models.User
-	if err := db.DB.First(&user, s.userID).Error; err != nil {
-		return nil, nil, fmt.Errorf("用户不存在: %w", err)
-	}
-	// 检查进入秘境的消耗灵力10000，灵石1000
-	if err := checkDungeonEntryCost(&user); err != nil {
-		return nil, err
-	}
-	modifier := GetDifficultyModifier(difficulty)
-
-	// 解析玩家属性
-	playerStats, err := s.parsePlayerAttributes(&user)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// 应用已选择的增益效果
-	playerStats = fromCombatStats(resolver.ApplyBuffEffectsToStats(toCombatStats(playerStats), s.buffEffects))
-
-	// 应用难度修饰符
-	// playerStats.Health *= modifier.HealthMod
-	// playerStats.MaxHealth *= modifier.HealthMod
-	// playerStats.Damage *= modifier.DamageMod
-
-	// 初始化敌人属性
-	enemyStats := s.initEnemyStats(floor)
-	applyDifficultyToEnemy(enemyStats, modifier)
-
-	return playerStats, enemyStats, nil
 }
 
 // SelectBuffAndApplyEffects 选择增益并记录效果

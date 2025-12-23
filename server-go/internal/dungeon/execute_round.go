@@ -112,13 +112,11 @@ func (s *DungeonService) ExecuteRound() (*RoundData, error) {
 			// 立即写入数据库
 			var user models.User
 			if err := db.DB.First(&user, s.userID).Error; err == nil {
-				spiritDamage := int(100 + user.Spirit*0.10)
-				user.Spirit = math.Max(0, user.Spirit-float64(spiritDamage)) // 消耗灵力
-				spiritStonesDamage := int(user.SpiritStones - reward - 10)
-				user.SpiritStones = spiritStonesDamage // 消耗灵石
-				user.RefinementStones += int(reward)   // 奖励洗炼石
-				user.PetEssence += int(reward)         // 奖励灵宠精华
-				user.ReinforceStones += int(reward)    // 奖励强化石
+				rewards := int(reward / 2)
+				user.RefinementStones += rewards    // 奖励洗炼石
+				user.PetEssence += int(reward)      // 奖励灵宠精华
+				user.ReinforceStones += int(reward) // 奖励强化石
+				user.SpiritStones += int(reward)    // 奖励灵石
 				db.DB.Model(user).Updates(map[string]interface{}{
 					"spirit_stones":     user.SpiritStones,
 					"refinement_stones": user.RefinementStones,
@@ -126,6 +124,10 @@ func (s *DungeonService) ExecuteRound() (*RoundData, error) {
 					"reinforce_stones":  user.ReinforceStones,
 					"spirit":            user.Spirit,
 				})
+				// 记录奖励日志
+				rewardLog := fmt.Sprintf("获得奖励: 灵石%d、强化石%d、洗炼石%d、灵宠精华%d", reward, rewards, reward, reward)
+				roundLogs = append(roundLogs, rewardLog)
+				status.BattleLog = append(status.BattleLog, rewardLog)
 			}
 
 			// 返回战斗结束的回合数据
@@ -285,13 +287,11 @@ func (s *DungeonService) ExecuteRound() (*RoundData, error) {
 				// 立即写入数据库
 				var user models.User
 				if err := db.DB.First(&user, s.userID).Error; err == nil {
-					spiritDamage := int(100 + user.Spirit*0.10)
-					user.Spirit = math.Max(0, user.Spirit-float64(spiritDamage)) // 消耗灵力
-					spiritStonesDamage := int(user.SpiritStones - reward - 10)
-					user.SpiritStones = spiritStonesDamage // 消耗灵石
-					user.RefinementStones += int(reward)   // 奖励洗炼石
-					user.PetEssence += int(reward)         // 奖励灵宠精华
-					user.ReinforceStones += int(reward)    // 奖励强化石
+					rewards := int(reward / 2)
+					user.RefinementStones += rewards    // 奖励洗炼石
+					user.PetEssence += int(reward)      // 奖励灵宠精华
+					user.ReinforceStones += int(reward) // 奖励强化石
+					user.SpiritStones += int(reward)    // 奖励灵石
 					db.DB.Model(user).Updates(map[string]interface{}{
 						"spirit_stones":     user.SpiritStones,
 						"refinement_stones": user.RefinementStones,
@@ -299,6 +299,10 @@ func (s *DungeonService) ExecuteRound() (*RoundData, error) {
 						"reinforce_stones":  user.ReinforceStones,
 						"spirit":            user.Spirit,
 					})
+					// 记录奖励日志
+					rewardLog := fmt.Sprintf("获得奖励: 强化石%d、洗炼石%d、灵宠精华%d、灵石%d", reward, rewards, reward, reward)
+					roundLogs = append(roundLogs, rewardLog)
+					status.BattleLog = append(status.BattleLog, rewardLog)
 				}
 
 				// 返回战斗结束的回合数据

@@ -681,7 +681,11 @@
         }
         
         // 启动轮询执行回合
-        addBattleLog('战斗已初始化，开始逐回合执行战斗...')
+        addBattleLog('\u6218\u6597\u5df2\u521d\u59cb\u5316\uff0c\u5f00\u59cb\u9010\u56de\u5408\u6267\u884c\u6218\u6597...')
+        // \u6dfb\u52a0\u6d88\u8017\u4fe1\u606f\u5230\u65e5\u5fd7
+        if (data.data && data.data.spiritCost && data.data.stoneCost) {
+          addBattleLog(`\u6d88\u8017: \u7075\u529b -${data.data.spiritCost}, \u7075\u77f3 -${data.data.stoneCost}`)
+        }
         await pollAndExecuteRounds(token)
       } else {
         message.error(data.message || '开始战斗失败')
