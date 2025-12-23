@@ -112,9 +112,9 @@ func (s *DungeonService) ExecuteRound() (*RoundData, error) {
 			// 立即写入数据库
 			var user models.User
 			if err := db.DB.First(&user, s.userID).Error; err == nil {
-				spiritDamage := int(user.Spirit * 0.10)
+				spiritDamage := int(100 + user.Spirit*0.10)
 				user.Spirit = math.Max(0, user.Spirit-float64(spiritDamage)) // 消耗灵力
-				spiritStonesDamage := int(user.SpiritStones - reward)
+				spiritStonesDamage := int(user.SpiritStones - reward - 10)
 				user.SpiritStones = spiritStonesDamage // 消耗灵石
 				user.RefinementStones += int(reward)   // 奖励洗炼石
 				user.PetEssence += int(reward)         // 奖励灵宠精华
@@ -285,9 +285,9 @@ func (s *DungeonService) ExecuteRound() (*RoundData, error) {
 				// 立即写入数据库
 				var user models.User
 				if err := db.DB.First(&user, s.userID).Error; err == nil {
-					spiritDamage := int(user.Spirit * 0.10)
+					spiritDamage := int(100 + user.Spirit*0.10)
 					user.Spirit = math.Max(0, user.Spirit-float64(spiritDamage)) // 消耗灵力
-					spiritStonesDamage := int(user.SpiritStones - reward)
+					spiritStonesDamage := int(user.SpiritStones - reward - 10)
 					user.SpiritStones = spiritStonesDamage // 消耗灵石
 					user.RefinementStones += int(reward)   // 奖励洗炼石
 					user.PetEssence += int(reward)         // 奖励灵宠精华
