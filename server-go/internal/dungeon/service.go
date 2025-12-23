@@ -13,6 +13,25 @@ import (
 	"xiuxian/server-go/internal/redis"
 )
 
+const (
+	RequireSpirit       = 10000
+	RequireSpiritStones = 1000
+)
+
+func checkDungeonEntryCost(user *models.User) error {
+	if user.Spirit < 10000 || user.SpiritStones < 1000 {
+		return fmt.Errorf("进入秘境需要灵力10000、灵石1000")
+	}
+	return nil
+}
+
+func applyDifficultyToEnemy(stats *CombatStats, modifier DifficultyModifier) {
+	stats.Health *= modifier.HealthMod
+	stats.MaxHealth *= modifier.HealthMod
+	stats.Damage *= modifier.DamageMod
+	stats.Defense *= modifier.DefenseMod
+}
+
 // DungeonService 秘境服务
 type DungeonService struct {
 	userID        uint
@@ -317,7 +336,7 @@ func (s *DungeonService) parsePlayerAttributes(user *models.User) (*CombatStats,
 // initEnemyStats 生成指定楼层敌人的战斗属性
 // 该函数基于地牢层数(floor)和难度修饰符(modifier)动态计算敌人的所有战斗属性
 // 返回指向CombatStats结构体的指针，包含完整的敌人属性集
-func (s *DungeonService) initEnemyStats(floor int, modifier *DifficultyModifier) *CombatStats {
+func (s *DungeonService) initEnemyStats(floor int) *CombatStats {
 	// 基础属性基准值 - 这些值定义了1层敌人(无层数加成)的基本强度
 	// 这些数值可根据游戏平衡性进行全局调整:
 	// - baseHealth: 基础生命值，决定了敌人的耐久度
@@ -340,9 +359,8 @@ func (s *DungeonService) initEnemyStats(floor int, modifier *DifficultyModifier)
 		// 增长率略低于生命值，保持战斗回合数相对稳定
 		Damage: 10 * float64(floor) * baseDamage * (1 + float64(floor)*0.08), // 10倍层数乘以基础伤害值，加上8%的层数加成
 
-		// 防御计算: 基础值 * 难度系数 * (1 + 层数*7%)
-		// modifier.DamageMod 根据游戏难度(简单/普通/困难)调整敌人整体防御水平
-		Defense: 10 * float64(floor) * baseDefense * modifier.DamageMod * (1 + float64(floor)*0.07), // 10倍层数乘以基础防御值，加上7%的层数加成
+		// 防御计算: 基础值 * (1 + 层数*7%)
+		Defense: 10 * float64(floor) * baseDefense * (1 + float64(floor)*0.07), // 10倍层数乘以基础防御值，加上7%的层数加成
 
 		// 速度计算: 基础值 * (1 + 层数*3%)
 		// 速度增长率较低，避免高层数敌人行动过于频繁
@@ -394,6 +412,10 @@ func (s *DungeonService) StartFight(floor int, difficulty string) (*FightResult,
 	if err := db.DB.First(&user, s.userID).Error; err != nil {
 		return nil, fmt.Errorf("用户不存在: %w", err)
 	}
+	// 检查进入秘境的消耗灵力10000，灵石1000
+	if err := checkDungeonEntryCost(&user); err != nil {
+		return nil, err
+	}
 
 	modifier := GetDifficultyModifier(difficulty)
 
@@ -406,13 +428,13 @@ func (s *DungeonService) StartFight(floor int, difficulty string) (*FightResult,
 	// 应用已选择的增益效果
 	playerStats = fromCombatStats(resolver.ApplyBuffEffectsToStats(toCombatStats(playerStats), s.buffEffects))
 
-	// 应用难度修饰符
-	playerStats.Health *= modifier.HealthMod
-	playerStats.MaxHealth *= modifier.HealthMod
-	playerStats.Damage *= modifier.DamageMod
-
+	// 应用难度修饰符,玩家不需要
+	// playerStats.Health *= modifier.HealthMod
+	// playerStats.MaxHealth *= modifier.HealthMod
+	// playerStats.Damage *= modifier.DamageMod
 	// 初始化敌人属性
-	enemyStats := s.initEnemyStats(floor, &modifier)
+	enemyStats := s.initEnemyStats(floor)
+	applyDifficultyToEnemy(enemyStats, modifier)
 
 	// 创建战斗状态并保存到Redis
 	battleStatus := &BattleStatus{
@@ -453,7 +475,10 @@ func (s *DungeonService) StartFightStreaming(floor int, difficulty string) (*Com
 	if err := db.DB.First(&user, s.userID).Error; err != nil {
 		return nil, nil, fmt.Errorf("用户不存在: %w", err)
 	}
-
+	// 检查进入秘境的消耗灵力10000，灵石1000
+	if err := checkDungeonEntryCost(&user); err != nil {
+		return nil, err
+	}
 	modifier := GetDifficultyModifier(difficulty)
 
 	// 解析玩家属性
@@ -466,12 +491,13 @@ func (s *DungeonService) StartFightStreaming(floor int, difficulty string) (*Com
 	playerStats = fromCombatStats(resolver.ApplyBuffEffectsToStats(toCombatStats(playerStats), s.buffEffects))
 
 	// 应用难度修饰符
-	playerStats.Health *= modifier.HealthMod
-	playerStats.MaxHealth *= modifier.HealthMod
-	playerStats.Damage *= modifier.DamageMod
+	// playerStats.Health *= modifier.HealthMod
+	// playerStats.MaxHealth *= modifier.HealthMod
+	// playerStats.Damage *= modifier.DamageMod
 
 	// 初始化敌人属性
-	enemyStats := s.initEnemyStats(floor, &modifier)
+	enemyStats := s.initEnemyStats(floor)
+	applyDifficultyToEnemy(enemyStats, modifier)
 
 	return playerStats, enemyStats, nil
 }

@@ -32,10 +32,10 @@ var BuffConfigPool = map[string][]BuffConfig{
 
 // DifficultyConfig 难度配置
 var DifficultyConfig = map[string]DifficultyModifier{
-	"easy":   {HealthMod: 0.8, DamageMod: 0.8, RewardMod: 0.8},
-	"normal": {HealthMod: 1.0, DamageMod: 1.0, RewardMod: 1.0},
-	"hard":   {HealthMod: 1.2, DamageMod: 1.2, RewardMod: 1.5},
-	"expert": {HealthMod: 1.5, DamageMod: 1.5, RewardMod: 2.0},
+	"easy":   {HealthMod: 0.8, DamageMod: 0.8, DefenseMod: 0.8, RewardMod: 1.0},
+	"normal": {HealthMod: 5.0, DamageMod: 5.0, DefenseMod: 5.0, RewardMod: 2.0},
+	"hard":   {HealthMod: 10.0, DamageMod: 10.0, DefenseMod: 10.0, RewardMod: 3.5},
+	"expert": {HealthMod: 50.0, DamageMod: 50.0, DefenseMod: 50.0, RewardMod: 5.0},
 }
 
 // GetBuffConfig 根据ID获取增益配置

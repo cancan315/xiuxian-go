@@ -4,9 +4,40 @@ import (
 	"fmt"
 	"math"
 
+	"xiuxian/server-go/internal/db"
 	"xiuxian/server-go/internal/dungeon/battle/formula"
 	"xiuxian/server-go/internal/dungeon/battle/resolver"
+	"xiuxian/server-go/internal/models"
 )
+
+// calculateBattleReward 计算战斗奖励
+// 基础奖励 × 难度系数 × 楼层系数（对数+上限） × 战斗表现系数
+func calculateBattleReward(status *BattleStatus) int {
+	baseReward := 20
+
+	modifier := GetDifficultyModifier(status.Difficulty)
+	difficultyMod := modifier.RewardMod
+
+	// 楼层系数：对数增长 + 3.0上限
+	floorMod := 1 + math.Log(float64(status.Floor)+1)/3
+	floorMod = math.Min(floorMod, 3.0)
+
+	// 战斗表现系数：根据回合数调整
+	roundMod := 1.0
+	switch {
+	case status.Round <= 10:
+		roundMod = 1.3 // 碾压
+	case status.Round <= 30:
+		roundMod = 1.1
+	case status.Round <= 60:
+		roundMod = 1.0
+	default:
+		roundMod = 0.8 // 苦战/拖回合
+	}
+
+	reward := float64(baseReward) * difficultyMod * floorMod * roundMod
+	return int(math.Round(reward))
+}
 
 // ExecuteRound 执行单个回合战斗 - 从Redis加载战斗状态，执行一回合，保存结果
 func (s *DungeonService) ExecuteRound() (*RoundData, error) {
@@ -76,8 +107,26 @@ func (s *DungeonService) ExecuteRound() (*RoundData, error) {
 			status.BattleLog = append(status.BattleLog, "敌人已被击败！")
 
 			// 计算奖励
-			modifier := GetDifficultyModifier(status.Difficulty)
-			s.rewardAmount = int(100 * modifier.RewardMod * (1 + float64(status.Floor)*0.1))
+			reward := calculateBattleReward(status)
+
+			// 立即写入数据库
+			var user models.User
+			if err := db.DB.First(&user, s.userID).Error; err == nil {
+				spiritDamage := int(user.Spirit * 0.10)
+				user.Spirit = math.Max(0, user.Spirit-float64(spiritDamage)) // 消耗灵力
+				spiritStonesDamage := int(user.SpiritStones - reward)
+				user.SpiritStones = spiritStonesDamage // 消耗灵石
+				user.RefinementStones += int(reward)   // 奖励洗炼石
+				user.PetEssence += int(reward)         // 奖励灵宠精华
+				user.ReinforceStones += int(reward)    // 奖励强化石
+				db.DB.Model(user).Updates(map[string]interface{}{
+					"spirit_stones":     user.SpiritStones,
+					"refinement_stones": user.RefinementStones,
+					"pet_essence":       user.PetEssence,
+					"reinforce_stones":  user.ReinforceStones,
+					"spirit":            user.Spirit,
+				})
+			}
 
 			// 返回战斗结束的回合数据
 			return &RoundData{
@@ -90,7 +139,7 @@ func (s *DungeonService) ExecuteRound() (*RoundData, error) {
 				Rewards: []interface{}{
 					map[string]interface{}{
 						"type":   "spirit_stone",
-						"amount": s.rewardAmount,
+						"amount": reward,
 					},
 				},
 			}, nil
@@ -231,8 +280,26 @@ func (s *DungeonService) ExecuteRound() (*RoundData, error) {
 				status.BattleLog = append(status.BattleLog, "敌人已被击败！")
 
 				// 计算奖励
-				modifier := GetDifficultyModifier(status.Difficulty)
-				s.rewardAmount = int(100 * modifier.RewardMod * (1 + float64(status.Floor)*0.1))
+				reward := calculateBattleReward(status)
+
+				// 立即写入数据库
+				var user models.User
+				if err := db.DB.First(&user, s.userID).Error; err == nil {
+					spiritDamage := int(user.Spirit * 0.10)
+					user.Spirit = math.Max(0, user.Spirit-float64(spiritDamage)) // 消耗灵力
+					spiritStonesDamage := int(user.SpiritStones - reward)
+					user.SpiritStones = spiritStonesDamage // 消耗灵石
+					user.RefinementStones += int(reward)   // 奖励洗炼石
+					user.PetEssence += int(reward)         // 奖励灵宠精华
+					user.ReinforceStones += int(reward)    // 奖励强化石
+					db.DB.Model(user).Updates(map[string]interface{}{
+						"spirit_stones":     user.SpiritStones,
+						"refinement_stones": user.RefinementStones,
+						"pet_essence":       user.PetEssence,
+						"reinforce_stones":  user.ReinforceStones,
+						"spirit":            user.Spirit,
+					})
+				}
 
 				// 返回战斗结束的回合数据
 				return &RoundData{
@@ -245,7 +312,7 @@ func (s *DungeonService) ExecuteRound() (*RoundData, error) {
 					Rewards: []interface{}{
 						map[string]interface{}{
 							"type":   "spirit_stone",
-							"amount": s.rewardAmount,
+							"amount": reward,
 						},
 					},
 				}, nil

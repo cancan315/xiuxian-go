@@ -64,9 +64,10 @@ type FightResult struct {
 
 // 难度修饰符
 type DifficultyModifier struct {
-	HealthMod float64
-	DamageMod float64
-	RewardMod float64
+	HealthMod  float64
+	DamageMod  float64
+	DefenseMod float64
+	RewardMod  float64
 }
 
 // 增益配置

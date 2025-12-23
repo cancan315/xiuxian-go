@@ -905,46 +905,7 @@ class APIService {
     return convertToCamelCase(data);
   }
   
-  /**
-   * 通用API调用方法（用于Alchemy等模块）
-   * @param {string} url - API端点
-   * @param {Object} options - 请求选项 {method, headers, params, body}
-   * @returns {Promise<Object>} 响应数据
-   */
-  static async apiCall(url, options = {}) {
-    const { method = 'GET', headers = {}, params = {}, body = null } = options;
-    
-    let fetchUrl = url;
-    if (method === 'GET' && Object.keys(params).length > 0) {
-      const searchParams = new URLSearchParams();
-      Object.entries(params).forEach(([key, value]) => {
-        searchParams.append(key, value);
-      });
-      fetchUrl += `?${searchParams.toString()}`;
-    }
 
-    const fetchOptions = {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        ...headers
-      }
-    };
-
-    if (body && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
-      fetchOptions.body = JSON.stringify(body);
-    }
-
-    const response = await fetch(fetchUrl, fetchOptions);
-    
-    if (!response.ok) {
-      throw new Error(`API调用失败: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    return convertToCamelCase(data);
-  }
-  
   /**
    * 发送POST请求
    * @param {string} url - API端点
@@ -1190,7 +1151,8 @@ class APIService {
       
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || '灵力不足');
+      // 优先返回后端的 error 字段（业务错误），否则返回 message 字段
+      throw new Error(errorData.error || errorData.message || '探索失败');
     }
       
     const data = await response.json();

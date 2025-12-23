@@ -35,31 +35,16 @@ func StartExploration(c *gin.Context) {
 
 	service := explorationSvc.NewExplorationService(uid)
 
-	// 先检查灵力是否满足（每次探索消耗100点灵力）
-	if err := service.CheckSpiritCost(); err != nil {
-		if err.Error() == explorationSvc.ErrInsufficientSpirit.Error() {
-			zapLogger.Warn("exploration failed: insufficient spirit",
-				zap.Uint("userID", uid))
-			c.JSON(http.StatusBadRequest, ExplorationResponse{
-				Success: false,
-				Error:   "探索失败灵力不足",
-			})
-			return
-		}
-		// 其他错误
-		zapLogger.Error("check spirit cost failed",
-			zap.Uint("userID", uid),
-			zap.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "探索失败", "error": err.Error()})
-		return
-	}
-
 	events, log, err := service.StartExploration()
 	if err != nil {
 		zapLogger.Error("exploration failed",
 			zap.Uint("userID", uid),
 			zap.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "探索失败", "error": err.Error()})
+		// 返回详细的错误信息给前端，包括修为检查、灵力检查等所有业务逻辑错误
+		c.JSON(http.StatusBadRequest, ExplorationResponse{
+			Success: false,
+			Error:   err.Error(),
+		})
 		return
 	}
 

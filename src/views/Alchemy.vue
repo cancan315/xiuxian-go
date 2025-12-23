@@ -79,6 +79,7 @@
 <script setup>
   // 修改为使用模块化store
   import { usePlayerInfoStore } from '../stores/playerInfo'
+  import { getAuthToken } from '../stores/db'
   import { ref, computed, onMounted } from 'vue'
   import { useMessage } from 'naive-ui'
   import LogPanel from '../components/LogPanel.vue'
@@ -99,12 +100,8 @@
   const initAlchemy = async () => {
     try {
       loading.value = true
-      const response = await APIService.apiCall('/api/alchemy/recipes', {
-        method: 'GET',
-        params: {
-          playerLevel: playerInfoStore.level
-        }
-      })
+      const token = getAuthToken()
+      const response = await APIService.get('/alchemy/recipes', { playerLevel: playerInfoStore.level }, token)
       if (response.success) {
         allRecipes.value = response.data.recipes
       }
@@ -186,17 +183,15 @@
         }
       })
       
-      const response = await APIService.apiCall('/api/alchemy/craft', {
-        method: 'POST',
-        data: {
-          recipeId: recipe.id,
-          playerLevel: playerInfoStore.level || 1,
-          unlockedRecipes: playerInfoStore.pillRecipes || [],
-          inventoryHerbs: inventoryHerbs,
-          luck: playerInfoStore.luck || 1.0,
-          alchemyRate: playerInfoStore.alchemyRate || 1.0
-        }
-      })
+      const token = getAuthToken()
+      const response = await APIService.post('/alchemy/craft', {
+        recipeId: recipe.id,
+        playerLevel: playerInfoStore.level || 1,
+        unlockedRecipes: playerInfoStore.pillRecipes || [],
+        inventoryHerbs: inventoryHerbs,
+        luck: playerInfoStore.luck || 1.0,
+        alchemyRate: playerInfoStore.alchemyRate || 1.0
+      }, token)
       
       if (response.success && response.data.success) {
         message.success(`炼制成功！成功率: ${(response.data.successRate * 100).toFixed(1)}%`)
@@ -242,15 +237,13 @@
     
     try {
       loading.value = true
-      const response = await APIService.apiCall('/api/alchemy/buy-fragment', {
-        method: 'POST',
-        data: {
-          recipeId: recipeId,
-          quantity: 1,
-          currentFragments: playerInfoStore.pillFragments[recipeId] || 0,
-          unlockedRecipes: playerInfoStore.pillRecipes || []
-        }
-      })
+      const token = getAuthToken()
+      const response = await APIService.post('/alchemy/buy-fragment', {
+        recipeId: recipeId,
+        quantity: 1,
+        currentFragments: playerInfoStore.pillFragments[recipeId] || 0,
+        unlockedRecipes: playerInfoStore.pillRecipes || []
+      }, token)
       
       if (response.success && response.data.success) {
         // 更新前端状态

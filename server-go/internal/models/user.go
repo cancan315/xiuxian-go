@@ -15,22 +15,22 @@ type User struct {
 	Password string `gorm:"size:255;not null;column:password" json:"password"`
 
 	// Player basic info
-	PlayerName       string  `gorm:"column:player_name" json:"playerName"`
-	Level            int     `gorm:"column:level" json:"level"`
-	Realm            string  `gorm:"column:realm" json:"realm"`
-	Cultivation      float64 `gorm:"column:cultivation" json:"cultivation"`
-	MaxCultivation   float64 `gorm:"column:max_cultivation" json:"maxCultivation"`
-	Spirit           float64 `gorm:"column:spirit" json:"spirit"`
-	SpiritStones     int     `gorm:"column:spirit_stones" json:"spiritStones"`
-	ReinforceStones  int     `gorm:"column:reinforce_stones" json:"reinforceStones"`
-	RefinementStones int     `gorm:"column:refinement_stones" json:"refinementStones"`
-	PetEssence       int     `gorm:"column:pet_essence" json:"petEssence"`
+	PlayerName       string  `gorm:"column:player_name" json:"playerName"`             // 玩家名称
+	Level            int     `gorm:"column:level" json:"level"`                        // 等级
+	Realm            string  `gorm:"column:realm" json:"realm"`                        // 境界
+	Cultivation      float64 `gorm:"column:cultivation" json:"cultivation"`            // 修为
+	MaxCultivation   float64 `gorm:"column:max_cultivation" json:"maxCultivation"`     // 最大修为
+	Spirit           float64 `gorm:"column:spirit" json:"spirit"`                      // 灵力
+	SpiritStones     int     `gorm:"column:spirit_stones" json:"spiritStones"`         // 灵石
+	ReinforceStones  int     `gorm:"column:reinforce_stones" json:"reinforceStones"`   // 强化石
+	RefinementStones int     `gorm:"column:refinement_stones" json:"refinementStones"` // 洗练石
+	PetEssence       int     `gorm:"column:pet_essence" json:"petEssence"`             // 宠物精华
 
 	// 战斗相关属性（JSON 存储，与 Node User 模型字段对应）
-	BaseAttributes    datatypes.JSON `gorm:"column:base_attributes" json:"baseAttributes"`
-	CombatAttributes  datatypes.JSON `gorm:"column:combat_attributes" json:"combatAttributes"`
-	CombatResistance  datatypes.JSON `gorm:"column:combat_resistance" json:"combatResistance"`
-	SpecialAttributes datatypes.JSON `gorm:"column:special_attributes" json:"specialAttributes"`
+	BaseAttributes    datatypes.JSON `gorm:"column:base_attributes" json:"baseAttributes"`       // 基础属性
+	CombatAttributes  datatypes.JSON `gorm:"column:combat_attributes" json:"combatAttributes"`   // 战斗属性
+	CombatResistance  datatypes.JSON `gorm:"column:combat_resistance" json:"combatResistance"`   // 战斗抗性
+	SpecialAttributes datatypes.JSON `gorm:"column:special_attributes" json:"specialAttributes"` // 特殊属性
 
 	// 灵力自动增长相关字段
 	LastSpiritGainTime time.Time `gorm:"column:last_spirit_gain_time" json:"lastSpiritGainTime"`
