@@ -45,6 +45,7 @@ func RegisterRoutes(r *gin.Engine) {
 		playerGroup.PATCH("/data", player.UpdatePlayerData)
 		playerGroup.DELETE("/items", player.DeleteItems)
 		playerGroup.DELETE("/pets", player.DeletePets)
+		playerGroup.POST("/change-name", player.ChangePlayerName)
 
 		// 库存/装备相关查询接口
 
@@ -129,3 +130,4 @@ func RegisterRoutes(r *gin.Engine) {
 		alchemyGroup.POST("/buy-fragment", alchemy.BuyFragment)
 	}
 }
+

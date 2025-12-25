@@ -22,8 +22,8 @@ export default defineConfig({
   },
   base: './',
   build: {
-    outDir: 'docs',
-    minify: 'terser',
+    outDir: 'dist',
+    minify: 'esbuild',
     chunkSizeWarningLimit: 800,
     rollupOptions: {
       output: {

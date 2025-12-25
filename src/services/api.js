@@ -905,6 +905,32 @@ class APIService {
     return convertToCamelCase(data);
   }
   
+  /**
+   * 修改玩家道号
+   * @param {string} token - 认证令牌
+   * @param {string} newName - 新的道号
+   * @returns {Promise<Object>} 修改结果
+   */
+  static async changePlayerName(token, newName) {
+    const response = await fetch(`${API_BASE_URL}/player/change-name`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ newName })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `修改道号失败 (${response.status})`);
+    }
+    
+    const data = await response.json();
+    // 统一转换后端返回的数据字段为小驼峰命名法
+    return convertToCamelCase(data);
+  }
+  
 
   /**
    * 发送POST请求

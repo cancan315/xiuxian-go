@@ -118,6 +118,8 @@
   import { ref } from 'vue'
   import { useDialog, useMessage } from 'naive-ui'
   import { AlertCircleOutline, Close } from '@vicons/ionicons5'
+  import APIService from '@/services/api' // 导入APIService
+  import { getAuthToken } from '@/stores/db' // 导入getAuthToken函数
 
   const playerInfoStore = usePlayerInfoStore()
   
@@ -138,7 +140,7 @@
   }
 
   // 修改道号
-  const handleChangeName = () => {
+  const handleChangeName = async () => {
     if (!newName.value.trim()) {
       message.warning('道号不能为空！')
       return
@@ -147,22 +149,26 @@
       message.warning(`道号长度不能超过${maxLength}个字符！`)
       return
     }
-    // 计算修改道号所需灵石
-    const spiritStoneCost = playerInfoStore.nameChangeCount === 0 ? 0 : Math.pow(2, playerInfoStore.nameChangeCount) * 100
-    // 第一次修改免费，之后需要消耗灵石
-    if (playerInfoStore.nameChangeCount > 0) {
-      if (playerInfoStore.spiritStones < spiritStoneCost) {
-        message.error(`灵石不足！修改道号需要${spiritStoneCost}颗灵石`)
+    
+    try {
+      const token = getAuthToken()
+      if (!token) {
+        message.error('用户未登录')
         return
       }
-      playerInfoStore.spiritStones -= spiritStoneCost
+      
+      // 调用后端API修改道号
+      const response = await APIService.changePlayerName(token, newName.value.trim())
+      
+      // 更新本地store
+      playerInfoStore.renamePlayer(newName.value.trim())
+      
+      message.success(response.message || '道号修改成功！')
+      newName.value = ''
+    } catch (error) {
+      console.error('修改道号失败:', error)
+      message.error(error.response?.data?.message || error.message || '修改道号失败')
     }
-    playerInfoStore.renamePlayer(newName.value.trim())
-    
-    message.success(
-      playerInfoStore.nameChangeCount === 1 ? '道号修改成功！首次修改免费' : `道号修改成功！消耗${spiritStoneCost}颗灵石`
-    )
-    newName.value = ''
   }
 </script>
 

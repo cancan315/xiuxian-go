@@ -7,10 +7,12 @@ import (
 	"math"
 	"net/http"
 	"time"
+	"errors"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 
 	"xiuxian/server-go/internal/db"
 	"xiuxian/server-go/internal/models"
@@ -398,6 +400,87 @@ func DeletePets(c *gin.Context) {
 
 	log.Printf("成功删除 %d 个灵宠, user=%d", len(req.PetIDs), userID)
 	c.JSON(http.StatusOK, gin.H{"message": "灵宠删除成功"})
+}
+
+// ChangePlayerName 对应 POST /api/player/change-name
+func ChangePlayerName(c *gin.Context) {
+	userID, ok := currentUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "用户未授权"})
+		return
+	}
+
+	var req struct {
+		NewName string `json:"newName" binding:"required,min=1,max=6"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "请求参数错误", "error": err.Error()})
+		return
+	}
+
+	// 获取当前用户信息以检查道号修改次数和灵石数量
+	var user models.User
+	err := db.DB.First(&user, userID).Error
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "获取用户信息失败", "error": err.Error()})
+		return
+	}
+
+	// 计算修改道号所需灵石
+	var spiritStoneCost int
+	if user.NameChangeCount == 0 {
+		// 第一次修改免费
+		spiritStoneCost = 0
+	} else {
+		// 后续修改需要100灵石
+		spiritStoneCost = 100
+	}
+
+	// 检查灵石是否足够
+	if user.SpiritStones < spiritStoneCost {
+		c.JSON(http.StatusBadRequest, gin.H{"message": fmt.Sprintf("灵石不足！修改道号需要%d颗灵石", spiritStoneCost)})
+		return
+	}
+
+	// 检查新名称是否已存在
+	var existingUser models.User
+	err = db.DB.Where("player_name = ? AND id != ?", req.NewName, userID).First(&existingUser).Error
+	if err == nil {
+		// 找到了同名用户
+		c.JSON(http.StatusConflict, gin.H{"message": "该道号已被其他玩家使用"})
+		return
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		// 数据库错误
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
+		return
+	}
+
+	// 更新玩家道号和扣除灵石
+	updates := map[string]interface{}{
+		"player_name": req.NewName,
+	}
+	
+	// 如果不是第一次修改，则扣除灵石并增加修改次数
+	if user.NameChangeCount > 0 {
+		updates["spirit_stones"] = user.SpiritStones - spiritStoneCost
+		updates["name_change_count"] = user.NameChangeCount + 1
+	} else {
+		// 第一次修改，只增加修改次数
+		updates["name_change_count"] = user.NameChangeCount + 1
+	}
+
+	err = db.DB.Model(&models.User{}).Where("id = ?", userID).Updates(updates).Error
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "修改道号失败", "error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "道号修改成功",
+		"newName": req.NewName,
+		"spiritStoneCost": spiritStoneCost,
+	})
 }
 
 // GetPlayerSpiritGain 对应 GET /api/player/spirit/gain

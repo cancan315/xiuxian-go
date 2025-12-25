@@ -16,6 +16,7 @@ type User struct {
 
 	// Player basic info
 	PlayerName       string  `gorm:"column:player_name" json:"playerName"`             // 玩家名称
+	NameChangeCount  int     `gorm:"column:name_change_count;default:0" json:"nameChangeCount"` // 道号修改次数
 	Level            int     `gorm:"column:level" json:"level"`                        // 等级
 	Realm            string  `gorm:"column:realm" json:"realm"`                        // 境界
 	Cultivation      float64 `gorm:"column:cultivation" json:"cultivation"`            // 修为

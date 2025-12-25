@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS "users" (
     reinforce_stones INTEGER DEFAULT 0,
     refinement_stones INTEGER DEFAULT 0,
     pet_essence INTEGER DEFAULT 0,
+    name_change_count INTEGER DEFAULT 0,
     base_attributes JSONB,
     combat_attributes JSONB,
     combat_resistance JSONB,
