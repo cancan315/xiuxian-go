@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   frontend:
-    image: registry.cn-hongkong.aliyuncs.com/velero/xxj-nginx:20251225
+    image: registry.cn-hongkong.aliyuncs.com/velero/xxj-nginx:20251226
     container_name: xiuxian-frontend
     ports:
       - "315:315"
@@ -12,7 +12,7 @@ services:
       - backend
 
   backend:
-    image: registry.cn-hongkong.aliyuncs.com/velero/xxj-server:20251225
+    image: registry.cn-hongkong.aliyuncs.com/velero/xxj-server:20251226
     container_name: xiuxian-backend
     ports:
       - "3000:3000"
