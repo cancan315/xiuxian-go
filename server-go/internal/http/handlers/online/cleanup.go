@@ -41,7 +41,7 @@ func checkAndCleanupTimeoutPlayers(logger *zap.Logger) {
 	}
 
 	currentTime := time.Now().UnixMilli()
-	heartbeatTimeoutMs := int64(15 * 1000) // 15秒超时
+	heartbeatTimeoutMs := int64(600 * 1000) // 10分钟超时
 
 	for _, playerIDStr := range playerIDs {
 		key := "player:online:" + playerIDStr

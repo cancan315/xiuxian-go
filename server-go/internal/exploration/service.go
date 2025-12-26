@@ -116,7 +116,7 @@ func (s *ExplorationService) StartExploration() ([]ExplorationEvent, string, err
 	// 根据幸运值计算事件触发概率
 	// 基础触发概率为 60%，幸运值作为倍率
 	luck := s.calculateLuck(&user)
-	eventChance := 0.6 * luck
+	eventChance := 0.7 * luck
 
 	// 单次触发：直接检查一次事件
 	if r.Float64() < eventChance {
@@ -192,29 +192,29 @@ func (s *ExplorationService) triggerRandomEvent(user *models.User, r *rand.Rand)
 		handler func(*models.User, *rand.Rand) *ExplorationEvent
 	}{
 		// ===== 修为正向 =====
-		{"论道大会", 12, s.eventAncientTablet}, // +1%
+		{"论道大会", 13, s.eventAncientTablet}, // +1%
 		{"百鬼门杂役", 10, s.eventSpiritSpring}, // +2% -10%
-		{"古修遗府", 5, s.eventAncientMaster},  // +3% 稀有
-		{"灵山顿悟", 3, s.eventEnlightenment},  // +5% 极稀有
-		// 小计 30
+		{"古修遗府", 7, s.eventAncientMaster},  // +3% 稀有
+		{"灵山顿悟", 5, s.eventEnlightenment},  // +5% 极稀有
+		// 小计 35
 
 		// ===== 修为负向 =====
-		{"家族招婿", 10, s.eventCultivationDeviation}, // -2% 灵力-8%
-		{"合欢女修", 13, s.eventQiDeviation},          // -1% 灵力-10%
-		{"鬼鬼妖王", 7, s.eventMonsterAttack},         // -5%
-		// 小计 30
+		{"家族招婿", 12, s.eventCultivationDeviation}, // -2% 灵力-8%
+		{"合欢女修", 15, s.eventQiDeviation},          // -1% 灵力-10%
+		{"鬼鬼妖王", 8, s.eventMonsterAttack},         // -5%
+		// 小计 35
 
 		// ===== 普通资源 =====
-		{"灵草发现", 7, s.eventHerbDiscovery},
-		{"丹方残页", 8, s.eventPillRecipeFragment},
-		// 小计 15
+		{"灵草发现", 1, s.eventHerbDiscovery},
+		{"丹方残页", 1, s.eventPillRecipeFragment},
+		// 小计 2
 
 		// ===== 稀有资源 =====
-		{"获得灵石", 8, s.eventTreasureTrove},
-		{"获得强化石", 7, s.eventReinforceStone},
-		{"获得洗炼石", 5, s.eventRefinementStone},
-		{"获得灵宠精华", 5, s.eventPetEssence},
-		// 小计 25
+		{"获得灵石", 10, s.eventTreasureTrove},
+		{"获得强化石", 6, s.eventReinforceStone},
+		{"获得洗炼石", 6, s.eventRefinementStone},
+		{"获得灵宠精华", 6, s.eventPetEssence},
+		// 小计 28
 	}
 
 	// 计算总权重

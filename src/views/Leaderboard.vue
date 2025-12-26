@@ -23,7 +23,6 @@
                 v-else
                 :columns="realmColumns"
                 :data="leaderboards.realm"
-                :pagination="pagination.realm"
                 :bordered="false"
                 :single-line="false"
               />
@@ -42,7 +41,6 @@
                 v-else
                 :columns="spiritStonesColumns"
                 :data="leaderboards.spiritStones"
-                :pagination="pagination.spiritStones"
                 :bordered="false"
                 :single-line="false"
               />
@@ -61,7 +59,6 @@
                 v-else
                 :columns="equipmentColumns"
                 :data="leaderboards.equipment"
-                :pagination="pagination.equipment"
                 :bordered="false"
                 :single-line="false"
               />
@@ -80,7 +77,6 @@
                 v-else
                 :columns="petsColumns"
                 :data="leaderboards.pets"
-                :pagination="pagination.pets"
                 :bordered="false"
                 :single-line="false"
               />
@@ -123,44 +119,12 @@ const leaderboards = ref({
   pets: []
 })
 
-// 分页配置（为每个分榜单独配置）
-const pagination = ref({
-  realm: {
-    pageSize: 10,
-    page: 1,
-    pageCount: 1,
-    itemCount: 0,
-    prefix: (info) => `第 ${info.page} 页`
-  },
-  spiritStones: {
-    pageSize: 10,
-    page: 1,
-    pageCount: 1,
-    itemCount: 0,
-    prefix: (info) => `第 ${info.page} 页`
-  },
-  equipment: {
-    pageSize: 10,
-    page: 1,
-    pageCount: 1,
-    itemCount: 0,
-    prefix: (info) => `第 ${info.page} 页`
-  },
-  pets: {
-    pageSize: 10,
-    page: 1,
-    pageCount: 1,
-    itemCount: 0,
-    prefix: (info) => `第 ${info.page} 页`
-  }
-})
-
 // 境界排行榜列定义
 const realmColumns = [
   {
     title: '排名',
     key: 'rank',
-    width: 80,
+    width: 50,
     render(row, index) {
       const rank = index + 1
       let medal = ''
@@ -177,12 +141,12 @@ const realmColumns = [
   {
     title: '道号',
     key: 'playerName',
-    width: 120
+    width: 80
   },
   {
     title: '境界',
     key: 'realm',
-    width: 150
+    width: 80
   }
 ]
 
@@ -191,7 +155,7 @@ const spiritStonesColumns = [
   {
     title: '排名',
     key: 'rank',
-    width: 80,
+    width: 50,
     render(row, index) {
       const rank = index + 1
       let medal = ''
@@ -208,12 +172,12 @@ const spiritStonesColumns = [
   {
     title: '道号',
     key: 'playerName',
-    width: 120
+    width: 80
   },
   {
     title: '灵石',
     key: 'spiritStones',
-    width: 150,
+    width: 80,
     render(row) {
       return `${row.spiritStones} 💠`
     }
@@ -225,7 +189,7 @@ const equipmentColumns = [
   {
     title: '排名',
     key: 'rank',
-    width: 80,
+    width: 50,
     render(row, index) {
       const rank = index + 1
       let medal = ''
@@ -242,17 +206,17 @@ const equipmentColumns = [
   {
     title: '道号',
     key: 'playerName',
-    width: 100
+    width: 80
   },
   {
     title: '装备名称',
     key: 'name',
-    width: 150
+    width: 80
   },
   {
     title: '品质',
     key: 'quality',
-    width: 100,
+    width: 30,
     render(row) {
       const qualityMap = {
         '仙品': '🌠',
@@ -267,7 +231,7 @@ const equipmentColumns = [
   {
     title: '强化等级',
     key: 'enhanceLevel',
-    width: 100,
+    width: 30,
     render(row) {
       return `+${row.enhanceLevel || 0}`
     }
@@ -279,7 +243,7 @@ const petsColumns = [
   {
     title: '排名',
     key: 'rank',
-    width: 80,
+    width: 50,
     render(row, index) {
       const rank = index + 1
       let medal = ''
@@ -296,17 +260,17 @@ const petsColumns = [
   {
     title: '道号',
     key: 'playerName',
-    width: 100
+    width: 80
   },
   {
     title: '灵宠名称',
     key: 'name',
-    width: 120
+    width: 80
   },
   {
     title: '稀有度',
     key: 'rarity',
-    width: 100,
+    width: 30,
     render(row) {
       const rarityMap = {
         '传说': '🎆',
@@ -321,7 +285,7 @@ const petsColumns = [
   {
     title: '星级',
     key: 'star',
-    width: 80,
+    width: 30,
     render(row) {
       return '★'.repeat(row.star || 0)
     }
@@ -329,7 +293,7 @@ const petsColumns = [
   {
     title: '等级',
     key: 'level',
-    width: 80,
+    width: 30,
     render(row) {
       return `Lv.${row.level || 0}`
     }
@@ -354,14 +318,7 @@ const fetchLeaderboardByType = async (type) => {
     
     // 处理分页
     leaderboards.value[type] = data || []
-    pagination.value[type].itemCount = leaderboards.value[type].length
-    pagination.value[type].pageCount = Math.ceil(leaderboards.value[type].length / pagination.value[type].pageSize)
     
-    console.log(`[排行榜] ${type}排行榜分页配置`, {
-      itemCount: pagination.value[type].itemCount,
-      pageCount: pagination.value[type].pageCount,
-      pageSize: pagination.value[type].pageSize
-    })
   } catch (error) {
     console.error(`[排行榜] 获取${type}排行榜失败:`, error)
     console.error(`[排行榜] 错误详情:`, {
@@ -408,8 +365,6 @@ const onTabChange = (name) => {
   console.log(`[排行榜] 切换到${name}排行榜`, {
     标签: name,
     数据条数: leaderboards.value[name]?.length || 0,
-    当前页: pagination.value[name].page,
-    总页数: pagination.value[name].pageCount
   })
 }
 

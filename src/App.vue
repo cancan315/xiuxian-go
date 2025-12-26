@@ -9,7 +9,7 @@
               <n-layout-header bordered>
                 <div class="header-content">
                   <n-page-header>
-                    <template #title>我的小小修仙界   欢迎道友，请入Q群: 755301571 恳请道友邀请好友进入修仙界</template>
+                    <template #title>我的小小修仙界   欢迎道友，请入Q群: 755301571 恳请道友邀请好友一起修仙</template>
                     <template #extra>
                       <n-space>
                         <n-button @click="logout">退出游戏</n-button>
@@ -526,7 +526,7 @@ const startHeartbeatTimer = (playerId, token) => {
 
   let heartbeatFailureCount = 0; // 心跳连续失败计数
 
-  // 每3秒发送一次心跳
+  // 每60秒发送一次心跳
   heartbeatTimer = setInterval(async () => {
     try {
       //  console.log('[App.vue] 发送心跳', { playerId });
@@ -544,8 +544,8 @@ const startHeartbeatTimer = (playerId, token) => {
       console.warn(`[App.vue] 心跳发送失败，失败次数: ${heartbeatFailureCount}/3`)
       
       // 连续失败3次，调用退出游戏接口
-      if (heartbeatFailureCount >= 3) {
-        console.error('[App.vue] 心跳连续失败3次，调用退出游戏接口')
+      if (heartbeatFailureCount >= 200) {
+        console.error('[App.vue] 心跳连续失败100次，调用退出游戏接口')
         stopHeartbeatTimer()
         
         try {
