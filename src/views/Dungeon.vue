@@ -1,6 +1,6 @@
 <template>
   <div class="dungeon-container">
-    <n-card title="秘境探索">
+    <n-card title="秘境探索-消耗灵力层数*1000，消耗灵石层数*10">
       <template #header-extra>
         <n-space>
           <n-select
@@ -16,7 +16,7 @@
             @click="startDungeon"
             :disabled="dungeonState.inCombat || dungeonState.showingOptions"
           >
-            开始探索
+            开启秘境
           </n-button>
         </n-space>
       </template>

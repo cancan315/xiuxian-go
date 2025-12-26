@@ -21,7 +21,7 @@ const (
 
 func checkDungeonEntryCost(user *models.User, floor int) error {
 	spiritCost := int(float64(floor) * 1000)
-	stoneCost := int(float64(floor) * 50)
+	stoneCost := int(float64(floor) * 10)
 	if user.Spirit < float64(spiritCost) || user.SpiritStones < stoneCost {
 		return fmt.Errorf("进入秘境需要灵力%d、灵石%d", spiritCost, stoneCost)
 	}
@@ -420,8 +420,10 @@ func (s *DungeonService) StartFight(floor int, difficulty string) (*FightResult,
 		return nil, err
 	}
 	// 立即扣除消耗 (动态计算)
+	// spiritCost := int(float64(floor) * 1000) // 灵力消耗
+	// stoneCost := int(float64(floor) * 10)    // 灵石消耗
 	spiritCost := int(float64(floor) * 1000) // 灵力消耗
-	stoneCost := int(float64(floor) * 50)    // 灵石消耗
+	stoneCost := int(float64(floor) * 10)    // 灵石消耗
 	user.Spirit = math.Max(0, user.Spirit-float64(spiritCost))
 	user.SpiritStones -= stoneCost
 	if user.SpiritStones < 0 {

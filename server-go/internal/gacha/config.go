@@ -5,22 +5,22 @@ package gacha
 // EquipmentQualityProbabilities 装备品质固定概率配置
 // 所有玩家无论等级如何，都使用相同的概率抽取各品质装备
 var EquipmentQualityProbabilities = map[string]float64{
-	"mythic":    0.001, // 仙器 - 0.1%
-	"legendary": 0.003, // 伪仙器 - 0.3%
-	"epic":      0.016, // 灵器 - 1.6%
-	"rare":      0.03,  // 魔器 - 3%
-	"uncommon":  0.15,  // 法器 - 15%
+	"mythic":    0.0001, // 仙器 - 0.01%
+	"legendary": 0.0003, // 伪仙器 - 0.03%
+	"epic":      0.0026, // 灵器 - 0.26%
+	"rare":      0.032,  // 魔器 - 3.2%
+	"uncommon":  0.165,  // 法器 - 16%
 	"common":    0.80,  // 凡器 - 80%
 }
 
 // PetRarityProbabilities 灵宠稀有度固定概率配置
 // 所有玩家无论等级如何，都使用相同的概率抽取各稀有度灵宠
 var PetRarityProbabilities = map[string]float64{
-	"mythic":    0.001, // 仙兽 - 0.1%
-	"legendary": 0.003, // 瑞兽 - 0.3%
-	"epic":      0.016, // 上古异兽 - 1.6%
-	"rare":      0.03,  // 灵兽 - 3%
-	"uncommon":  0.15,  // 妖兽 - 15%
+	"mythic":    0.0001, // 仙兽 - 0.01%
+	"legendary": 0.0003, // 瑞兽 - 0.03%
+	"epic":      0.0026, // 上古异兽 - 0.26%
+	"rare":      0.032,  // 灵兽 - 3.2%
+	"uncommon":  0.165,  // 妖兽 - 16%
 	"common":    0.80,  // 凡兽 - 80%
 }
 

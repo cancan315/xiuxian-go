@@ -9,18 +9,10 @@
               <n-layout-header bordered>
                 <div class="header-content">
                   <n-page-header>
-                    <template #title>我的小小修仙界</template>
+                    <template #title>我的小小修仙界   道友Q群: 755301571</template>
                     <template #extra>
                       <n-space>
                         <n-button @click="logout">退出游戏</n-button>
-                        <n-button quaternary circle @click="toggleDarkMode">
-                          <template #icon>
-                            <n-icon>
-                              <Sunny v-if="playerInfoStore.isDarkMode" />
-                              <Moon v-else />
-                            </n-icon>
-                          </template>
-                        </n-button>
                       </n-space>
                     </template>
                   </n-page-header>
@@ -203,6 +195,45 @@ import Alchemy from './views/Alchemy.vue'
 import Dungeon from './views/Dungeon.vue'
 import Gacha from './views/Gacha.vue'
 import Leaderboard from './views/Leaderboard.vue'
+
+// ================================
+// 🌙 跟随系统暗黑模式
+// ================================
+
+let mediaQuery = null
+
+const applySystemTheme = (isDark) => {
+  playerInfoStore.isDarkMode = isDark
+
+  // 同步 html class（用于你 CSS 里的 html.dark）
+  const html = document.documentElement
+  if (isDark) {
+    html.classList.add('dark')
+  } else {
+    html.classList.remove('dark')
+  }
+}
+
+onMounted(() => {
+  // 监听系统主题
+  mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+
+  // 初始化时立即应用一次
+  applySystemTheme(mediaQuery.matches)
+
+  // 监听系统主题变化
+  mediaQuery.addEventListener('change', (e) => {
+    applySystemTheme(e.matches)
+  })
+})
+
+onUnmounted(() => {
+  if (mediaQuery) {
+    mediaQuery.removeEventListener('change', () => {})
+    mediaQuery = null
+  }
+})
+
 
 const { message } = createDiscreteApi(['message'])
 const router = useRouter()
@@ -574,7 +605,8 @@ const logout = async () => {
 
 // 切换暗黑模式
 const toggleDarkMode = () => {
-  playerInfoStore.toggleDarkMode()
+  // 移除切换暗黑模式功能，改为跟随浏览器主题模式
+  // playerInfoStore.toggleDarkMode()
 }
 
 // 移除空白行
