@@ -10,7 +10,7 @@ var EquipmentQualityProbabilities = map[string]float64{
 	"epic":      0.0026, // 灵器 - 0.26%
 	"rare":      0.032,  // 魔器 - 3.2%
 	"uncommon":  0.165,  // 法器 - 16%
-	"common":    0.80,  // 凡器 - 80%
+	"common":    0.80,   // 凡器 - 80%
 }
 
 // PetRarityProbabilities 灵宠稀有度固定概率配置
@@ -21,7 +21,7 @@ var PetRarityProbabilities = map[string]float64{
 	"epic":      0.0026, // 上古异兽 - 0.26%
 	"rare":      0.032,  // 灵兽 - 3.2%
 	"uncommon":  0.165,  // 妖兽 - 16%
-	"common":    0.80,  // 凡兽 - 80%
+	"common":    0.80,   // 凡兽 - 80%
 }
 
 // AttributePool 属性池结构
@@ -138,8 +138,8 @@ var EquipmentTypes = map[string]struct {
 		Name:      "法宝",
 		EquipType: "faqi",
 		Prefixes: map[string][]string{
-			"common":    {"粗制", "劣质", "破损", "锈蚀"},
-			"uncommon":  {"精制", "优质", "改良", "强化"},
+			"common":    {"青竹剑", "柳叶刀", "精铁剑", "黑木杖"},
+			"uncommon":  {"法剑", "法刀", "法杖", "法珠"},
 			"rare":      {"上品", "精品", "珍品", "灵韵"},
 			"epic":      {"异宝", "奇珍", "灵光", "宝华"},
 			"legendary": {"法宝", "神兵", "灵宝", "仙锋"},

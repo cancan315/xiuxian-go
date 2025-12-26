@@ -55,13 +55,20 @@ type FightResponse struct {
 
 // 战斗结果
 type FightResult struct {
-	Success    bool          `json:"success"`
-	Victory    bool          `json:"victory"`
-	Floor      int           `json:"floor"`
-	Message    string        `json:"message"`
-	Rewards    []interface{} `json:"rewards"`
-	SpiritCost int           `json:"spiritCost"` // 消耗灵力
-	StoneCost  int           `json:"stoneCost"`  // 消耗灵石
+	Success         bool          `json:"success"`
+	Victory         bool          `json:"victory"`
+	Floor           int           `json:"floor"`
+	Message         string        `json:"message"`
+	Rewards         []interface{} `json:"rewards"`
+	SpiritCost      int           `json:"spiritCost"`      // 消耗灵力
+	StoneCost       int           `json:"stoneCost"`       // 消耗灵石
+	PlayerStats     *CombatStats  `json:"playerStats"`     // 玩家战斗属性
+	EnemyStats      *CombatStats  `json:"enemyStats"`      // 敌人战斗属性
+	PlayerHealth    float64       `json:"playerHealth"`    // 玩家当前生命值
+	EnemyHealth     float64       `json:"enemyHealth"`     // 敌人当前生命值
+	PlayerMaxHealth float64       `json:"playerMaxHealth"` // 玩家最大生命值
+	EnemyMaxHealth  float64       `json:"enemyMaxHealth"`  // 敌人最大生命值
+	MaxRounds       int           `json:"maxRounds"`       // 最大回合数
 }
 
 // 难度修饰符

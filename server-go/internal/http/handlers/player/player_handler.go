@@ -1,13 +1,11 @@
 package player
 
 import (
-	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"math"
 	"net/http"
-	"time"
-	"errors"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -16,7 +14,6 @@ import (
 
 	"xiuxian/server-go/internal/db"
 	"xiuxian/server-go/internal/models"
-	"xiuxian/server-go/internal/redis"
 	"xiuxian/server-go/internal/spirit"
 )
 
@@ -195,65 +192,6 @@ func UpdateSpirit(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "灵力值更新成功"})
-}
-
-// GetLeaderboard 对应 GET /api/player/leaderboard
-// 与 Node playerController.getLeaderboard 对齐
-func GetLeaderboard(c *gin.Context) {
-	logger, _ := c.Get("zap_logger")
-	zapLogger := logger.(*zap.Logger)
-
-	cacheKey := "leaderboard:top100"
-	cacheTTL := 120 * time.Second
-
-	// 尝试从Redis缓存读取
-	cachedData, err := redis.Client.Get(redis.Ctx, cacheKey).Result()
-	if err == nil {
-		// 缓存命中，解析并返回
-		var list []struct {
-			ID           uint   `gorm:"column:id" json:"id"`
-			PlayerName   string `gorm:"column:player_name" json:"playerName"`
-			Level        int    `gorm:"column:level" json:"level"`
-			Realm        string `gorm:"column:realm" json:"realm"`
-			SpiritStones int    `gorm:"column:spirit_stones" json:"spiritStones"`
-		}
-
-		if err := json.Unmarshal([]byte(cachedData), &list); err == nil {
-			zapLogger.Info("排行榜缓存命中", zap.String("cacheKey", cacheKey))
-			c.JSON(http.StatusOK, list)
-			return
-		}
-	}
-
-	// 缓存未命中或解析失败，从数据库查询排行榜数据
-	var list []struct {
-		ID           uint   `gorm:"column:id" json:"id"`
-		PlayerName   string `gorm:"column:player_name" json:"playerName"`
-		Level        int    `gorm:"column:level" json:"level"`
-		Realm        string `gorm:"column:realm" json:"realm"`
-		SpiritStones int    `gorm:"column:spirit_stones" json:"spiritStones"`
-	}
-
-	if err := db.DB.Model(&models.User{}).
-		Select("id, player_name, level, realm, spirit_stones").
-		Order("level DESC").
-		Order("spirit_stones DESC").
-		Limit(100).
-		Scan(&list).Error; err != nil {
-		zapLogger.Error("获取排行榜失败", zap.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
-		return
-	}
-
-	// 将结果写入Redis缓存
-	if data, err := json.Marshal(list); err == nil {
-		if err := redis.Client.Set(redis.Ctx, cacheKey, string(data), cacheTTL).Err(); err != nil {
-			zapLogger.Warn("排行榜缓存写入失败", zap.Error(err))
-			// 忽略缓存失败，继续返回数据
-		}
-	}
-
-	c.JSON(http.StatusOK, list)
 }
 
 // UpdatePlayerData 对应 PATCH /api/player/data
@@ -460,7 +398,7 @@ func ChangePlayerName(c *gin.Context) {
 	updates := map[string]interface{}{
 		"player_name": req.NewName,
 	}
-	
+
 	// 如果不是第一次修改，则扣除灵石并增加修改次数
 	if user.NameChangeCount > 0 {
 		updates["spirit_stones"] = user.SpiritStones - spiritStoneCost
@@ -477,8 +415,8 @@ func ChangePlayerName(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "道号修改成功",
-		"newName": req.NewName,
+		"message":         "道号修改成功",
+		"newName":         req.NewName,
 		"spiritStoneCost": spiritStoneCost,
 	})
 }

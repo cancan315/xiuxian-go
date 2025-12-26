@@ -32,8 +32,9 @@ func RegisterRoutes(r *gin.Engine) {
 	// /api/player 路由
 	playerGroup := r.Group("/api/player")
 	{
-		// leaderboard 公开访问
+		// leaderboard 公开访问（支持四种排行榜）
 		playerGroup.GET("/leaderboard", player.GetLeaderboard)
+		playerGroup.GET("/leaderboard/:type", player.GetLeaderboard)
 
 		// 其余接口需要认证
 		playerGroup.Use(middleware.Protect())
@@ -129,5 +130,11 @@ func RegisterRoutes(r *gin.Engine) {
 		alchemyGroup.POST("/craft", alchemy.CraftPill)
 		alchemyGroup.POST("/buy-fragment", alchemy.BuyFragment)
 	}
-}
 
+	// /api/admin 路由（管理员操作）
+	adminGroup := r.Group("/api/admin")
+	{
+		// 清除排行榜缓存（用于修复接口）
+		adminGroup.POST("/leaderboard/clear-cache", player.ClearLeaderboardCache)
+	}
+}

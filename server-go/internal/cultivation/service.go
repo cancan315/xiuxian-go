@@ -380,6 +380,7 @@ func (s *CultivationService) GetCultivationData() (*CultivationData, error) {
 	}
 
 	return &CultivationData{
+		PlayerName:      user.PlayerName,
 		Level:           user.Level,
 		Realm:           user.Realm,
 		Cultivation:     user.Cultivation,

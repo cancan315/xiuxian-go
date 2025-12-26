@@ -306,20 +306,15 @@
     playerInfoStore.dungeonDifficulty = 'easy'
   }
   const message = useMessage()
-  const showBattleLog = ref(false)
-  const battleLogs = ref([])
-  const currentEnemy = ref(null)
-  const isInBattle = ref(false)
-  const battleResult = ref(null)
+  const combatLog = ref([])
+  const logRef = ref(null)
+  const refreshNumber = ref(3)
   const infoShow = ref(false)
   const infoType = ref('')
   const playerAttacking = ref(false)
   const enemyAttacking = ref(false)
   const playerHurt = ref(false)
   const enemyHurt = ref(false)
-  const refreshNumber = ref(3)
-  const combatLog = ref([])
-  const logRef = ref(null)
 
   // 秘境难度选项
   const dungeonOptions = [
@@ -338,129 +333,7 @@
     combatManager: null
   })
 
-  // 获取玩家总属性（基础属性+装备加成+灵宠加成）
-  const playerStats = computed(() => {
-    // 基础属性
-    const base = { ...playerInfoStore.baseAttributes }
-    
-    // 计算装备加成（已废弃，装备属性加成由后端计算并同步到playerInfoStore）
-    const equipmentBonus = {
-      attack: 0,
-      defense: 0,
-      health: 0,
-      speed: 0,
-      critRate: 0,
-      comboRate: 0,
-      counterRate: 0,
-      stunRate: 0,
-      dodgeRate: 0,
-      vampireRate: 0,
-      critResist: 0,
-      comboResist: 0,
-      counterResist: 0,
-      stunResist: 0,
-      dodgeResist: 0,
-      vampireResist: 0,
-      healBoost: 0,
-      critDamageBoost: 0,
-      critDamageReduce: 0,
-      finalDamageBoost: 0,
-      finalDamageReduce: 0,
-      combatBoost: 0,
-      resistanceBoost: 0
-    }
-    
-    // 计算灵宠加成（已移除，因为灵宠属性加成逻辑已转移到后端API处理）
-    const petBonus = {
-      attack: 0,
-      defense: 0,
-      health: 0,
-      critRate: 0,
-      comboRate: 0,
-      counterRate: 0,
-      stunRate: 0,
-      dodgeRate: 0,
-      vampireRate: 0,
-      critResist: 0,
-      comboResist: 0,
-      counterResist: 0,
-      stunResist: 0,
-      dodgeResist: 0,
-      vampireResist: 0,
-      healBoost: 0,
-      critDamageBoost: 0,
-      critDamageReduce: 0,
-      finalDamageBoost: 0,
-      finalDamageReduce: 0,
-      combatBoost: 0,
-      resistanceBoost: 0
-    }
-    
-    // 合并所有属性
-    return {
-      attack: base.attack + equipmentBonus.attack, // 移除了 petBonus.attack
-      defense: base.defense + equipmentBonus.defense, // 移除了 petBonus.defense
-      health: base.health + equipmentBonus.health, // 移除了 petBonus.health
-      speed: base.speed + equipmentBonus.speed, // 移除了 petBonus.speed
-      critRate: Math.min(1, playerInfoStore.combatAttributes.critRate + equipmentBonus.critRate), // 移除了 petBonus.critRate
-      comboRate: Math.min(1, playerInfoStore.combatAttributes.comboRate + equipmentBonus.comboRate), // 移除了 petBonus.comboRate
-      counterRate: Math.min(1, playerInfoStore.combatAttributes.counterRate + equipmentBonus.counterRate), // 移除了 petBonus.counterRate
-      stunRate: Math.min(1, playerInfoStore.combatAttributes.stunRate + equipmentBonus.stunRate), // 移除了 petBonus.stunRate
-      dodgeRate: Math.min(1, playerInfoStore.combatAttributes.dodgeRate + equipmentBonus.dodgeRate), // 移除了 petBonus.dodgeRate
-      vampireRate: Math.min(1, playerInfoStore.combatAttributes.vampireRate + equipmentBonus.vampireRate), // 移除了 petBonus.vampireRate
-      critResist: Math.min(1, playerInfoStore.combatResistance.critResist + equipmentBonus.critResist), // 移除了 petBonus.critResist
-      comboResist: Math.min(1, playerInfoStore.combatResistance.comboResist + equipmentBonus.comboResist), // 移除了 petBonus.comboResist
-      counterResist: Math.min(1, playerInfoStore.combatResistance.counterResist + equipmentBonus.counterResist), // 移除了 petBonus.counterResist
-      stunResist: Math.min(1, playerInfoStore.combatResistance.stunResist + equipmentBonus.stunResist), // 移除了 petBonus.stunResist
-      dodgeResist: Math.min(1, playerInfoStore.combatResistance.dodgeResist + equipmentBonus.dodgeResist), // 移除了 petBonus.dodgeResist
-      vampireResist: Math.min(1, playerInfoStore.combatResistance.vampireResist + equipmentBonus.vampireResist), // 移除了 petBonus.vampireResist
-      healBoost: playerInfoStore.specialAttributes.healBoost + equipmentBonus.healBoost, // 移除了 petBonus.healBoost
-      critDamageBoost: playerInfoStore.specialAttributes.critDamageBoost + equipmentBonus.critDamageBoost, // 移除了 petBonus.critDamageBoost
-      critDamageReduce: playerInfoStore.specialAttributes.critDamageReduce + equipmentBonus.critDamageReduce, // 移除了 petBonus.critDamageReduce
-      finalDamageBoost: playerInfoStore.specialAttributes.finalDamageBoost + equipmentBonus.finalDamageBoost, // 移除了 petBonus.finalDamageBoost
-      finalDamageReduce: playerInfoStore.specialAttributes.finalDamageReduce + equipmentBonus.finalDamageReduce, // 移除了 petBonus.finalDamageReduce
-      combatBoost: playerInfoStore.specialAttributes.combatBoost + equipmentBonus.combatBoost, // 移除了 petBonus.combatBoost
-      resistanceBoost: playerInfoStore.specialAttributes.resistanceBoost + equipmentBonus.resistanceBoost // 移除了 petBonus.resistanceBoost
-    }
-  })
-
-  // 敌人属性计算
-  const enemyStats = computed(() => {
-    if (!currentEnemy.value) return null
-    
-    // 基础属性基于难度和楼层
-    const baseAttack = Math.floor(5 * playerStats.value.attack * (0.5 + 0.1 * playerInfoStore.dungeonDifficulty) * (1 + currentEnemy.value.floor * 0.05))
-    const baseDefense = Math.floor(2 * playerStats.value.defense * (0.5 + 0.1 * playerInfoStore.dungeonDifficulty) * (1 + currentEnemy.value.floor * 0.05))
-    const baseHealth = Math.floor(20 * playerStats.value.health * (0.5 + 0.1 * playerInfoStore.dungeonDifficulty) * (1 + currentEnemy.value.floor * 0.05))
-    const baseSpeed = Math.floor(3 * playerStats.value.speed * (0.5 + 0.1 * playerInfoStore.dungeonDifficulty) * (1 + currentEnemy.value.floor * 0.05))
-    
-    return {
-      attack: baseAttack,
-      defense: baseDefense,
-      health: baseHealth,
-      maxHealth: baseHealth,
-      speed: baseSpeed,
-      critRate: 0.05 * playerInfoStore.dungeonDifficulty,
-      comboRate: 0.05 * playerInfoStore.dungeonDifficulty,
-      counterRate: 0.05 * playerInfoStore.dungeonDifficulty,
-      stunRate: 0.05 * playerInfoStore.dungeonDifficulty,
-      dodgeRate: 0.05 * playerInfoStore.dungeonDifficulty,
-      vampireRate: 0.05 * playerInfoStore.dungeonDifficulty,
-      critResist: 0.05 * playerInfoStore.dungeonDifficulty,
-      comboResist: 0.05 * playerInfoStore.dungeonDifficulty,
-      counterResist: 0.05 * playerInfoStore.dungeonDifficulty,
-      stunResist: 0.05 * playerInfoStore.dungeonDifficulty,
-      dodgeResist: 0.05 * playerInfoStore.dungeonDifficulty,
-      vampireResist: 0.05 * playerInfoStore.dungeonDifficulty,
-      healBoost: 0,
-      critDamageBoost: 0,
-      critDamageReduce: 0,
-      finalDamageBoost: 0,
-      finalDamageReduce: 0,
-      combatBoost: 0,
-      resistanceBoost: 0
-    }
-  })
+  // 玩家和敌人属性现在从后端API获取，无需本地计算
 
   // 添加战斗日志
   const addBattleLog = (message) => {
@@ -472,87 +345,6 @@
     if (combatLog.value.length > 100) {
       combatLog.value.shift()
     }
-  }
-
-  // 开始战斗
-  const startBattle = (enemy) => {
-    currentEnemy.value = enemy
-    isInBattle.value = true
-    battleLogs.value = []
-    battleResult.value = null
-    addBattleLog(`遭遇${enemy.name}！`)
-    
-    // 后端已实现战斗逻辑，调用 API 不需要 Worker
-  }
-
-  // 结束战斗
-  const finishBattle = (result) => {
-    isInBattle.value = false
-    battleResult.value = result
-    
-    if (result.victory) {
-      // 战斗胜利
-      addBattleLog('战斗胜利！')
-      
-      // 剂改：许统计数据使用 playerInfoStore
-      if (currentEnemy.value.isBoss) {
-        playerInfoStore.dungeonBossKills += 1
-      } else if (currentEnemy.value.isElite) {
-        playerInfoStore.dungeonEliteKills += 1
-      } else {
-        playerInfoStore.dungeonTotalKills += 1
-      }
-      
-      // 获得奖励
-      gainBattleReward(result.rewards)
-    } else {
-      // 战斗失败
-      addBattleLog('战斗失败！')
-      playerInfoStore.dungeonDeathCount += 1
-    }
-    
-    playerInfoStore.dungeonTotalRuns += 1
-  }
-
-  // 获得战斗奖励
-  const gainBattleReward = (rewards) => {
-    rewards.forEach(reward => {
-      switch (reward.type) {
-        case 'spirit_stone':
-          playerInfoStore.spiritStones += reward.amount
-          addBattleLog(`获得${reward.amount}灵石`)
-          break
-        case 'herb':
-          // 添加灵草到背包
-          const existingHerb = playerInfoStore.herbs.find(h => h.id === reward.herb.id)
-          if (existingHerb) {
-            existingHerb.count += reward.amount
-          } else {
-            playerInfoStore.herbs.push({
-              ...reward.herb,
-              count: reward.amount
-            })
-          }
-          addBattleLog(`获得${reward.amount}个${reward.herb.name}`)
-          break
-        case 'equipment':
-          playerInfoStore.items.push(reward.equipment)
-          addBattleLog(`获得装备${reward.equipment.name}`)
-          break
-        case 'pet':
-          playerInfoStore.pets.push(reward.pet)
-          addBattleLog(`获得灵宠${reward.pet.name}`)
-          break
-      }
-    })
-    playerInfoStore.dungeonTotalRewards += 1
-  }
-
-  // 逃跑
-  const flee = () => {
-    isInBattle.value = false
-    currentEnemy.value = null
-    addBattleLog('你逃跑了！')
   }
 
   // 开始秘境探索
@@ -614,9 +406,9 @@
       if (data.success) {
         message.success(`已选择增益：${option.name}`)
         
-        // 进入下一层或者开始战斗
+        // 由后端管理流程，前端不再维护 floor++
         dungeonState.value.showingOptions = false
-        dungeonState.value.floor++
+        dungeonState.value.floor = data.data.floor // 使用后端返回的下一层整数
         
         // 自动开始战斗
         setTimeout(() => {
@@ -641,50 +433,27 @@
       if (data.success) {
         const result = data.data
         dungeonState.value.inCombat = true
+        // 从后端API获取玩家和敌人属性，而不是本地计算
         dungeonState.value.combatManager = {
           round: 1,
-          maxRounds: 10,
+          maxRounds: result.maxRounds,
           player: {
             name: playerInfoStore.name,
-            currentHealth: playerStats.value.health,
-            stats: playerStats.value
+            currentHealth: result.playerHealth,
+            stats: result.playerStats
           },
           enemy: {
             name: '秘境守卫',
-            currentHealth: 100,
-            stats: {
-              maxHealth: 100,
-              damage: 20,
-              defense: 10,
-              speed: 15,
-              critRate: 0.1,
-              comboRate: 0.1,
-              counterRate: 0.1,
-              stunRate: 0.1,
-              dodgeRate: 0.1,
-              vampireRate: 0.1,
-              critResist: 0.1,
-              comboResist: 0.1,
-              counterResist: 0.1,
-              stunResist: 0.1,
-              dodgeResist: 0.1,
-              vampireResist: 0.1,
-              healBoost: 0,
-              critDamageBoost: 0,
-              critDamageReduce: 0,
-              finalDamageBoost: 0,
-              finalDamageReduce: 0,
-              combatBoost: 0,
-              resistanceBoost: 0
-            }
+            currentHealth: result.enemyHealth,
+            stats: result.enemyStats
           }
         }
         
         // 启动轮询执行回合
-        addBattleLog('\u6218\u6597\u5df2\u521d\u59cb\u5316\uff0c\u5f00\u59cb\u9010\u56de\u5408\u6267\u884c\u6218\u6597...')
-        // \u6dfb\u52a0\u6d88\u8017\u4fe1\u606f\u5230\u65e5\u5fd7
-        if (data.data && data.data.spiritCost && data.data.stoneCost) {
-          addBattleLog(`\u6d88\u8017: \u7075\u529b -${data.data.spiritCost}, \u7075\u77f3 -${data.data.stoneCost}`)
+        addBattleLog('战斗已初始化，开始逐回合执行战斗...')
+        // 添加消耗信息到日志
+        if (result.spiritCost && result.stoneCost) {
+          addBattleLog(`消耗: 灵力 -${result.spiritCost}, 灵石 -${result.stoneCost}`)
         }
         await pollAndExecuteRounds(token)
       } else {

@@ -3,7 +3,26 @@ const API_BASE_URL = '/api';
 
 // 将大驼峰命名转换为小驼峰命名的通用函数
 function convertToCamelCase(obj) {
-  if (obj === null || typeof obj !== 'object') {
+  if (obj === null || obj === undefined) {
+    return obj;
+  }
+  
+  // 处理 JSON 字符串，自动解析成对象
+  if (typeof obj === 'string') {
+    // 排除正常的文本字符串，仅处理 JSON 格式的字符串
+    if ((obj.startsWith('{') && obj.endsWith('}')) || (obj.startsWith('[') && obj.endsWith(']'))) {
+      try {
+        const parsed = JSON.parse(obj);
+        return convertToCamelCase(parsed);
+      } catch (e) {
+        // 不是有效 JSON，作为正常字符串返回
+        return obj;
+      }
+    }
+    return obj;
+  }
+  
+  if (typeof obj !== 'object') {
     return obj;
   }
 
@@ -23,11 +42,31 @@ function convertToCamelCase(obj) {
         'EnhanceLevel': 'enhanceLevel',
         'Equipped': 'equipped',
         'ExtraAttributes': 'extraAttributes',
-        'RequiredRealm': 'requiredRealm'
+        'RequiredRealm': 'requiredRealm',
+        'Quality': 'quality',
+        'Rarity': 'rarity',
+        'PlayerName': 'playerName',
+        'PetID': 'petId',
+        'SpiritStones': 'spiritStones',
+        'Name': 'name',
+        'Type': 'type',
+        'Slot': 'slot',
+        'Details': 'details',
+        'Stats': 'stats',
+        'Description': 'description',
+        'Level': 'level',
+        'CombatAttributes': 'combatAttributes',
+        'AttackBonus': 'attackBonus',
+        'DefenseBonus': 'defenseBonus',
+        'HealthBonus': 'healthBonus',
+        'Experience': 'experience',
+        'MaxExperience': 'maxExperience',
+        'IsActive': 'isActive',
+        'Star': 'star'
       };
       
-      // 使用特殊映射规则或默认转换规则
-      const camelCaseKey = fieldMapping[key] || (key.charAt(0).toLowerCase() + key.slice(1));
+      // 使用特殊映射规则或默认转换规则（小驼峰字段直接返回）
+      const camelCaseKey = fieldMapping[key] || key;
       converted[camelCaseKey] = convertToCamelCase(obj[key]);
     }
   }
@@ -846,8 +885,17 @@ class APIService {
    * 获取排行榜数据
    * @returns {Promise<Object>} 排行榜数据
    */
-  static async getLeaderboard() {
-    const response = await fetch(`${API_BASE_URL}/player/leaderboard`);
+  /**
+   * 获取排行榜数据
+   * @param {string} type - 排行榜类型: realm(境界), spiritStones(灵石), equipment(装备), pets(灵宠)
+   * @returns {Promise<Object>} 排行榜数据
+   */
+  static async getLeaderboard(type = 'realm') {
+    let endpoint = '/player/leaderboard'
+    if (type && type !== 'realm') {
+      endpoint = `/player/leaderboard/${type}`
+    }
+    const response = await fetch(`${API_BASE_URL}${endpoint}`);
     const data = await response.json();
     // 统一转换后端返回的数据字段为小驼峰命名法
     return convertToCamelCase(data);

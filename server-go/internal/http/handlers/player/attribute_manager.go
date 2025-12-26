@@ -1,6 +1,7 @@
 package player
 
 import (
+	"math"
 	"xiuxian/server-go/internal/models"
 )
 
@@ -111,15 +112,15 @@ func (am *AttributeManager) ApplyPetBonuses(pet *models.Pet, petCombat map[strin
 		}
 	}
 
-	// 第五步：基础属性百分比加成（必须最后，作用于最终的基础属性值）
+	// 第五步：基础属性百分比加成（必须最后，作用于最终的基础属性值），使用四舍五入转换为整数
 	if pet.AttackBonus != 0 {
-		am.BaseAttrs["attack"] = am.BaseAttrs["attack"] * (1 + pet.AttackBonus)
+		am.BaseAttrs["attack"] = math.Round(am.BaseAttrs["attack"] * (1 + pet.AttackBonus))
 	}
 	if pet.DefenseBonus != 0 {
-		am.BaseAttrs["defense"] = am.BaseAttrs["defense"] * (1 + pet.DefenseBonus)
+		am.BaseAttrs["defense"] = math.Round(am.BaseAttrs["defense"] * (1 + pet.DefenseBonus))
 	}
 	if pet.HealthBonus != 0 {
-		am.BaseAttrs["health"] = am.BaseAttrs["health"] * (1 + pet.HealthBonus)
+		am.BaseAttrs["health"] = math.Round(am.BaseAttrs["health"] * (1 + pet.HealthBonus))
 	}
 }
 

@@ -9,7 +9,7 @@
               <n-layout-header bordered>
                 <div class="header-content">
                   <n-page-header>
-                    <template #title>我的小小修仙界   道友Q群: 755301571</template>
+                    <template #title>我的小小修仙界   欢迎道友，请入Q群: 755301571 恳请道友邀请好友进入修仙界</template>
                     <template #extra>
                       <n-space>
                         <n-button @click="logout">退出游戏</n-button>
@@ -30,7 +30,7 @@
                     <n-space vertical>
                       <n-descriptions bordered>
                         <n-descriptions-item label="道号">
-                          {{ playerInfoStore.name }}
+                          {{ playerInfoStore.playerName }}
                         </n-descriptions-item>
                         <n-descriptions-item label="境界">
                           {{ getRealmName(playerInfoStore.level).name }}
@@ -359,6 +359,7 @@ const getPlayerData = async () => {
       const response = await APIService.getCultivationData(token)
       if (response.success) {
       //  console.log('[Cultivation] 修炼消耗:', response.data.spiritCost, '获得:', response.data.cultivationGain)
+        playerInfoStore.playerName = response.data.playerName // 玩家名称
         playerInfoStore.level = response.data.level // 境界等级
         playerInfoStore.realm = response.data.realm // 境界
         playerInfoStore.cultivation = response.data.cultivation // 当前修为

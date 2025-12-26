@@ -342,7 +342,10 @@ func SaveBuff(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"data":    buff,
+		"data": gin.H{
+			"buff":  buff,
+			"floor": floor,
+		},
 		"message": "增益已保存",
 	})
 }

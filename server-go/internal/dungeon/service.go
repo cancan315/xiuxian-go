@@ -475,14 +475,21 @@ func (s *DungeonService) StartFight(floor int, difficulty string) (*FightResult,
 		fmt.Printf("保存战斗状态到Redis失败: %v\n", err)
 	}
 
-	// 返回战斗初始化成功
+	// 返回战斗初始化成功，包含完整的玩家和敌人属性
 	result := &FightResult{
-		Success:    true,
-		Victory:    false,
-		Floor:      floor,
-		Message:    fmt.Sprintf("战斗已初始化，消耗%d灵力、%d灵石，请调用执行回合接口开始战斗", spiritCost, stoneCost),
-		SpiritCost: spiritCost,
-		StoneCost:  stoneCost,
+		Success:         true,
+		Victory:         false,
+		Floor:           floor,
+		Message:         fmt.Sprintf("战斗已初始化，消耗%d灵力、%d灵石，请调用执行回合接口开始战斗", spiritCost, stoneCost),
+		SpiritCost:      spiritCost,
+		StoneCost:       stoneCost,
+		PlayerStats:     playerStats,
+		EnemyStats:      enemyStats,
+		PlayerHealth:    playerStats.MaxHealth,
+		EnemyHealth:     enemyStats.MaxHealth,
+		PlayerMaxHealth: playerStats.MaxHealth,
+		EnemyMaxHealth:  enemyStats.MaxHealth,
+		MaxRounds:       100, // 最大100回合
 	}
 
 	return result, nil

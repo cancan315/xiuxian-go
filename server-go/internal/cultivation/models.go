@@ -54,6 +54,7 @@ type AutoCultivationResponse struct {
 
 // 修炼数据
 type CultivationData struct {
+	PlayerName      string  `json:"playerName"` // 道号
 	Level           int     `json:"level"`
 	Realm           string  `json:"realm"`
 	Cultivation     float64 `json:"cultivation"`
@@ -62,7 +63,7 @@ type CultivationData struct {
 	SpiritCost      float64 `json:"spiritCost"`      // 灵力消耗
 	CultivationGain float64 `json:"cultivationGain"` // 修炼获得修为
 	CultivationRate float64 `json:"cultivationRate"`
-	SpiritRate      float64 `json:"spiritRate"`
+	SpiritRate      float64 `json:"spiritRate"`      // 灵根
 	SpiritStones    int     `json:"spiritStones"`    // 灵石数量
 	ReinforceStones int     `json:"reinforceStones"` // 强化石数量
 	// ✅ 新增：洗练石和灵宠精华

@@ -257,15 +257,32 @@
     return filtered;
   })
 
+  // 稀有度排序权重（数字越小，排序优先级越高）
+  const rarityOrder = {
+    mythic: 1,
+    legendary: 2,
+    epic: 3,
+    rare: 4,
+    uncommon: 5,
+    common: 6
+  }
+
   // 当前页显示的灵宠
   const displayPets = computed(() => {
     const start = (currentPage.value - 1) * pageSize.value
     const end = start + pageSize.value
     let displayed = filteredPets.value.slice(start, end);
     
-    // 对灵宠列表进行排序，已出战的灵宠排在第一位
+    // 对灵宠列表进行排序：先按稀有度高低排序，再按出战状态排序
     displayed = displayed.sort((a, b) => {
-      // 已出战的灵宠排在前面
+      // 按稀有度排序（稀有度高的排在前面）
+      const rarityA = rarityOrder[a.rarity] || 999
+      const rarityB = rarityOrder[b.rarity] || 999
+      if (rarityA !== rarityB) {
+        return rarityA - rarityB
+      }
+      
+      // 同稀有度下，已出战的灵宠排在前面
       if (a.isActive && !b.isActive) return -1;
       if (!a.isActive && b.isActive) return 1;
       return 0;
