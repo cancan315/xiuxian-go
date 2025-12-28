@@ -274,7 +274,7 @@ func (s *ExplorationService) eventSpiritSpring(user *models.User, r *rand.Rand) 
 
 // eventAncientMaster 古修遗府：修为+3% 灵力-10%
 func (s *ExplorationService) eventAncientMaster(user *models.User, r *rand.Rand) *ExplorationEvent {
-	// 稀有事件：5%最大修为值MaxCultivation
+	// 稀有事件：5%修为值Cultivation
 	cultivationBonus := cultivationRewardByRealm(user, 0.03)
 	user.Cultivation = math.Round((user.Cultivation+float64(cultivationBonus))*10) / 10
 	spiritDamage := int(user.Spirit * 0.10)
@@ -304,11 +304,11 @@ func (s *ExplorationService) eventMonsterAttack(user *models.User, r *rand.Rand)
 	}
 }
 
-// eventCultivationDeviation 家族招婿：修为-2% 灵力-8%
+// eventCultivationDeviation 家族招婿：修为-1% 灵力-8%
 func (s *ExplorationService) eventCultivationDeviation(user *models.User, r *rand.Rand) *ExplorationEvent {
 	// 修为损失1%
-	cultivationDamage := cultivationRewardByRealm(user, 0.01)
-	user.Cultivation = math.Max(0, user.Cultivation-float64(cultivationDamage))
+	damage := cultivationRewardByRealm(user, 0.01)
+	user.Cultivation = math.Round(math.Max(0, user.Cultivation-float64(damage))*10) / 10
 	// 灵力损失8%
 	spiritDamage := int(user.Spirit * 0.08)
 	user.Spirit = math.Max(0, user.Spirit-float64(spiritDamage))
@@ -319,8 +319,8 @@ func (s *ExplorationService) eventCultivationDeviation(user *models.User, r *ran
 
 	return &ExplorationEvent{
 		Type:        "cultivation_damage",
-		Description: fmt.Sprintf("参与家族招婿，被家主幼女一剑扫飞，擂台惨败，损失%d点修为,消耗%d点灵力", cultivationDamage, spiritDamage),
-		Amount:      cultivationDamage + spiritDamage,
+		Description: fmt.Sprintf("参与家族招婿，被家主幼女一剑扫飞，擂台惨败，损失%d点修为,消耗%d点灵力", damage, spiritDamage),
+		Amount:      damage + spiritDamage,
 	}
 }
 
