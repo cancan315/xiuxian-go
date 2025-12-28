@@ -7,7 +7,7 @@
             <BookOutline />
           </n-icon>
         </template>
-        通过打坐修炼来提升修为，积累足够的修为后可以尝试突破境界。
+        通过打坐修炼来提升修为，积累足够的修为后可以尝试突破境界，境界越高吸纳灵力速度越快。
       </n-alert>
       <n-space vertical>
         <n-button type="primary" size="large" block @click="cultivate" :disabled="playerInfoStore.spirit < cultivationCost">

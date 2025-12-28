@@ -16,21 +16,24 @@ import (
 
 // SpiritGrowManager 灵力增长管理器
 type SpiritGrowManager struct {
-	logger        *zap.Logger
-	ticker        *time.Ticker
-	syncTicker    *time.Ticker
-	stopChan      chan struct{}
-	checkInterval time.Duration
-	syncInterval  time.Duration
+	logger           *zap.Logger
+	ticker           *time.Ticker
+	syncTicker       *time.Ticker
+	autoGrowTicker   *time.Ticker
+	stopChan         chan struct{}
+	checkInterval    time.Duration
+	syncInterval     time.Duration
+	autoGrowInterval time.Duration
 }
 
 // NewSpiritGrowManager 创建灵力增长管理器
 func NewSpiritGrowManager(logger *zap.Logger) *SpiritGrowManager {
 	return &SpiritGrowManager{
-		logger:        logger,
-		checkInterval: 5 * time.Second,
-		syncInterval:  30 * time.Second, // 每30秒同步一次数据库
-		stopChan:      make(chan struct{}),
+		logger:           logger,
+		checkInterval:    5 * time.Second,
+		syncInterval:     30 * time.Second,
+		autoGrowInterval: 1 * time.Minute,
+		stopChan:         make(chan struct{}),
 	}
 }
 
@@ -38,6 +41,7 @@ func NewSpiritGrowManager(logger *zap.Logger) *SpiritGrowManager {
 func (m *SpiritGrowManager) Start() {
 	m.ticker = time.NewTicker(m.checkInterval)
 	m.syncTicker = time.NewTicker(m.syncInterval)
+	m.autoGrowTicker = time.NewTicker(m.autoGrowInterval)
 
 	go func() {
 		for {
@@ -46,6 +50,8 @@ func (m *SpiritGrowManager) Start() {
 				m.processOnlinePlayersSpiritGrow()
 			case <-m.syncTicker.C:
 				m.syncAllPlayersSpirit()
+			case <-m.autoGrowTicker.C:
+				m.processAutoSpiritGrowth()
 			case <-m.stopChan:
 				m.logger.Info("灵力增长后台任务已停止")
 				return
@@ -64,9 +70,78 @@ func (m *SpiritGrowManager) Stop() {
 	if m.syncTicker != nil {
 		m.syncTicker.Stop()
 	}
+	if m.autoGrowTicker != nil {
+		m.autoGrowTicker.Stop()
+	}
 	// 停止前同步一次所有玩家数据
 	m.syncAllPlayersSpirit()
 	close(m.stopChan)
+}
+
+// processAutoSpiritGrowth 每分钟处理一次自动灵力增长
+func (m *SpiritGrowManager) processAutoSpiritGrowth() {
+	// 从 Redis 获取所有需要自动增长的玩家ID列表
+	playerIDStrs, err := redis.Client.SMembers(redis.Ctx, "spirit:auto:grow:players").Result()
+	if err != nil {
+		m.logger.Error("[灵力自动增长] 获取玩家列表失败", zap.Error(err))
+		return
+	}
+
+	if len(playerIDStrs) == 0 {
+		return
+	}
+
+	m.logger.Debug("[灵力自动增长] 开始处理玩家灵力增长",
+		zap.Int("playerCount", len(playerIDStrs)))
+
+	// 处理每个玩家的灵力增长
+	for _, playerIDStr := range playerIDStrs {
+		userID, err := strconv.ParseUint(playerIDStr, 10, 32)
+		if err != nil {
+			m.logger.Warn("[灵力自动增长] 无效的玩家ID",
+				zap.String("playerID", playerIDStr),
+				zap.Error(err))
+			continue
+		}
+
+		m.addAutoSpiritToDatabase(uint(userID))
+	}
+}
+
+// addAutoSpiritToDatabase 计算60秒灵力增长并直接写入数据库
+func (m *SpiritGrowManager) addAutoSpiritToDatabase(userID uint) {
+	// 从数据库获取玩家信息
+	var user models.User
+	if err := db.DB.First(&user, userID).Error; err != nil {
+		m.logger.Warn("[灵力自动增长] 玩家不存在",
+			zap.Uint("userID", userID))
+		return
+	}
+
+	// 获取灵力倍率
+	spiritRate := m.getPlayerSpiritRate(&user)
+
+	// 计算60秒灵力增长量（1.0是基础增长速度）
+	spiritGain := 1.0 * spiritRate * 60.0
+
+	// 保留两位小数
+	spiritGain = math.Round(spiritGain*100) / 100
+
+	// 更新数据库中的灵力
+	if err := db.DB.Model(&user).
+		Update("spirit", user.Spirit+spiritGain).
+		Error; err != nil {
+		m.logger.Error("[灵力自动增长] 更新灵力失败",
+			zap.Uint("userID", userID),
+			zap.Float64("spiritGain", spiritGain),
+			zap.Error(err))
+		return
+	}
+
+	m.logger.Debug("[灵力自动增长] 已增加玩家灵力",
+		zap.Uint("userID", userID),
+		zap.Float64("spiritGain", spiritGain),
+		zap.Float64("currentSpirit", user.Spirit+spiritGain))
 }
 
 // processOnlinePlayersSpiritGrow 处理在线玩家的灵力增长

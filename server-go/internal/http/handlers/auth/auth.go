@@ -3,6 +3,7 @@ package auth
 import (
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -14,6 +15,7 @@ import (
 	"xiuxian/server-go/internal/db"
 	playerHandler "xiuxian/server-go/internal/http/handlers/player"
 	"xiuxian/server-go/internal/models"
+	"xiuxian/server-go/internal/redis"
 )
 
 type jwtClaims struct {
@@ -107,6 +109,17 @@ func Register(c *gin.Context) {
 		zap.Uint("userID", user.ID),
 		zap.String("username", user.Username),
 		zap.Int("spirit_stones", user.SpiritStones))
+
+	// ✅ 新增：注册后将玩家ID写入Redis自动增长列表
+	playerIDStr := strconv.FormatUint(uint64(user.ID), 10)
+	if err := redis.Client.SAdd(redis.Ctx, "spirit:auto:grow:players", playerIDStr).Err(); err != nil {
+		zapLogger.Warn("[注册] 添加玩家到灵力自动增长列表失败",
+			zap.Uint("userID", user.ID),
+			zap.Error(err))
+	} else {
+		zapLogger.Info("[注册] 已将玩家添加到灵力自动增长列表",
+			zap.Uint("userID", user.ID))
+	}
 
 	token, err := generateToken(user.ID)
 	if err != nil {
