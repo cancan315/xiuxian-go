@@ -193,27 +193,27 @@ func (s *ExplorationService) triggerRandomEvent(user *models.User, r *rand.Rand)
 	}{
 		// ===== 修为正向 =====
 		{"论道大会", 13, s.eventAncientTablet}, // +1%
-		{"百鬼门杂役", 10, s.eventSpiritSpring}, // +2% -10%
+		{"百鬼门杂役", 12, s.eventSpiritSpring}, // +2% -10%
 		{"古修遗府", 7, s.eventAncientMaster},  // +3% 稀有
 		{"灵山顿悟", 5, s.eventEnlightenment},  // +5% 极稀有
-		// 小计 35
+		// 小计 37
 
 		// ===== 修为负向 =====
-		{"家族招婿", 12, s.eventCultivationDeviation}, // -2% 灵力-8%
-		{"合欢女修", 15, s.eventQiDeviation},          // -1% 灵力-10%
+		{"家族招婿", 12, s.eventCultivationDeviation}, // -2% 灵力-5%
+		{"合欢女修", 15, s.eventQiDeviation},          // -1% 灵力-5%
 		{"鬼鬼妖王", 8, s.eventMonsterAttack},         // -5%
 		// 小计 35
 
 		// ===== 普通资源 =====
-		{"灵草发现", 1, s.eventHerbDiscovery},
-		{"丹方残页", 1, s.eventPillRecipeFragment},
+		// {"灵草发现", 1, s.eventHerbDiscovery},
+		// {"丹方残页", 1, s.eventPillRecipeFragment},
 		// 小计 2
 
 		// ===== 稀有资源 =====
-		{"获得灵石", 10, s.eventTreasureTrove},
-		{"获得强化石", 6, s.eventReinforceStone},
-		{"获得洗炼石", 6, s.eventRefinementStone},
-		{"获得灵宠精华", 6, s.eventPetEssence},
+		{"获得灵石", 13, s.eventTreasureTrove},
+		{"获得强化石", 5, s.eventReinforceStone},
+		{"获得洗炼石", 5, s.eventRefinementStone},
+		{"获得灵宠精华", 5, s.eventPetEssence},
 		// 小计 28
 	}
 
@@ -274,7 +274,7 @@ func (s *ExplorationService) eventSpiritSpring(user *models.User, r *rand.Rand) 
 
 // eventAncientMaster 古修遗府：修为+3% 灵力-10%
 func (s *ExplorationService) eventAncientMaster(user *models.User, r *rand.Rand) *ExplorationEvent {
-	// 稀有事件：5%修为值Cultivation
+	// 稀有事件：5%最大修为值MaxCultivation
 	cultivationBonus := cultivationRewardByRealm(user, 0.03)
 	user.Cultivation = math.Round((user.Cultivation+float64(cultivationBonus))*10) / 10
 	spiritDamage := int(user.Spirit * 0.10)
@@ -304,13 +304,13 @@ func (s *ExplorationService) eventMonsterAttack(user *models.User, r *rand.Rand)
 	}
 }
 
-// eventCultivationDeviation 家族招婿：修为-1% 灵力-8%
+// eventCultivationDeviation 家族招婿：修为-2% 灵力-5%
 func (s *ExplorationService) eventCultivationDeviation(user *models.User, r *rand.Rand) *ExplorationEvent {
 	// 修为损失1%
-	damage := cultivationRewardByRealm(user, 0.01)
-	user.Cultivation = math.Round(math.Max(0, user.Cultivation-float64(damage))*10) / 10
+	cultivationDamage := cultivationRewardByRealm(user, 0.01)
+	user.Cultivation = math.Max(0, user.Cultivation-float64(cultivationDamage))
 	// 灵力损失8%
-	spiritDamage := int(user.Spirit * 0.08)
+	spiritDamage := int(user.Spirit * 0.05)
 	user.Spirit = math.Max(0, user.Spirit-float64(spiritDamage))
 	db.DB.Model(user).Updates(map[string]interface{}{
 		"spirit":      user.Spirit,
@@ -319,8 +319,8 @@ func (s *ExplorationService) eventCultivationDeviation(user *models.User, r *ran
 
 	return &ExplorationEvent{
 		Type:        "cultivation_damage",
-		Description: fmt.Sprintf("参与家族招婿，被家主幼女一剑扫飞，擂台惨败，损失%d点修为,消耗%d点灵力", damage, spiritDamage),
-		Amount:      damage + spiritDamage,
+		Description: fmt.Sprintf("参与家族招婿，被家主幼女一剑扫飞，擂台惨败，损失%d点修为,消耗%d点灵力", cultivationDamage, spiritDamage),
+		Amount:      cultivationDamage + spiritDamage,
 	}
 }
 
@@ -354,13 +354,13 @@ func (s *ExplorationService) eventEnlightenment(user *models.User, r *rand.Rand)
 	}
 }
 
-// eventQiDeviation 合欢女修：修为-1% 灵力-10%
+// eventQiDeviation 合欢女修：修为-1% 灵力-5%
 func (s *ExplorationService) eventQiDeviation(user *models.User, r *rand.Rand) *ExplorationEvent {
 	// 修为损失1%
 	cultivationDamage := cultivationRewardByRealm(user, 0.01)
 	user.Cultivation = math.Max(0, user.Cultivation-float64(cultivationDamage))
 	// 灵力损失10%
-	spiritDamage := int(user.Spirit * 0.10)
+	spiritDamage := int(user.Spirit * 0.05)
 	user.Spirit = math.Max(0, user.Spirit-float64(spiritDamage))
 	db.DB.Model(user).Updates(map[string]interface{}{
 		"spirit":      user.Spirit,
