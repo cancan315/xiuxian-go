@@ -1,20 +1,19 @@
 package player
 
 import (
-	"errors"
-	"fmt"
-	"log"
-	"math"
-	"net/http"
+    "encoding/json"
+    "fmt"
+    "math"
+    "net/http"
+    "strconv"
 
-	"github.com/gin-gonic/gin"
-	"go.uber.org/zap"
-	"gorm.io/datatypes"
-	"gorm.io/gorm"
+    "github.com/gin-gonic/gin"
+    "go.uber.org/zap"
+    "gorm.io/gorm"
 
-	"xiuxian/server-go/internal/db"
-	"xiuxian/server-go/internal/models"
-	"xiuxian/server-go/internal/spirit"
+    "xiuxian/server-go/internal/db"
+    "xiuxian/server-go/internal/models"
+    "xiuxian/server-go/internal/spirit"
 )
 
 // helper 获取当前用户 ID
@@ -532,4 +531,220 @@ func ApplySpiritGain(c *gin.Context) {
 		"newSpirit":  newSpirit,
 		"spiritGain": req.SpiritGain,
 	})
+}
+
+// ✅ 修复版本：InitializePlayerAttributesOnLogin 登录时初始化玩家属性
+func InitializePlayerAttributesOnLogin(user *models.User, zapLogger *zap.Logger) error {
+    userID := user.ID
+    level := user.Level
+
+    zapLogger.Info("[登录初始化] 开始初始化玩家属性",
+        zap.Uint("userID", userID),
+        zap.Int("level", level))
+
+    // 步骤1：获取玩家当前穿戴的所有装备（保存装备ID）
+    var equippedEquipmentIDs []string
+    if err := db.DB.Where("user_id = ? AND equipped = ?", userID, true).
+        Pluck("id", &equippedEquipmentIDs).Error; err != nil {
+        zapLogger.Warn("[登录初始化] 查询已穿戴装备失败",
+            zap.Uint("userID", userID),
+            zap.Error(err))
+    }
+
+    zapLogger.Info("[登录初始化] 发现已穿戴装备",
+        zap.Uint("userID", userID),
+        zap.Int("count", len(equippedEquipmentIDs)))
+
+    // 步骤2：卸下所有装备
+    if err := db.DB.Model(&models.Equipment{}).
+        Where("user_id = ? AND equipped = ?", userID, true).
+        Updates(map[string]interface{}{
+            "equipped": false,
+            "slot":     nil,
+        }).Error; err != nil {
+        zapLogger.Error("[登录初始化] 卸下装备失败",
+            zap.Uint("userID", userID),
+            zap.Error(err))
+        return err
+    }
+
+    if len(equippedEquipmentIDs) > 0 {
+        zapLogger.Info("[登录初始化] 成功卸下所有装备",
+            zap.Uint("userID", userID),
+            zap.Int("count", len(equippedEquipmentIDs)))
+    }
+
+    // 步骤3：获取玩家当前出战的所有灵宠（保存灵宠ID）
+    var activePetIDs []string
+    if err := db.DB.Where("user_id = ? AND is_active = ?", userID, true).
+        Pluck("id", &activePetIDs).Error; err != nil {
+        zapLogger.Warn("[登录初始化] 查询出战灵宠失败",
+            zap.Uint("userID", userID),
+            zap.Error(err))
+    }
+
+    zapLogger.Info("[登录初始化] 发现出战灵宠",
+        zap.Uint("userID", userID),
+        zap.Int("count", len(activePetIDs)))
+
+    // 步骤4：召回所有灵宠
+    if err := db.DB.Model(&models.Pet{}).
+        Where("user_id = ? AND is_active = ?", userID, true).
+        Update("is_active", false).Error; err != nil {
+        zapLogger.Error("[登录初始化] 召回灵宠失败",
+            zap.Uint("userID", userID),
+            zap.Error(err))
+        return err
+    }
+
+    if len(activePetIDs) > 0 {
+        zapLogger.Info("[登录初始化] 成功召回所有灵宠",
+            zap.Uint("userID", userID),
+            zap.Int("count", len(activePetIDs)))
+    }
+
+    // 步骤5：计算基础属性（不含装备和灵宠加成）
+    baseAttrs := calculateBaseAttributesByLevel(level)
+    spiritRate := calculateSpiritRateByLevel(level)
+    baseAttrs["spiritRate"] = spiritRate
+    baseAttrs["cultivationRate"] = 1.0
+
+    // 步骤6：更新BaseAttributes到用户对象
+    user.BaseAttributes = toJSON(baseAttrs)
+
+    // 步骤7：初始化属性值（从基础属性开始）
+    baseAttrsMap := jsonToFloatMap(user.BaseAttributes)
+    combatAttrsMap := jsonToFloatMap(user.CombatAttributes)
+    combatResMap := jsonToFloatMap(user.CombatResistance)
+    specialAttrsMap := jsonToFloatMap(user.SpecialAttributes)
+
+    // 步骤8：重新穿戴已保存的装备
+    for _, equipmentID := range equippedEquipmentIDs {
+        var equipment models.Equipment
+        if err := db.DB.Where("id = ? AND user_id = ?", equipmentID, userID).First(&equipment).Error; err != nil {
+            zapLogger.Warn("[登录初始化] 查询装备失败",
+                zap.Uint("userID", userID),
+                zap.String("equipmentID", equipmentID),
+                zap.Error(err))
+            continue
+        }
+
+        // 应用装备属性
+        equipStats := jsonToFloatMap(equipment.Stats)
+        attrMgr := NewAttributeManager(baseAttrsMap, combatAttrsMap, combatResMap, specialAttrsMap)
+        attrMgr.ApplyEquipmentStats(equipStats)
+
+        // 更新属性映射
+        baseAttrsMap = attrMgr.BaseAttrs
+        combatAttrsMap = attrMgr.CombatAttrs
+        combatResMap = attrMgr.CombatRes
+        specialAttrsMap = attrMgr.SpecialAttrs
+
+        // ✅ 重新标记装备为已装备
+        if err := db.DB.Model(&models.Equipment{}).
+            Where("id = ?", equipmentID).
+            Update("equipped", true).Error; err != nil {
+            zapLogger.Warn("[登录初始化] 重新装备失败",
+                zap.Uint("userID", userID),
+                zap.String("equipmentID", equipmentID),
+                zap.Error(err))
+        } else {
+            zapLogger.Debug("[登录初始化] 成功重新穿戴装备",
+                zap.Uint("userID", userID),
+                zap.String("equipmentID", equipmentID))
+        }
+    }
+
+    // 步骤9：重新出战已保存的灵宠
+    for _, petID := range activePetIDs {
+        var pet models.Pet
+        if err := db.DB.Where("id = ? AND user_id = ?", petID, userID).First(&pet).Error; err != nil {
+            zapLogger.Warn("[登录初始化] 查询灵宠失败",
+                zap.Uint("userID", userID),
+                zap.String("petID", petID),
+                zap.Error(err))
+            continue
+        }
+
+        // 应用灵宠属性
+        petCombat := jsonToFloatMap(pet.CombatAttributes)
+        attrMgr := NewAttributeManager(baseAttrsMap, combatAttrsMap, combatResMap, specialAttrsMap)
+        attrMgr.ApplyPetBonuses(&pet, petCombat)
+
+        // 更新属性映射
+        baseAttrsMap = attrMgr.BaseAttrs
+        combatAttrsMap = attrMgr.CombatAttrs
+        combatResMap = attrMgr.CombatRes
+        specialAttrsMap = attrMgr.SpecialAttrs
+
+        // ✅ 重新标记灵宠为已出战
+        if err := db.DB.Model(&models.Pet{}).
+            Where("id = ?", petID).
+            Update("is_active", true).Error; err != nil {
+            zapLogger.Warn("[登录初始化] 重新出战灵宠失败",
+                zap.Uint("userID", userID),
+                zap.String("petID", petID),
+                zap.Error(err))
+        } else {
+            zapLogger.Debug("[登录初始化] 成功重新出战灵宠",
+                zap.Uint("userID", userID),
+                zap.String("petID", petID))
+        }
+    }
+
+    // 步骤10：保存最终属性到用户对象
+    user.BaseAttributes = toJSON(baseAttrsMap)
+    user.CombatAttributes = toJSON(combatAttrsMap)
+    user.CombatResistance = toJSON(combatResMap)
+    user.SpecialAttributes = toJSON(specialAttrsMap)
+
+    // 步骤11：更新数据库
+    if err := db.DB.Model(user).Updates(map[string]interface{}{
+        "base_attributes":    user.BaseAttributes,
+        "combat_attributes":  user.CombatAttributes,
+        "combat_resistance":  user.CombatResistance,
+        "special_attributes": user.SpecialAttributes,
+    }).Error; err != nil {
+        zapLogger.Error("[登录初始化] 保存属性到数据库失败",
+            zap.Uint("userID", userID),
+            zap.Error(err))
+        return err
+    }
+
+    zapLogger.Info("[登录初始化] 玩家属性初始化完成",
+        zap.Uint("userID", userID),
+        zap.Int("level", level),
+        zap.Float64("spiritRate", spiritRate),
+        zap.Int("reequippedCount", len(equippedEquipmentIDs)),
+        zap.Int("reactivatedCount", len(activePetIDs)))
+
+    return nil
+}
+
+// ✅ 新增：calculateSpiritRateByLevel 计算基于等级的灵力倍率
+// 公式：spiritRate = 1.0 * (1.2)^(Level-1)
+// 每突破一次（等级+1），灵力倍率乘以1.2
+func calculateSpiritRateByLevel(level int) float64 {
+    if level < 1 {
+        level = 1
+    }
+    // 基础速度是1.0，每升一级就乘以1.2
+    spiritRate := 1.0 * math.Pow(1.2, float64(level-1))
+    // 保留两位小数
+    return math.Round(spiritRate*100) / 100
+}
+
+// ✅ 新增：calculateBaseAttributesByLevel 计算基于等级的基础属性
+// 公式：
+// speed = 10 * Level
+// attack = 10 * Level
+// health = 100 * Level
+// defense = 5 * Level
+func calculateBaseAttributesByLevel(level int) map[string]interface{} {
+    return map[string]interface{}{
+        "speed":   float64(10 * level),
+        "attack":  float64(10 * level),
+        "health":  float64(100 * level),
+        "defense": float64(5 * level),
+    }
 }

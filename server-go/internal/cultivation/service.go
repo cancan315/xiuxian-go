@@ -403,3 +403,44 @@ func (s *CultivationService) GetCultivationData() (*CultivationData, error) {
 		SpecialAttributes: specialAttributes,
 	}, nil
 }
+
+// ✅ 新增：InitializePlayerAttributesOnLevel 根据等级初始化玩家属性
+// 用于登录时重新计算属性
+func InitializePlayerAttributesOnLevel(level int) map[string]interface{} {
+    return map[string]interface{}{
+        "speed":             float64(10 * level),
+        "attack":            float64(10 * level),
+        "health":            float64(100 * level),
+        "defense":           float64(5 * level),
+        "spiritRate":        calculateSpiritRateByLevel(level),
+        "cultivationRate":   1.0,
+    }
+}
+
+// ✅ 新增：CalculateSpiritRateByLevel 计算基于等级的灵力倍率
+// 导出函数供其他模块使用
+// 公式：spiritRate = 1.0 * (1.2)^(Level-1)
+func CalculateSpiritRateByLevel(level int) float64 {
+    if level < 1 {
+        level = 1
+    }
+    spiritRate := 1.0 * math.Pow(1.2, float64(level-1))
+    // 保留两位小数
+    return math.Round(spiritRate*100) / 100
+}
+
+// ✅ 新增：CalculateBaseAttributesByLevel 计算基于等级的基础属性
+// 导出函数供其他模块使用
+// 公式：
+// speed = 10 * Level
+// attack = 10 * Level
+// health = 100 * Level
+// defense = 5 * Level
+func CalculateBaseAttributesByLevel(level int) map[string]interface{} {
+    return map[string]interface{}{
+        "speed":   float64(10 * level),
+        "attack":  float64(10 * level),
+        "health":  float64(100 * level),
+        "defense": float64(5 * level),
+    }
+}
