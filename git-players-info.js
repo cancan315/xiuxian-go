@@ -21,7 +21,7 @@ async function viewAllPlayers() {
     console.log('数据库连接成功');
 
     // 查询所有玩家的ID和名称
-    const selectQuery = 'SELECT id, username FROM users ORDER BY id';
+    const selectQuery = 'SELECT id, username, player_name FROM users ORDER BY id';
     const selectResult = await client.query(selectQuery);
 
     if (selectResult.rows.length === 0) {
@@ -31,12 +31,12 @@ async function viewAllPlayers() {
 
     console.log(`共找到 ${selectResult.rows.length} 名玩家:`);
     console.log('----------------------------------------');
-    console.log('ID\t\t用户名');
+    console.log('ID\t\t用户名\t\t玩家名称');
     console.log('----------------------------------------');
 
     // 显示所有玩家信息
     selectResult.rows.forEach((user) => {
-      console.log(`${user.id}\t\t${user.username}`);
+      console.log(`${user.id}\t\t${user.username}\t\t${user.player_name}`);
     });
 
     console.log('----------------------------------------');
