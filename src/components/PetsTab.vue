@@ -479,16 +479,19 @@
     try {
       const response = await APIService.batchReleasePets(token, { rarity })
       if (response.success) {
-        message.success('批量卖出成功')
+        // ✅ 优化：顯示释放数量和灵石奖励
+        const spiritStones = response.spiritStones || 0
+        const releasedCount = response.releasedCount || 0
+        message.success(`已释放 ${releasedCount} 个灵宠，获得 ${spiritStones} 灵石`)
         showBatchReleaseConfirm.value = false
         // 刷新灵宠列表
         emit('refreshPetList')
       } else {
-        message.error(response.message || '批量卖出失败')
+        message.error(response.message || '批量释放失败')
       }
     } catch (error) {
-      console.error('批量卖出灵宠失败:', error)
-      message.error('批量卖出灵宠失败: ' + error.message)
+      console.error('批量释放灵宠失败:', error)
+      message.error('批量释放灵宠失败: ' + error.message)
     }
   }
 

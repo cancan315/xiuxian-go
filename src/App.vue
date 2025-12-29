@@ -496,19 +496,28 @@ const startSpiritSyncTimer = (token) => {
     try {
       // ✅ 新流程：先获取Redis中累积的灵力增长量
       const gainResponse = await APIService.getPlayerSpiritGain(token)
-      if (gainResponse.success && gainResponse.spiritGain > 0) {
-        // 将灵力增长量应用到数据库
-        const applyResponse = await APIService.applySpiritGain(token, gainResponse.spiritGain)
-        if (applyResponse.success) {
-          // 更新本地状态
-          playerInfoStore.spirit = applyResponse.newSpirit
-          console.log('[Spirit] 灵力已更新', {
-            gain: gainResponse.spiritGain,
-            newSpirit: applyResponse.newSpirit
-          })
-          syncCultivationData()
-          message.success(`五灵之体，自动吸纳天地灵气，增加灵力${gainResponse.spiritGain}点`)
+      console.log('[Spirit] 获取灵力增长响应:', gainResponse)
+      
+      if (gainResponse.success) {
+        const spiritGain = gainResponse.spiritGain || 0
+        if (spiritGain > 0) {
+          // 将灵力增长量应用到数据库
+          const applyResponse = await APIService.applySpiritGain(token, spiritGain)
+          if (applyResponse.success) {
+            // 更新本地状态
+            playerInfoStore.spirit = applyResponse.newSpirit
+            console.log('[Spirit] 灵力已更新', {
+              gain: spiritGain,
+              newSpirit: applyResponse.newSpirit
+            })
+            syncCultivationData()
+            message.success(`五灵之体，自动吸纳天地灵气，增加灵力${spiritGain}点`)
+          }
+        } else {
+          console.log('[Spirit] 当前无灵力增长（spiritGain为0）')
         }
+      } else {
+        console.warn('[Spirit] 获取灵力增长失败:', gainResponse.message)
       }
     } catch (error) {
       console.error('[App.vue] 灵力增长同步失败:', error)

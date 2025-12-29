@@ -1400,26 +1400,26 @@ func BatchSellEquipment(c *gin.Context) {
 		return
 	}
 
-	// 定义品质与返还强化石的映射关系
-	qualityStoneMap := map[string]int{
-		"mythic":    6,
-		"legendary": 5,
-		"epic":      4,
-		"rare":      3,
-		"uncommon":  2,
-		"common":    1,
+	// 定义品质与返还灵石的映射关系（和单个出售装备一致）
+	qualitySpiritStoneMap := map[string]int{
+		"mythic":    500,
+		"legendary": 200,
+		"epic":      150,
+		"rare":      100,
+		"uncommon":  80,
+		"common":    50,
 	}
 
-	// 计算总返还强化石数量
-	totalStones := 0
+	// 计算总返还灵石数量
+	totalSpiritStones := 0
 	ids := make([]string, 0, len(list))
 	for _, eq := range list {
 		ids = append(ids, eq.ID)
-		v := qualityStoneMap[eq.Quality]
+		v := qualitySpiritStoneMap[eq.Quality]
 		if v == 0 {
-			v = 1
+			v = 50
 		}
-		totalStones += v
+		totalSpiritStones += v
 	}
 
 	// 删除符合条件的装备
@@ -1428,13 +1428,10 @@ func BatchSellEquipment(c *gin.Context) {
 		return
 	}
 
-	// 增加用户强化石数量
+	// 增加用户灵石数量（只返还灵石）
 	if err := db.DB.Model(&models.User{}).
 		Where("id = ?", userID).
-		Updates(map[string]interface{}{
-			"reinforce_stones":  gorm.Expr("reinforce_stones + ?", totalStones),
-			"refinement_stones": gorm.Expr("refinement_stones + ?", totalStones),
-		}).Error; err != nil {
+		Update("spirit_stones", gorm.Expr("spirit_stones + ?", totalSpiritStones)).Error; err != nil {
 
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
@@ -1458,9 +1455,9 @@ func BatchSellEquipment(c *gin.Context) {
 
 	// 返回批量出售结果
 	c.JSON(http.StatusOK, gin.H{
-		"success":        true,
-		"message":        "成功出売装备",
-		"equipmentSold":  len(list),
-		"stonesReceived": totalStones,
+		"success":       true,
+		"message":       "成功出售装备",
+		"equipmentSold": len(list),
+		"spiritStones":  totalSpiritStones,
 	})
 }

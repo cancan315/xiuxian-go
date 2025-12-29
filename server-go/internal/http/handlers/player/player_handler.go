@@ -341,7 +341,7 @@ func DeletePets(c *gin.Context) {
 		return
 	}
 
-	// ✅ 新增：根据灵宠品质计算灵石奖励
+	// ✅ 新增：根据灵宠品质计算灵石奖励（和单个出售一致）
 	rarity2spiritStoneMap := map[string]int{
 		"mythic":    500,
 		"legendary": 300,
@@ -367,7 +367,7 @@ func DeletePets(c *gin.Context) {
 		return
 	}
 
-	// ✅ 新增：更新玩家灵石
+	// ✅ 新增：更新玩家灵石（只返还灵石）
 	if err := db.DB.Model(&models.User{}).
 		Where("id = ?", userID).
 		Update("spirit_stones", gorm.Expr("spirit_stones + ?", totalSpiritStones)).Error; err != nil {
@@ -506,8 +506,7 @@ func GetPlayerSpiritGain(c *gin.Context) {
 	})
 }
 
-// ApplySpiritGain 对应 POST /api/player/spirit/apply-gain
-// 将灵力增长量应用到玩家（写入数据库并清空Redis）
+// ApplySpiritGain 应用灵力增长（改进版）
 func ApplySpiritGain(c *gin.Context) {
 	userID, ok := currentUserID(c)
 	if !ok {
@@ -515,19 +514,9 @@ func ApplySpiritGain(c *gin.Context) {
 		return
 	}
 
-	var req struct {
-		SpiritGain float64 `json:"spiritGain" binding:"required"`
-	}
-
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "请求参数错误", "error": err.Error()})
-		return
-	}
-
 	logger, _ := c.Get("zap_logger")
 	zapLogger := logger.(*zap.Logger)
 
-	// 从上下文获取灵力增长管理器
 	spiritManagerVal, exists := c.Get("spirit_manager")
 	if !exists {
 		zapLogger.Error("灵力增长管理器未初始化")
@@ -537,44 +526,54 @@ func ApplySpiritGain(c *gin.Context) {
 
 	spiritManager := spiritManagerVal.(*spirit.SpiritGrowManager)
 
+	// ✅ 改进：后端从Redis直接获取灵力增长值，不依赖前端提交的值
+	spiritGain, err := spiritManager.GetPlayerSpiritGain(userID)
+	if err != nil {
+		zapLogger.Error("获取灵力增长值失败", zap.Uint("userID", userID), zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误"})
+		return
+	}
+
+	// 如果灵力增长为0，直接返回
+	if spiritGain <= 0 {
+		c.JSON(http.StatusOK, gin.H{
+			"success":    true,
+			"message":    "当前无灵力增长",
+			"spiritGain": 0,
+		})
+		return
+	}
+
 	// 获取玩家当前灵力
 	var user models.User
 	if err := db.DB.First(&user, userID).Error; err != nil {
 		zapLogger.Error("获取玩家信息失败", zap.Uint("userID", userID), zap.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误"})
 		return
 	}
 
 	// 计算新的灵力值
-	newSpirit := user.Spirit + req.SpiritGain
-
+	newSpirit := user.Spirit + spiritGain
 	newSpirit = math.Round(newSpirit*10) / 10
 
 	// 更新数据库
 	if err := db.DB.Model(&models.User{}).Where("id = ?", userID).Update("spirit", newSpirit).Error; err != nil {
 		zapLogger.Error("更新灵力失败", zap.Uint("userID", userID), zap.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误"})
 		return
 	}
 
 	// 清空Redis中的灵力增长缓存
 	if err := spiritManager.ClearPlayerSpiritGain(userID); err != nil {
-		zapLogger.Error("清空灵力增长缓存失败", zap.Uint("userID", userID), zap.Error(err))
-		// 不中断流程，已经成功写入数据库了
+		zapLogger.Error("清空灵力增长缓存失败", zap.Uint("userID", userID))
 	}
-
-	zapLogger.Info("应用玩家灵力增长",
-		zap.Uint("userID", userID),
-		zap.Float64("spiritGain", req.SpiritGain),
-		zap.Float64("oldSpirit", user.Spirit),
-		zap.Float64("newSpirit", newSpirit))
 
 	c.JSON(http.StatusOK, gin.H{
 		"success":    true,
 		"message":    "灵力增长应用成功",
 		"oldSpirit":  user.Spirit,
 		"newSpirit":  newSpirit,
-		"spiritGain": req.SpiritGain,
+		"spiritGain": spiritGain,
 	})
 }
 

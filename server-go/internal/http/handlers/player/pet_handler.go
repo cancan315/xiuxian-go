@@ -724,4 +724,40 @@ func BatchReleasePets(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
 		return
 	}
+
+	// ✅ 新增：计算灵石奖励（和单个释放一致）
+	rarity2spiritStoneMap := map[string]int{
+		"mythic":    500,
+		"legendary": 300,
+		"epic":      150,
+		"rare":      100,
+		"uncommon":  80,
+		"common":    50,
+	}
+
+	totalSpiritStones := 0
+	for _, pet := range pets {
+		reward := rarity2spiritStoneMap[pet.Rarity]
+		if reward == 0 {
+			reward = 100 // 默认值
+		}
+		totalSpiritStones += reward
+	}
+
+	// ✅ 新增：更新玩家灵石（批量放生也返还灵石）
+	if err := db.DB.Model(&models.User{}).
+		Where("id = ?", userID).
+		Update("spirit_stones", gorm.Expr("spirit_stones + ?", totalSpiritStones)).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
+		return
+	}
+
+	zap.S().Infof("批量放生灵宠成功: userID=%d, count=%d, spiritStones=%d, totalExp=%d", userID, len(pets), totalSpiritStones, totalExp)
+	c.JSON(http.StatusOK, gin.H{
+		"success":       true,
+		"message":       "批量放生灵宠成功",
+		"releasedCount": len(pets),
+		"totalExp":      totalExp,
+		"spiritStones":  totalSpiritStones,
+	})
 }

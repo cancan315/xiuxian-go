@@ -332,7 +332,7 @@ export const usePlayerInfoStore = defineStore('playerInfo', {
           console.log(`[装备] 批量卖出装备成功`)
           return {
             success: true,
-            message: `成功卖出${response.equipmentSold || 0}件装备，获得${response.stonesReceived || 0}个强化石，${response.stonesReceived || 0}个洗练石`
+            message: `成功卖出${response.equipmentSold || 0}件装备，获得${response.spiritStones || 0}个灵石`
           }
         } else {
           console.log(`[装备] 批量卖出装备失败`)
