@@ -2,7 +2,7 @@
   <div class="dungeon-container">
     <n-card title="秘境演法">
       <n-alert v-if="!isAutoExploring" type="info">
-          说明：开启秘境需要消耗1000灵力、10灵石，获取灵石、强化石、洗炼石、灵兽精华。请道友前往秘境中追寻仙缘。
+          说明：开启秘境需要消耗灵力、10灵石，获取灵石、强化石、洗炼石、灵兽精华。请道友前往秘境中追寻仙缘。
       </n-alert>
       <template #header-extra>
         <n-space>

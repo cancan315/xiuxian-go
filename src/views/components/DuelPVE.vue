@@ -1,7 +1,7 @@
 <template>
   <div class="pve-section">
     <!-- 妖兽挑战说明 -->
-    <n-alert title="妖兽挑战" type="warning" style="margin-bottom: 16px;">
+    <n-alert title="妖兽挑战--没开发完，别试" type="warning" style="margin-bottom: 16px;">
       挑战不同等级的妖兽，获得妖兽材料和修为奖励。
     </n-alert>
     
@@ -46,7 +46,7 @@
                 <n-space justify="end">
                   <!-- 挑战妖兽按钮 -->
                   <n-button type="primary" size="small" @click="$emit('challenge-monster', monster)">
-                    挑战
+                    降服
                   </n-button>
                   <!-- 查看妖兽详细信息按钮 -->
                   <n-button size="small" @click="$emit('view-monster-info', monster)">
