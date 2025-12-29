@@ -53,7 +53,7 @@ func (s *ExplorationService) getSpiritValue() float64 {
 // calculateExploreSpritCost 计算探索灵力消耗
 // 公式: exploreCost = 288 * 1.2^(Level-1)
 func calculateExploreSpritCost(level int) float64 {
-	const baseCost = 288.0
+	const baseCost = 88.0
 	const costMultiplier = 1.2
 	return baseCost * math.Pow(costMultiplier, float64(level-1))
 }
@@ -347,8 +347,20 @@ func (s *ExplorationService) eventCultivationDeviation(user *models.User, r *ran
 // eventTreasureTrove 获得灵石+1
 func (s *ExplorationService) eventTreasureTrove(user *models.User, r *rand.Rand) *ExplorationEvent {
 	stoneBonus := 10
-	// 小概率暴击 15%概率翻倍
-	if r.Float64() < 0.15 {
+	randNum := r.Float64()
+	// 更合理的概率分布（稀有度递增）
+	switch {
+	case randNum < 0.001: // 0.1% 概率 200倍（极其稀有）
+		stoneBonus = 2000
+	case randNum < 0.003: // 0.2% 概率 150倍
+		stoneBonus = 1500
+	case randNum < 0.008: // 0.5% 概率 100倍
+		stoneBonus = 1000
+	case randNum < 0.020: // 1.2% 概率 50倍
+		stoneBonus = 500
+	case randNum < 0.050: // 3% 概率 3倍
+		stoneBonus = 30
+	case randNum < 0.200: // 15% 概率 2倍（保持原概率）
 		stoneBonus = 20
 	}
 	user.SpiritStones += stoneBonus
