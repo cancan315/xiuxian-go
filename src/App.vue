@@ -173,13 +173,15 @@ import { h, onMounted, onUnmounted, ref, computed, watch } from 'vue'
 import { NIcon, darkTheme } from 'naive-ui'
 import {
   BookOutline,
+  BriefcaseOutline,
   FlaskOutline,
   CompassOutline,
   TrophyOutline,
   SettingsOutline,
   GiftOutline,
   HomeOutline,
-  HappyOutline
+  HappyOutline,
+  FlashOutline  // 新增斗法图标
 } from '@vicons/ionicons5'
 import { Moon, Sunny, Flash } from '@vicons/ionicons5'
 import { getRealmName } from './plugins/realm'
@@ -195,6 +197,7 @@ import Alchemy from './views/Alchemy.vue'
 import Dungeon from './views/Dungeon.vue'
 import Gacha from './views/Gacha.vue'
 import Leaderboard from './views/Leaderboard.vue'
+import Duel from './views/Duel.vue'  // 新增斗法页面组件
 
 // ================================
 // 🌙 跟随系统暗黑模式
@@ -270,6 +273,8 @@ const currentViewComponent = computed(() => {
       return Gacha
     case 'leaderboard':
       return Leaderboard
+    case 'duel':  // 新增斗法页面
+      return Duel
     default:
       return Cultivation
   }
@@ -294,11 +299,12 @@ const getSpiritRootName = (value) => {
 
 const menuItems = [
   { label: '修炼', key: 'cultivation', icon: BookOutline },
-  { label: '背包', key: 'inventory', icon: FlaskOutline },
+  { label: '背包', key: 'inventory', icon: BriefcaseOutline },
   { label: '抽奖', key: 'gacha', icon: GiftOutline },
-  { label: '炼丹', key: 'alchemy', icon: FlaskOutline },
   { label: '探索', key: 'exploration', icon: CompassOutline },
   { label: '秘境', key: 'dungeon', icon: Flash },
+  { label: '斗法', key: 'duel', icon: FlashOutline },  // 新增斗法菜单项
+  { label: '炼丹', key: 'alchemy', icon: FlaskOutline },
   { label: '排行榜', key: 'leaderboard', icon: TrophyOutline },
   { label: '设置', key: 'settings', icon: SettingsOutline }
 ]
@@ -449,12 +455,13 @@ onUnmounted(() => {
 
 // 菜单 key 到提示文本的映射
 const menuKeyToMessage = {
-  cultivation: '打开修炼',
+  cultivation: '进入修炼',
   inventory: '打开背包',
   gacha: '打开抽奖',
-  alchemy: '打开炼丹',
+  alchemy: '进入丹房',
   exploration: '打开探索',
   dungeon: '进入秘境',
+  duel: '进入斗法',  // 新增斗法提示文本
   leaderboard: '查看排行榜',
   settings: '打开设置'
 }

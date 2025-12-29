@@ -362,6 +362,8 @@ func initializePlayerAttributesOnLogin(user *models.User, zapLogger *zap.Logger)
 
 // ✅ 新增：calculateSpiritRate 计算灵力倍率
 // 公式：spiritRate = 1.0 * (1.2)^(Level-1)
+// 斗法消耗灵力公式 duelCost = 1440×1.2^(Level−1)
+// 探索消耗灵力公式 exploreCost = 288×1.2^(Level−1)
 func calculateSpiritRate(level int) float64 {
 	if level < 1 {
 		level = 1

@@ -82,6 +82,24 @@
               />
             </n-spin>
           </n-tab-pane>
+          
+          <!-- 斗法排行榜 -->
+          <n-tab-pane name="duel" tab="斗法排行">
+            <n-spin :show="loading.duel">
+              <n-empty v-if="leaderboards.duel.length === 0 && !loading.duel" description="暂无排行榜数据">
+                <template #extra>
+                  <n-button @click="fetchLeaderboardByType('duel')">刷新</n-button>
+                </template>
+              </n-empty>
+              <n-data-table
+                v-else
+                :columns="duelColumns"
+                :data="leaderboards.duel"
+                :bordered="false"
+                :single-line="false"
+              />
+            </n-spin>
+          </n-tab-pane>
         </n-tabs>
       </n-card>
     </n-layout-content>
@@ -108,7 +126,8 @@ const loading = ref({
   realm: false,
   spiritStones: false,
   equipment: false,
-  pets: false
+  pets: false,
+  duel: false // ✅ 新增：斗法排行榜加载状态
 })
 
 // 排行榜数据（分别存储四个分榜的数据）
@@ -116,7 +135,8 @@ const leaderboards = ref({
   realm: [],
   spiritStones: [],
   equipment: [],
-  pets: []
+  pets: [],
+  duel: [] // ✅ 新增：斗法排行榜数据
 })
 
 // 境界排行榜列定义
@@ -300,6 +320,65 @@ const petsColumns = [
   }
 ]
 
+// ✅ 新增：斗法排行榜列定义
+const duelColumns = [
+  {
+    title: '排名',
+    key: 'rank',
+    width: 50,
+    render(row, index) {
+      const rank = index + 1
+      let medal = ''
+      if (rank === 1) {
+        medal = '🥇'
+      } else if (rank === 2) {
+        medal = '🥈'
+      } else if (rank === 3) {
+        medal = '🥉'
+      }
+      return `${medal} ${rank}`
+    }
+  },
+  {
+    title: '道号',
+    key: 'playerName',
+    width: 100
+  },
+  {
+    title: '总场数',
+    key: 'totalBattle',
+    width: 80,
+    sorter: (a, b) => (a.totalBattle || 0) - (b.totalBattle || 0)
+  },
+  {
+    title: '胜场',
+    key: 'wins',
+    width: 70,
+    sorter: (a, b) => (a.wins || 0) - (b.wins || 0),
+    render(row) {
+      return `${row.wins || 0} ✓`
+    }
+  },
+  {
+    title: '负场',
+    key: 'losses',
+    width: 70,
+    render(row) {
+      return `${row.losses || 0} ✗`
+    }
+  },
+  {
+    title: '胜率',
+    key: 'winRate',
+    width: 80,
+    sorter: (a, b) => (a.winRate || 0) - (b.winRate || 0),
+    render(row) {
+      const winRate = row.winRate || 0
+      return `${winRate}%`
+    }
+  }
+]
+
 // 获取指定类型的排行榜数据
 const fetchLeaderboardByType = async (type) => {
   try {
@@ -342,7 +421,8 @@ const fetchAllLeaderboards = async () => {
       fetchLeaderboardByType('realm'),
       fetchLeaderboardByType('spiritStones'),
       fetchLeaderboardByType('equipment'),
-      fetchLeaderboardByType('pets')
+      fetchLeaderboardByType('pets'),
+      fetchLeaderboardByType('duel') // ✅ 新增：获取斗法排行榜
     ])
     
     const duration = Date.now() - startTime
@@ -352,7 +432,8 @@ const fetchAllLeaderboards = async () => {
         境界排行: leaderboards.value.realm.length,
         灵石排行: leaderboards.value.spiritStones.length,
         装备排行: leaderboards.value.equipment.length,
-        灵宠排行: leaderboards.value.pets.length
+        灵宠排行: leaderboards.value.pets.length,
+        斗法排行: leaderboards.value.duel.length // ✅ 新增：斗法排行数据统计
       }
     })
   } catch (error) {

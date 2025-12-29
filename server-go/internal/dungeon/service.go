@@ -19,11 +19,30 @@ const (
 	RequireSpiritStones = 1000
 )
 
+// ========== 秘境灵力消耗计算函数 ==========
+
+// calculateDungeonSpritCost 计算秘境灵力消耗
+// 公式: dungeonCost = 2880 * 1.2^(Level-1)
+func calculateDungeonSpiritCost(level int) float64 {
+	const baseCost = 2880.0
+	const costMultiplier = 1.2
+	return baseCost * math.Pow(costMultiplier, float64(level-1))
+}
+
+// checkDungeonEntryCost 检查进入秘境的消耗灵力
+// 调整后：根据等级动态计算灵力消耗（原石消耗暂时保持不变）
 func checkDungeonEntryCost(user *models.User, floor int) error {
-	spiritCost := int(float64(floor) * 1000)
+	// 根据等级计算灵力消耗
+	spiritCost := calculateDungeonSpiritCost(user.Level)
+	// 灵石消耗保持原逻辑（基于层数）
 	stoneCost := int(float64(floor) * 10)
-	if user.Spirit < float64(spiritCost) || user.SpiritStones < stoneCost {
-		return fmt.Errorf("进入秘境需要灵力%d、灵石%d", spiritCost, stoneCost)
+
+	if user.Spirit < spiritCost || user.SpiritStones < stoneCost {
+		requiredSpirit := spiritCost - user.Spirit
+		if requiredSpirit < 0 {
+			requiredSpirit = 0
+		}
+		return fmt.Errorf("进入秘境需要灵力%.0f、灵石%d，灵力还差%.0f", spiritCost, stoneCost, requiredSpirit)
 	}
 	return nil
 }
@@ -422,9 +441,11 @@ func (s *DungeonService) StartFight(floor int, difficulty string) (*FightResult,
 	// 立即扣除消耗 (动态计算)
 	// spiritCost := int(float64(floor) * 1000) // 灵力消耗
 	// stoneCost := int(float64(floor) * 10)    // 灵石消耗
-	spiritCost := int(float64(floor) * 1000) // 灵力消耗
-	stoneCost := int(float64(floor) * 10)    // 灵石消耗
-	user.Spirit = math.Max(0, user.Spirit-float64(spiritCost))
+	spiritCostFloat := calculateDungeonSpiritCost(user.Level)
+	spiritCost := int(spiritCostFloat)
+	// 灵石消耗基于层数
+	stoneCost := int(float64(floor) * 10)
+	user.Spirit = math.Max(0, user.Spirit-spiritCostFloat)
 	user.SpiritStones -= stoneCost
 	if user.SpiritStones < 0 {
 		user.SpiritStones = 0
@@ -480,7 +501,7 @@ func (s *DungeonService) StartFight(floor int, difficulty string) (*FightResult,
 		Success:         true,
 		Victory:         false,
 		Floor:           floor,
-		Message:         fmt.Sprintf("战斗已初始化，消耗%d灵力、%d灵石，请调用执行回合接口开始战斗", spiritCost, stoneCost),
+		Message:         fmt.Sprintf("战斗已初始化，消耗%.0f灵力、%d灵石，请调用执行回合接口开始战斗", spiritCostFloat, stoneCost),
 		SpiritCost:      spiritCost,
 		StoneCost:       stoneCost,
 		PlayerStats:     playerStats,

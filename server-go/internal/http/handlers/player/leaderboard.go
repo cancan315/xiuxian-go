@@ -52,6 +52,8 @@ func GetLeaderboard(c *gin.Context) {
 		getEquipmentLeaderboard(c, zapLogger)
 	case "pets":
 		getPetsLeaderboard(c, zapLogger)
+	case "duel": // ✅ 新增：斗法排行榜
+		getDuelLeaderboard(c, zapLogger)
 	default:
 		getRealmLeaderboard(c, zapLogger)
 	}
@@ -319,6 +321,89 @@ func getPetsLeaderboard(c *gin.Context, zapLogger *zap.Logger) {
 	c.JSON(http.StatusOK, result)
 }
 
+// getDuelLeaderboard 获取斗法排行 - 按胜场数和胜率排序
+// ✅ 新增：斗法排行榜实现
+func getDuelLeaderboard(c *gin.Context, zapLogger *zap.Logger) {
+	cacheKey := "leaderboard:duel:top100"
+	cacheTTL := 2 * time.Minute
+
+	// 尝试从Redis缓存读取
+	if cachedData, err := redis.Client.Get(redis.Ctx, cacheKey).Result(); err == nil {
+		var result []interface{}
+		if err := json.Unmarshal([]byte(cachedData), &result); err == nil {
+			zapLogger.Info("[排行榜] 从缓存返回斗法排行", zap.String("cacheKey", cacheKey))
+			c.JSON(http.StatusOK, result)
+			return
+		}
+	}
+
+	zapLogger.Info("[排行榜] 开始获取斗法排行")
+	// 获取斗法排行 - 按胜场数和胜率排序
+	type DuelItem struct {
+		ID          uint   `gorm:"column:id"`
+		PlayerName  string `gorm:"column:player_name"`
+		TotalBattle int    `gorm:"column:total_battle"`
+		Wins        int    `gorm:"column:wins"`
+		Losses      int    `gorm:"column:losses"`
+		WinRate     int    `gorm:"column:win_rate"`
+	}
+
+	var items []DuelItem
+
+	// 查询斗法统计，按胜场数和胜率排序
+	if err := db.DB.Table("users").
+		Joins(`LEFT JOIN (
+			SELECT 
+				player_id,
+				COUNT(*) as total_battle,
+				SUM(CASE WHEN result = '胜利' THEN 1 ELSE 0 END) as wins,
+				SUM(CASE WHEN result = '失败' THEN 1 ELSE 0 END) as losses,
+				CASE 
+					WHEN COUNT(*) > 0 THEN CAST(SUM(CASE WHEN result = '胜利' THEN 1 ELSE 0 END) * 100.0 / COUNT(*) AS INT)
+					ELSE 0
+				END as win_rate
+			FROM battle_records
+			GROUP BY player_id
+		) duel_stats ON users.id = duel_stats.player_id`).
+		Select(`
+			users.id,
+			users.player_name,
+			COALESCE(duel_stats.total_battle, 0) as total_battle,
+			COALESCE(duel_stats.wins, 0) as wins,
+			COALESCE(duel_stats.losses, 0) as losses,
+			COALESCE(duel_stats.win_rate, 0) as win_rate
+		`).
+		Where("duel_stats.total_battle > 0").
+		Order("duel_stats.wins DESC, duel_stats.win_rate DESC, duel_stats.total_battle DESC").
+		Limit(100).
+		Find(&items).Error; err != nil {
+		zapLogger.Error("[排行榜] 查询斗法排行失败", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
+		return
+	}
+
+	result := make([]interface{}, 0, len(items))
+	for _, item := range items {
+		result = append(result, gin.H{
+			"playerName":  item.PlayerName,
+			"totalBattle": item.TotalBattle,
+			"wins":        item.Wins,
+			"losses":      item.Losses,
+			"winRate":     item.WinRate,
+		})
+	}
+
+	// 将结果写入Redis缓存
+	if data, err := json.Marshal(result); err == nil {
+		if err := redis.Client.Set(redis.Ctx, cacheKey, string(data), cacheTTL).Err(); err != nil {
+			zapLogger.Warn("[排行榜] 缓存写入失败", zap.String("cacheKey", cacheKey), zap.Error(err))
+		}
+	}
+
+	zapLogger.Info("[排行榜] 斗法排行数据获取成功", zap.Int("count", len(result)))
+	c.JSON(http.StatusOK, result)
+}
+
 // ClearLeaderboardCache 对应 POST /api/admin/leaderboard/clear-cache
 // 清除排行榜缓存，用于修复缓存数据格式问题
 func ClearLeaderboardCache(c *gin.Context) {
@@ -331,6 +416,7 @@ func ClearLeaderboardCache(c *gin.Context) {
 		"leaderboard:spiritStones:top100",
 		"leaderboard:equipment:top100",
 		"leaderboard:pets:top100",
+		"leaderboard:duel:top100", // ✅ 新增：斗法排行榜缓存
 	}
 
 	// 清除所有排行榜缓存

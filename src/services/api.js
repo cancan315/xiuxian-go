@@ -1258,6 +1258,553 @@ class APIService {
     const data = await response.json();
     return convertToCamelCase(data);
   }
-}
+  // ... 现有所有方法保持不变 ...
 
+  // ======================================
+  // 斗法系统相关方法
+  // ======================================
+
+  /**
+   * 获取斗法双方的完整战斗属性数据
+   * @param {string} token - 认证令牌
+   * @param {number} playerID - 玩家ID
+   * @param {number} opponentID - 对手ID
+   * @returns {Promise<Object>} 双方属性数据
+   */
+  static async getBattleAttributes(token, playerID, opponentID) {
+    try {
+      console.log('[API Service] 调用获取斗法战斗属性API');
+      
+      const requestBody = {
+        playerID,
+        opponentID
+      };
+      
+      console.log('[API Service] 发送的请求体:', JSON.stringify(requestBody));
+      console.log('[API Service] playerID 类型:', typeof playerID, '值:', playerID);
+      console.log('[API Service] opponentID 类型:', typeof opponentID, '值:', opponentID);
+      
+      const response = await fetch(`${API_BASE_URL}/duel/battle-attributes`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(requestBody)
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('[API Service] 获取斗法属性失败:', response.status, errorData);
+        return {
+          success: false,
+          message: errorData.message || '获取斗法属性失败'
+        };
+      }
+      
+      const data = await response.json();
+      console.log('[API Service] 从后端API获取斗法属性:', data);
+      // 统一转换后端返回的数据字段为小驼峰命名法
+      return convertToCamelCase(data);
+    } catch (error) {
+      console.error('[API Service] 获取斗法战斗属性异常:', error);
+      return {
+        success: false,
+        message: '获取斗法战斗属性失败'
+      };
+    }
+  }
+
+  /**
+   * 获取斗法道友列表
+   * @param {string} token - 认证令牌
+   * @param {number} page - 页码（可选，默认为1）
+   * @param {number} pageSize - 每页数量（可选，默认为10）
+   * @returns {Promise<Object>} 道友列表
+   */
+  static async getDuelOpponents(token, page = 1, pageSize = 10) {
+    try {
+      console.log('[API Service] 获取斗法道友列表');
+      
+      // 调用Go后端API获取对手列表
+      const response = await fetch(`${API_BASE_URL}/duel/opponents?page=${page}&pageSize=${pageSize}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || '获取对手列表失败');
+      }
+      
+      const data = await response.json();
+      return convertToCamelCase(data);
+    } catch (error) {
+      console.error('获取道友列表失败:', error);
+      return {
+        success: false,
+        message: '获取道友列表失败'
+      };
+    }
+  }
+  
+  /**
+   * 获取姐兽列表
+   * @param {string} token - 认证令牌
+   * @returns {Promise<Object>} 姐兽列表
+   */
+  static async getMonsters(token) {
+    try {
+      console.log('[API Service] 获取妖兽列表');
+      
+      // 返回模拟数据
+      return {
+        success: true,
+        data: {
+          monsters: [
+            {
+              id: 1,
+              name: '赤焰虎',
+              difficulty: 'normal',
+              level: 1,
+              health: 150,
+              attack: 25,
+              defense: 10,
+              speed: 15,
+              critRate: 0.1,
+              dodgeRate: 0.05,
+              rewards: '修为150，灵石20，可能掉落虎骨',
+              description: '生活在火焰山脉的猛虎，浑身赤红如火'
+            },
+            {
+              id: 2,
+              name: '黑水玄蛇',
+              difficulty: 'normal',
+              level: 2,
+              health: 200,
+              attack: 30,
+              defense: 15,
+              speed: 18,
+              critRate: 0.15,
+              stunRate: 0.1,
+              rewards: '修为200，灵石30，可能掉落蛇胆',
+              description: '潜伏在深潭中的巨蛇，毒性猛烈'
+            },
+            {
+              id: 3,
+              name: '金翅大鹏',
+              difficulty: 'hard',
+              level: 3,
+              health: 300,
+              attack: 45,
+              defense: 20,
+              speed: 30,
+              critRate: 0.2,
+              dodgeRate: 0.15,
+              rewards: '修为300，灵石50，可能掉落鹏羽',
+              description: '翱翔天际的神鸟，速度极快'
+            }
+          ]
+        }
+      };
+    } catch (error) {
+      console.error('获取妖兽列表失败:', error);
+      return {
+        success: false,
+        message: '获取妖兽列表失败'
+      };
+    }
+  }
+
+  /**
+   * 获取玩家战斗数据
+   * @param {string|number} playerId - 玩家ID
+   * @param {string} token - 认证令牌
+   * @returns {Promise<Object>} 玩家战斗数据
+   */
+  static async getPlayerBattleData(playerId, token) {
+    try {
+      console.log('[API Service] 获取玩家战斗数据:', playerId);
+      
+      // 调用Go后端API获取玩家战斗数据
+      const response = await fetch(`${API_BASE_URL}/duel/player/${playerId}/battle-data`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || '获取玩家数据失败');
+      }
+      
+      const data = await response.json();
+      return convertToCamelCase(data);
+    } catch (error) {
+      console.error('获取玩家战斗数据失败:', error);
+      return {
+        success: false,
+        message: '获取玩家数据失败'
+      };
+    }
+  }
+
+  /**
+   * 记录战斗结果
+   * @param {string} token - 认证令牌
+   * @param {Object} battleData - 战斗数据
+   * @returns {Promise<Object>} 记录结果
+   */
+  static async recordBattleResult(token, battleData) {
+    try {
+      console.log('[API Service] 记录战斗结果:', battleData);
+      
+      // 调用Go后端API记录战斗结果
+      const response = await fetch(`${API_BASE_URL}/duel/record-result`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(battleData)
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || '记录战斗结果失败');
+      }
+      
+      const data = await response.json();
+      return convertToCamelCase(data);
+    } catch (error) {
+      console.error('记录战斗结果失败:', error);
+      return {
+        success: false,
+        message: '记录战斗结果失败'
+      };
+    }
+  }
+
+  /**
+   * 获取战斗记录
+   * @param {string} token - 认证令牌
+   * @param {number} page - 页码（可选，默认为1）
+   * @param {number} pageSize - 每页数量（可选，默认为20）
+   * @returns {Promise<Object>} 战斗记录
+   */
+  static async getBattleRecords(token, page = 1, pageSize = 20) {
+    try {
+      console.log('[API Service] 获取战斗记录');
+      
+      // 调用Go后端API获取战斗记录
+      const response = await fetch(`${API_BASE_URL}/duel/records?page=${page}&pageSize=${pageSize}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || '获取战斗记录失败');
+      }
+      
+      const data = await response.json();
+      return convertToCamelCase(data);
+    } catch (error) {
+      console.error('获取战斗记录失败:', error);
+      return {
+        success: false,
+        message: '获取战斗记录失败'
+      };
+    }
+  }
+
+  /**
+   * 领取战斗奖励
+   * @param {string} token - 认证令牌
+   * @param {Array} rewards - 奖励列表
+   * @returns {Promise<Object>} 领取结果
+   */
+  static async claimBattleRewards(token, rewards) {
+    try {
+      console.log('[API Service] 领取战斗奖励:', rewards);
+      
+      // 调用Go后端API领取奖励
+      const response = await fetch(`${API_BASE_URL}/duel/claim-rewards`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ rewards })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || '领取奖励失败');
+      }
+      
+      const data = await response.json();
+      return convertToCamelCase(data);
+    } catch (error) {
+      console.error('领取奖励失败:', error);
+      return {
+        success: false,
+        message: '领取奖励失败'
+      };
+    }
+  }
+
+  /**
+   * 开始PvP战斗
+   * @param {string} token - 认证令牌
+   * @param {number} opponentId - 对手ID
+   * @param {Object} playerData - 玩家战斗数据
+   * @param {Object} opponentData - 对手战斗数据
+   * @returns {Promise<Object>} 战斗初始化结果
+   */
+  static async startPvPBattle(token, opponentId, playerData, opponentData) {
+    try {
+      console.log('[API Service] 开始PvP战斗');
+      
+      const response = await fetch(`${API_BASE_URL}/duel/start-pvp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          opponentId,
+          playerData,
+          opponentData
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || '开始战斗失败');
+      }
+      
+      const data = await response.json();
+      return convertToCamelCase(data);
+    } catch (error) {
+      console.error('开始PvP战斗失败:', error);
+      return {
+        success: false,
+        message: error.message || '开始战斗失败'
+      };
+    }
+  }
+
+  /**
+   * 执行PvP战斗回合
+   * @param {string} token - 认证令牌
+   * @param {number} opponentId - 对手ID
+   * @returns {Promise<Object>} 回合数据
+   */
+  static async executePvPRound(token, opponentId) {
+    try {
+      console.log('[API Service] 执行PvP战斗回合');
+      
+      const response = await fetch(`${API_BASE_URL}/duel/execute-pvp-round`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ opponentId })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || '执行回合失败');
+      }
+      
+      const data = await response.json();
+      return convertToCamelCase(data);
+    } catch (error) {
+      console.error('执行PvP回合失败:', error);
+      return {
+        success: false,
+        message: '执行回合失败'
+      };
+    }
+  }
+
+  /**
+   * 结束PvP战斗
+   * @param {string} token - 认证令牌
+   * @param {number} opponentId - 对手ID
+   * @returns {Promise<Object>} 结束结果
+   */
+  static async endPvPBattle(token, opponentId) {
+    try {
+      console.log('[API Service] 结束PvP战斗');
+      
+      const response = await fetch(`${API_BASE_URL}/duel/end-pvp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ opponentId })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || '结束战斗失败');
+      }
+      
+      const data = await response.json();
+      return convertToCamelCase(data);
+    } catch (error) {
+      console.error('结束PvP战斗失败:', error);
+      return {
+        success: false,
+        message: '结束战斗失败'
+      };
+    }
+  }
+  
+  // 获取默认妖兽数据（开发用）
+  static getDefaultMonsters() {
+    return [
+      {
+        id: 1,
+        name: '赤焰虎',
+        difficulty: 'normal',
+        level: 1,
+        health: 150,
+        attack: 25,
+        defense: 10,
+        speed: 15,
+        critRate: 0.1,
+        dodgeRate: 0.05,
+        rewards: '修为150，灵石20，可能掉落虎骨',
+        description: '生活在火焰山脉的猛虎，浑身赤红如火'
+      },
+      {
+        id: 2,
+        name: '黑水玄蛇',
+        difficulty: 'normal',
+        level: 2,
+        health: 200,
+        attack: 30,
+        defense: 15,
+        speed: 18,
+        critRate: 0.15,
+        stunRate: 0.1,
+        rewards: '修为200，灵石30，可能掉落蛇胆',
+        description: '潜伏在深潭中的巨蛇，毒性猛烈'
+      },
+      {
+        id: 3,
+        name: '金翅大鹏',
+        difficulty: 'hard',
+        level: 3,
+        health: 300,
+        attack: 45,
+        defense: 20,
+        speed: 30,
+        critRate: 0.2,
+        dodgeRate: 0.15,
+        rewards: '修为300，灵石50，可能掉落鹏羽',
+        description: '翱翔天际的神鸟，速度极快'
+      },
+      {
+        id: 4,
+        name: '九头狮子',
+        difficulty: 'hard',
+        level: 4,
+        health: 400,
+        attack: 55,
+        defense: 30,
+        speed: 20,
+        critRate: 0.15,
+        counterRate: 0.1,
+        rewards: '修为400，灵石70，可能掉落狮心',
+        description: '拥有九颗头颅的妖狮，凶猛异常'
+      },
+      {
+        id: 5,
+        name: '吞天蟒',
+        difficulty: 'nightmare',
+        level: 5,
+        health: 600,
+        attack: 70,
+        defense: 40,
+        speed: 25,
+        critRate: 0.25,
+        vampireRate: 0.2,
+        rewards: '修为600，灵石100，必定掉落蟒皮',
+        description: '传说能吞噬天地的上古妖兽'
+      }
+    ]
+  }
+  
+  // 获取模拟战斗记录（开发用）
+  static getMockBattleRecords() {
+    return [
+      {
+        id: 1,
+        battleType: 'pve',
+        opponent: '赤焰虎',
+        result: '胜利',
+        rewards: '修为150，灵石20',
+        time: '2024-01-15 10:30:15'
+      },
+      {
+        id: 2,
+        battleType: 'pve',
+        opponent: '黑水玄蛇',
+        result: '失败',
+        rewards: '无',
+        time: '2024-01-15 11:20:45'
+      },
+      {
+        id: 3,
+        battleType: 'pvp',
+        opponent: '张三丰',
+        result: '胜利',
+        rewards: '声望25，灵石15',
+        time: '2024-01-14 09:15:30'
+      },
+      {
+        id: 4,
+        battleType: 'pvp',
+        opponent: '李逍遥',
+        result: '失败',
+        rewards: '无',
+        time: '2024-01-13 14:40:22'
+      },
+      {
+        id: 5,
+        battleType: 'pve',
+        opponent: '金翅大鹏',
+        result: '胜利',
+        rewards: '修为300，灵石50，鹏羽1',
+        time: '2024-01-12 16:25:18'
+      }
+    ]
+  }
+  
+  // 获取模拟战斗统计（开发用）
+  static getMockBattleStats() {
+    return {
+      totalBattles: 15,
+      wins: 9,
+      losses: 6,
+      winRate: 60,
+      currentWinStreak: 3,
+      maxWinStreak: 5
+    }
+  }
+}
 export default APIService;

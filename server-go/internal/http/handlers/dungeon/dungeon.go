@@ -1,10 +1,13 @@
 package dungeon
 
 import (
+	"math"
 	"net/http"
 	"strconv"
 
+	"xiuxian/server-go/internal/db"
 	dungeonSvc "xiuxian/server-go/internal/dungeon"
+	"xiuxian/server-go/internal/models"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -478,7 +481,7 @@ func ExecuteRound(c *gin.Context) {
 		zap.Int("round", roundData.Round),
 		zap.Bool("battleEnded", roundData.BattleEnded))
 
-	// 保存回合数据到Redis以供前端获取
+	// 保存回合数据到Redis以供Redis获取
 	if err := service.SaveRoundDataToRedis(roundData); err != nil {
 		zapLogger.Warn("ExecuteRound - 保存回合数据失败",
 			zap.Uint("userID", uid),
@@ -488,5 +491,56 @@ func ExecuteRound(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data":    roundData,
+	})
+}
+
+// ========== 秘境灵力消耗计算函数 ==========
+
+// calculateDungeonSpritCost 计算秘境灵力消耗
+// 公式: dungeonCost = 2880 * 1.2^(Level-1)
+func calculateDungeonSpiritCost(level int) float64 {
+	const baseCost = 2880.0
+	const costMultiplier = 1.2
+	return baseCost * math.Pow(costMultiplier, float64(level-1))
+}
+
+// GetDungeonSpiritCost 获取当前等级的秘境灵力消耗信息
+// GET /api/dungeon/spirit-cost
+func GetDungeonSpiritCost(c *gin.Context) {
+	userID, ok := c.Get("userID")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "用户未授权"})
+		return
+	}
+
+	uid := userID.(uint)
+	logger, _ := c.Get("zap_logger")
+	zapLogger := logger.(*zap.Logger)
+
+	var user models.User
+	if err := db.DB.Select("level, spirit").First(&user, uid).Error; err != nil {
+		zapLogger.Error("获取玩家信息失败",
+			zap.Uint("userID", uid),
+			zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "获取玩家信息失败",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	dungeonCost := calculateDungeonSpiritCost(user.Level)
+	enoughSpirit := user.Spirit >= dungeonCost
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data": gin.H{
+			"level":          user.Level,
+			"currentSpirit":  user.Spirit,
+			"dungeonCost":    dungeonCost,
+			"enoughSpirit":   enoughSpirit,
+			"spiritRequired": math.Max(0, dungeonCost-user.Spirit), // 还需要的灵力（如果不足）
+		},
 	})
 }

@@ -7,7 +7,6 @@ import (
 	"math"
 	"math/rand"
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -343,25 +342,25 @@ func UpgradePet(c *gin.Context) {
 	if baseAttack == 0 {
 		baseAttack = 10
 	}
-	newAttack := baseAttack * 2
+	newAttack := baseAttack * 1.1
 
 	baseHealth := combatAttrs["health"]
 	if baseHealth == 0 {
 		baseHealth = 100
 	}
-	newHealth := baseHealth * 2
+	newHealth := baseHealth * 1.1
 
 	baseDefense := combatAttrs["defense"]
 	if baseDefense == 0 {
 		baseDefense = 5
 	}
-	newDefense := baseDefense * 2
+	newDefense := baseDefense * 1.1
 
 	baseSpeed := combatAttrs["speed"]
 	if baseSpeed == 0 {
 		baseSpeed = 10
 	}
-	newSpeed := baseSpeed * 2
+	newSpeed := baseSpeed * 1.1
 
 	// 更新 CombatAttributes 中的属性值（各自乘以2）
 	combatAttrs["attack"] = newAttack
@@ -725,19 +724,4 @@ func BatchReleasePets(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
 		return
 	}
-
-	// 增加经验值：直接更新 Users.exp 列
-	if err := db.DB.Model(&models.User{}).
-		Where("id = ?", userID).
-		Update("exp", gorm.Expr("exp + ?", totalExp)).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"success":       true,
-		"message":       "成功放生" + strconv.Itoa(len(pets)) + "只灵宠，获得" + strconv.Itoa(totalExp) + "点经验",
-		"releasedCount": len(pets),
-		"expGained":     totalExp,
-	})
 }

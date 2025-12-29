@@ -48,16 +48,28 @@ func (s *ExplorationService) getSpiritValue() float64 {
 	return user.Spirit
 }
 
+// ========== 探索灵力消耗计算函数 ==========
+
+// calculateExploreSpritCost 计算探索灵力消耗
+// 公式: exploreCost = 288 * 1.2^(Level-1)
+func calculateExploreSpritCost(level int) float64 {
+	const baseCost = 288.0
+	const costMultiplier = 1.2
+	return baseCost * math.Pow(costMultiplier, float64(level-1))
+}
+
 // CheckSpiritCost 检查灵力是否满足一次探索消耗
-// 当前规则：每次探索固定消耗 100 点灵力
-// 如果灵力不足返回 ErrInsufficientSpirit 错误
-func (s *ExplorationService) CheckSpiritCost() error {
-	// ✅ 检查灵力时，优先使用缓存值
+// 调整后公式：exploreCost = 288 * 1.2^(Level-1)
+// 如果灵力不足返回错误
+func (s *ExplorationService) CheckSpiritCost(level int) error {
+	// 计算该等级的探索消耗
+	explorecost := calculateExploreSpritCost(level)
 	currentSpirit := s.getSpiritValue()
 
 	// 灵力不足时不可探索
-	if currentSpirit < 100 {
-		return fmt.Errorf("灵力不足，需要100，当前%.0f", currentSpirit)
+	if currentSpirit < explorecost {
+		requiredMore := explorecost - currentSpirit
+		return fmt.Errorf("灵力不足，需要%.0f，当前%.0f，还差%.0f", explorecost, currentSpirit, requiredMore)
 	}
 
 	return nil
@@ -96,18 +108,21 @@ func (s *ExplorationService) StartExploration() ([]ExplorationEvent, string, err
 		return nil, "", err
 	}
 
-	// ✅ 然后检查灵力是否足足
-	if err := s.CheckSpiritCost(); err != nil {
-		return nil, "", err
-	}
-
-	// 获取玩家数据
+	// 获取玩家数据，以便检查灵力消耗
 	var user models.User
 	if err := db.DB.First(&user, s.userID).Error; err != nil {
 		return nil, "", fmt.Errorf("failed to get user: %w", err)
 	}
 
-	// 创建随机数生成器（避免使用全局 rand）
+	// ✅ 检查灵力是否足够（传入等级）
+	if err := s.CheckSpiritCost(user.Level); err != nil {
+		return nil, "", err
+	}
+
+	// 计算该等级的探索消耗
+	explorecost := calculateExploreSpritCost(user.Level)
+
+	// 创建随机数生成器（避免使用全局 rand ）
 	r := rand.New(rand.NewSource(rand.Int63()))
 
 	var events []ExplorationEvent // 触发的事件集合
@@ -133,7 +148,12 @@ func (s *ExplorationService) StartExploration() ([]ExplorationEvent, string, err
 	}
 
 	// 探索结算：消耗灵力、（可扩展基础奖励）
-	user.Spirit -= 100 // 固定消耗 100 灵力
+	user.Spirit -= explorecost
+
+	// 确保灵力不为负
+	if user.Spirit < 0 {
+		user.Spirit = 0
+	}
 
 	if err := db.DB.Model(&user).Updates(map[string]interface{}{
 		"spirit": user.Spirit,

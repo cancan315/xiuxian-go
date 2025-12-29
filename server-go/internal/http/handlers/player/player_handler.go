@@ -308,8 +308,8 @@ func DeleteItems(c *gin.Context) {
 		return
 	}
 
-	zap.S().Infof("成功删除 %d 个物品, user=%d", len(req.ItemIDs), userID)
-	c.JSON(http.StatusOK, gin.H{"message": "物品删除成功"})
+	zap.S().Infof("成功卖出 %d 个物品, user=%d", len(req.ItemIDs), userID)
+	c.JSON(http.StatusOK, gin.H{"message": "灵宠卖出成功"})
 }
 
 // DeletePets 对应 DELETE /api/player/pets
@@ -329,14 +329,59 @@ func DeletePets(c *gin.Context) {
 		return
 	}
 
+	// ✅ 新增：先查询灵宠信息，计算灵石奖励
+	var pets []models.Pet
+	if err := db.DB.Where("user_id = ? AND (pet_id IN ? OR id IN ?)", userID, req.PetIDs, req.PetIDs).Find(&pets).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
+		return
+	}
+
+	if len(pets) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "未找到指定的灵宠"})
+		return
+	}
+
+	// ✅ 新增：根据灵宠品质计算灵石奖励
+	rarity2spiritStoneMap := map[string]int{
+		"mythic":    500,
+		"legendary": 300,
+		"epic":      150,
+		"rare":      100,
+		"uncommon":  80,
+		"common":    50,
+	}
+
+	totalSpiritStones := 0
+	for _, pet := range pets {
+		reward := rarity2spiritStoneMap[pet.Rarity]
+		if reward == 0 {
+			reward = 100 // 默认值
+		}
+		totalSpiritStones += reward
+	}
+
+	// 卖出灵宠
 	if err := db.DB.Where("user_id = ? AND (pet_id IN ? OR id IN ?)", userID, req.PetIDs, req.PetIDs).
 		Delete(&models.Pet{}).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
 		return
 	}
 
-	zap.S().Infof("成功删除 %d 个灵宠, user=%d", len(req.PetIDs), userID)
-	c.JSON(http.StatusOK, gin.H{"message": "灵宠删除成功"})
+	// ✅ 新增：更新玩家灵石
+	if err := db.DB.Model(&models.User{}).
+		Where("id = ?", userID).
+		Update("spirit_stones", gorm.Expr("spirit_stones + ?", totalSpiritStones)).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
+		return
+	}
+
+	zap.S().Infof("成功卖出 %d 个灵宠, 获得%d灵石, user=%d", len(req.PetIDs), totalSpiritStones, userID)
+	c.JSON(http.StatusOK, gin.H{
+		"success":      true, // ✅ 新增：返回成功标记
+		"message":      "灵宠卖出成功",
+		"deletedCount": len(pets),
+		"spiritStones": totalSpiritStones, // ✅ 返回灵石奖励
+	})
 }
 
 // ChangePlayerName 对应 POST /api/player/change-name

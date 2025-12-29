@@ -6,6 +6,7 @@ import (
 	"xiuxian/server-go/internal/http/handlers/alchemy"
 	"xiuxian/server-go/internal/http/handlers/auth"
 	"xiuxian/server-go/internal/http/handlers/cultivation"
+	"xiuxian/server-go/internal/http/handlers/duel"
 	"xiuxian/server-go/internal/http/handlers/dungeon"
 	"xiuxian/server-go/internal/http/handlers/exploration"
 	"xiuxian/server-go/internal/http/handlers/gacha"
@@ -129,6 +130,22 @@ func RegisterRoutes(r *gin.Engine) {
 		alchemyGroup.GET("/recipes/:recipeId", alchemy.GetRecipeDetail)
 		alchemyGroup.POST("/craft", alchemy.CraftPill)
 		alchemyGroup.POST("/buy-fragment", alchemy.BuyFragment)
+	}
+
+	// /api/duel 路由
+	duelGroup := r.Group("/api/duel")
+	{
+		duelGroup.Use(middleware.Protect())
+		duelGroup.GET("/opponents", duel.GetDuelOpponents)
+		duelGroup.GET("/player/:playerId/battle-data", duel.GetPlayerBattleData)
+		duelGroup.POST("/battle-attributes", duel.GetBattleAttributes) // 新增: 获取双方完整战斗属性
+		duelGroup.GET("/records", duel.GetDuelRecords)
+		duelGroup.POST("/record-result", duel.RecordBattleResult)
+		duelGroup.POST("/claim-rewards", duel.ClaimBattleRewards)
+		// PvP战斗相关端点
+		duelGroup.POST("/start-pvp", duel.StartPvPBattle)
+		duelGroup.POST("/execute-pvp-round", duel.ExecutePvPRound)
+		duelGroup.POST("/end-pvp", duel.EndPvPBattle)
 	}
 
 	// /api/admin 路由（管理员操作）

@@ -38,7 +38,6 @@ const handleLogin = async (e) => {
   loading.value = true;
 
   try {
-    // 使用 await 确保验证完成后再执行后续操作
     await new Promise((resolve, reject) => {
       formRef.value?.validate((errors) => {
         if (!errors) {
@@ -50,10 +49,23 @@ const handleLogin = async (e) => {
     });
 
     const response = await APIService.login(formValue.value.username, formValue.value.password);
+    console.log('[Login.vue] 登录API响应:', { 
+      hasToken: !!response.token,
+      tokenLength: response.token ? response.token.length : 0,
+      hasId: !!response.id,
+      responseKeys: Object.keys(response)
+    })
 
     if (response.token) {
+      console.log('[Login.vue] 保存token前:', { 
+        token: response.token.substring(0, 20) + '...' 
+      })
       // 保存令牌
       setAuthToken(response.token);
+      
+      console.log('[Login.vue] 保存token后:', { 
+        storedToken: getAuthToken() ? getAuthToken().substring(0, 20) + '...' : 'null'
+      })
       
       // ✅ 立即设置玩家ID到Store，确保后续数据加载时能使用
       const playerStore = usePlayerInfoStore()
@@ -67,7 +79,7 @@ const handleLogin = async (e) => {
       // 登录成功后跳转到游戏主界面
       router.push('/home');
     } else {
-      // 明确处理登录失败的情况
+      console.error('[Login.vue] 登录失败：response.token为空', { response })
       message.error(response.message || '登录失败');
       // 清除可能存储的无效令牌
       if (getAuthToken()) {
@@ -75,6 +87,7 @@ const handleLogin = async (e) => {
       }
     }
   } catch (error) {
+    console.error('[Login.vue] 登录异常:', error)
     if (error.message) {
       message.error('登录过程中发生错误: ' + error.message);
     } else {

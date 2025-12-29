@@ -152,6 +152,18 @@ CREATE TABLE IF NOT EXISTS "dungeon_buffs" (
     selected_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- battle_records 表 (斗法战斗记录)
+CREATE TABLE IF NOT EXISTS "battle_records" (
+    id SERIAL PRIMARY KEY,
+    player_id INTEGER NOT NULL REFERENCES "users"(id) ON DELETE CASCADE,
+    opponent_id INTEGER NOT NULL REFERENCES "users"(id) ON DELETE CASCADE,
+    opponent_name VARCHAR(255),
+    result VARCHAR(50) NOT NULL,
+    battle_type VARCHAR(50) NOT NULL,
+    rewards VARCHAR(255),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- 创建索引以提高查询性能
 CREATE INDEX IF NOT EXISTS idx_users_username ON "users"(username);
 CREATE INDEX IF NOT EXISTS idx_users_last_spirit_gain_time ON "users"(last_spirit_gain_time);
@@ -165,3 +177,6 @@ CREATE INDEX IF NOT EXISTS idx_equipment_user_id ON "equipment"(user_id);
 CREATE INDEX IF NOT EXISTS idx_dungeon_progress_user_id ON "dungeon_progress"(user_id);
 CREATE INDEX IF NOT EXISTS idx_dungeon_buffs_user_id ON "dungeon_buffs"(user_id);
 CREATE INDEX IF NOT EXISTS idx_dungeon_buffs_run_id ON "dungeon_buffs"(dungeon_run_id);
+CREATE INDEX IF NOT EXISTS idx_battle_records_player_id ON "battle_records"(player_id);
+CREATE INDEX IF NOT EXISTS idx_battle_records_opponent_id ON "battle_records"(opponent_id);
+CREATE INDEX IF NOT EXISTS idx_battle_records_created_at ON "battle_records"(created_at);

@@ -4,25 +4,25 @@
       <n-select
         v-model:value="selectedRarityToRelease"
         :options="options"
-        placeholder="选择放生品阶"
+        placeholder="选择卖出品阶"
         style="width: 150px"
       />
       <n-button
         @click="showBatchReleaseConfirm = true"
         :disabled="!props.playerInfoStore.pets.length"
       >
-        一键放生
+        一键卖出
       </n-button>
     </n-space>
-    <n-modal v-model:show="showBatchReleaseConfirm" preset="dialog" title="批量放生确认" style="width: 600px">
+    <n-modal v-model:show="showBatchReleaseConfirm" preset="dialog" title="批量卖出确认" style="width: 600px">
       <p>
-        确定要放生{{
+        确定要卖出{{
           selectedRarityToRelease === 'all' ? '所有' : petRarities[selectedRarityToRelease].name
         }}品阶的未出战灵宠吗？此操作不可撤销。
       </p>
       <n-space justify="end" style="margin-top: 16px">
         <n-button size="small" @click="showBatchReleaseConfirm = false">取消</n-button>
-        <n-button size="small" type="error" @click="batchReleasePets">确认放生</n-button>
+        <n-button size="small" type="error" @click="batchReleasePets">确认卖出</n-button>
       </n-space>
     </n-modal>
     <n-pagination
@@ -188,14 +188,14 @@
             </n-button>
           </n-space>
           <n-space justify="space-between">
-            <span>放生灵宠（不会返还已消耗的道具）</span>
-            <n-button size="small" type="error" @click="confirmReleasePet(selectedPet)">放生灵宠</n-button>
-            <n-modal v-model:show="showReleaseConfirm" preset="dialog" title="灵宠放生" style="width: 600px">
+            <span>卖出灵宠（不会返还已消耗的道具）</span>
+            <n-button size="small" type="error" @click="confirmReleasePet(selectedPet)">卖出灵宠</n-button>
+            <n-modal v-model:show="showReleaseConfirm" preset="dialog" title="灵宠卖出" style="width: 600px">
               <template v-if="petToRelease">
-                <p>确定要放生 {{ petToRelease.name }} 吗？此操作不可撤销，且不会返还已消耗的道具。</p>
+                <p>确定要卖出 {{ petToRelease.name }} 吗？此操作不可撤销，且不会返还已消耗的道具。</p>
                 <n-space justify="end" style="margin-top: 16px">
                   <n-button size="small" @click="cancelReleasePet">取消</n-button>
-                  <n-button size="small" type="error" @click="releasePet">确认放生</n-button>
+                  <n-button size="small" type="error" @click="releasePet">确认卖出</n-button>
                 </n-space>
               </template>
             </n-modal>
@@ -231,7 +231,7 @@
   const currentPage = ref(1)
   const pageSize = ref(12)
 
-  // 选中的放生品阶
+  // 选中的卖出品阶
   const selectedRarityToRelease = ref('all')
 
   // 灵宠品质配置（使用统一配置）
@@ -242,7 +242,7 @@
   const selectedPet = ref(null)
   const selectedFoodPet = ref(null)
 
-  // 放生确认弹窗
+  // 卖出确认弹窗
   const showReleaseConfirm = ref(false)
   const showBatchReleaseConfirm = ref(false)
   const petToRelease = ref(null)
@@ -308,33 +308,35 @@
     { label: petRarities.common.name, value: 'common' }
   ]
 
-  // 显示放生确认弹窗
+  // 显示卖出确认弹窗
   const confirmReleasePet = pet => {
     petToRelease.value = pet
     showReleaseConfirm.value = true
   }
 
-  // 取消放生
+  // 取消卖出
   const cancelReleasePet = () => {
     petToRelease.value = null
     showReleaseConfirm.value = false
   }
 
-  // 执行放生
+  // 执行卖出
   const releasePet = async () => {
     if (petToRelease.value) {
       const token = getAuthToken()
       try {
-        // 调用API放生灵宠
+        // 调用API卖出灵宠
         const response = await APIService.deletePets(token, [petToRelease.value.id])
         if (response.success) {
-          message.success('已放生灵宠')
+          // ✅ 优化：显示灵宠名称和灵石奖励
+          const spiritStones = response.spiritStones || 0
+          message.success(`已卖出 ${petToRelease.value.name}，获得 ${spiritStones} 灵石`)
         } else {
-          message.error(response.message || '放生失败')
+          message.error(response.message || '卖出失败')
         }
       } catch (error) {
-        console.error('放生灵宠失败:', error)
-        message.error('放生灵宠失败: ' + error.message)
+        console.error('卖出灵宠失败:', error)
+        message.error('卖出灵宠失败: ' + error.message)
       }
       
       // 关闭所有相关弹窗
@@ -477,16 +479,16 @@
     try {
       const response = await APIService.batchReleasePets(token, { rarity })
       if (response.success) {
-        message.success('批量放生成功')
+        message.success('批量卖出成功')
         showBatchReleaseConfirm.value = false
         // 刷新灵宠列表
         emit('refreshPetList')
       } else {
-        message.error(response.message || '批量放生失败')
+        message.error(response.message || '批量卖出失败')
       }
     } catch (error) {
-      console.error('批量放生灵宠失败:', error)
-      message.error('批量放生灵宠失败: ' + error.message)
+      console.error('批量卖出灵宠失败:', error)
+      message.error('批量卖出灵宠失败: ' + error.message)
     }
   }
 

@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"time"
 
 	"xiuxian/server-go/internal/db"
 	"xiuxian/server-go/internal/models"
+	"xiuxian/server-go/internal/redis"
 
 	"gorm.io/datatypes"
 )
@@ -98,6 +100,24 @@ func (s *CultivationService) SingleCultivate() (*CultivationResponse, error) {
 	if err := db.DB.First(&user, s.userID).Error; err != nil {
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
+
+	// 检查打坐间隔（3秒一次）
+	lastCultivateKey := fmt.Sprintf("cultivation:lasttime:%d", s.userID)
+	lastCultivateTime, err := redis.Client.Get(redis.Ctx, lastCultivateKey).Int64()
+	if err == nil && lastCultivateTime > 0 {
+		elapsed := time.Now().UnixMilli() - lastCultivateTime
+		const cultivateInterval = 3000 // 3秒（毫秒）
+		if elapsed < cultivateInterval {
+			waitTime := time.Duration(cultivateInterval-elapsed) * time.Millisecond
+			return &CultivationResponse{
+				Success: false,
+				Error:   fmt.Sprintf("丹田正在提炼灵力，请等待%.1f秒再次修炼", float64(waitTime.Milliseconds())/1000),
+			}, nil
+		}
+	}
+
+	// 记录本次打坐的时间
+	redis.Client.Set(redis.Ctx, lastCultivateKey, time.Now().UnixMilli(), 24*time.Hour)
 
 	// 获取玩家属性
 	attrs := s.getPlayerAttributes(&user)

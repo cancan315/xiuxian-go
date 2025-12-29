@@ -1308,27 +1308,24 @@ func SellEquipment(c *gin.Context) {
 		return
 	}
 
-	// 根据装备品质计算返还的强化石数量
-	qualityStoneMap := map[string]int{
-		"mythic":    6,
-		"legendary": 5,
-		"epic":      4,
-		"rare":      3,
-		"uncommon":  2,
-		"common":    1,
+	// ✅ 修改：根据装备品质计算返还的灵石数量
+	qualitySpiritStoneMap := map[string]int{
+		"mythic":    500,
+		"legendary": 200,
+		"epic":      150,
+		"rare":      100,
+		"uncommon":  80,
+		"common":    50,
 	}
-	stones := qualityStoneMap[equipment.Quality]
-	if stones == 0 {
-		stones = 1
+	spiritStones := qualitySpiritStoneMap[equipment.Quality]
+	if spiritStones == 0 {
+		spiritStones = 50
 	}
 
-	// 增加用户强化石数量
+	// 增加用户灵石数量
 	if err := db.DB.Model(&models.User{}).
 		Where("id = ?", userID).
-		Updates(map[string]interface{}{
-			"reinforce_stones":  gorm.Expr("reinforce_stones + ?", stones),
-			"refinement_stones": gorm.Expr("refinement_stones + ?", stones),
-		}).Error; err != nil {
+		Update("spirit_stones", gorm.Expr("spirit_stones + ?", spiritStones)).Error; err != nil {
 
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
@@ -1352,9 +1349,9 @@ func SellEquipment(c *gin.Context) {
 
 	// 返回出售结果
 	c.JSON(http.StatusOK, gin.H{
-		"success":        true,
-		"message":        "装备出售成功",
-		"stonesReceived": stones,
+		"success":      true,
+		"message":      "装备出售成功",
+		"spiritStones": spiritStones, // ✅ 修改：返回灵石奖励
 	})
 }
 
