@@ -51,7 +51,8 @@ CREATE TABLE IF NOT EXISTS "herbs" (
     user_id INTEGER REFERENCES "users"(id),
     herb_id VARCHAR(255),
     name VARCHAR(255),
-    count INTEGER DEFAULT 0
+    count INTEGER DEFAULT 0,
+    quality VARCHAR(50) DEFAULT 'common'
 );
 
 -- pills 表
@@ -169,6 +170,7 @@ CREATE INDEX IF NOT EXISTS idx_users_username ON "users"(username);
 CREATE INDEX IF NOT EXISTS idx_users_last_spirit_gain_time ON "users"(last_spirit_gain_time);
 CREATE INDEX IF NOT EXISTS idx_items_user_id ON "items"(user_id);
 CREATE INDEX IF NOT EXISTS idx_herbs_user_id ON "herbs"(user_id);
+CREATE INDEX IF NOT EXISTS idx_herbs_quality ON "herbs"(quality);
 CREATE INDEX IF NOT EXISTS idx_pills_user_id ON "pills"(user_id);
 CREATE INDEX IF NOT EXISTS idx_pill_fragments_user_id ON "pill_fragments"(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_alchemy_data_user_id ON "user_alchemy_data"(user_id);

@@ -212,29 +212,29 @@ func (s *ExplorationService) triggerRandomEvent(user *models.User, r *rand.Rand)
 		handler func(*models.User, *rand.Rand) *ExplorationEvent
 	}{
 		// ===== 修为正向 =====
-		{"论道大会", 13, s.eventAncientTablet}, // +1%
-		{"百鬼门杂役", 12, s.eventSpiritSpring}, // +2% -10%
-		{"古修遗府", 7, s.eventAncientMaster},  // +3% 稀有
-		{"灵山顿悟", 5, s.eventEnlightenment},  // +5% 极稀有
-		// 小计 37
+		{"论道大会", 9, s.eventAncientTablet}, // +1%
+		{"百鬼门杂役", 9, s.eventSpiritSpring}, // +2% -10%
+		{"古修遗府", 7, s.eventAncientMaster}, // +3% 稀有
+		{"灵山顿悟", 5, s.eventEnlightenment}, // +5% 极稀有
+		// 小计 30
 
 		// ===== 修为负向 =====
-		{"家族招婿", 12, s.eventCultivationDeviation}, // -2% 灵力-5%
-		{"合欢女修", 15, s.eventQiDeviation},          // -1% 灵力-5%
+		{"家族招婿", 10, s.eventCultivationDeviation}, // -2% 灵力-5%
+		{"合欢女修", 12, s.eventQiDeviation},          // -1% 灵力-5%
 		{"鬼鬼妖王", 8, s.eventMonsterAttack},         // -5%
-		// 小计 35
+		// 小计 30
 
 		// ===== 普通资源 =====
-		// {"灵草发现", 1, s.eventHerbDiscovery},
-		// {"丹方残页", 1, s.eventPillRecipeFragment},
-		// 小计 2
+		{"灵草发现", 10, s.eventHerbDiscovery},
+		{"丹方残页", 10, s.eventPillRecipeFragment},
+		// 小计 20
 
 		// ===== 稀有资源 =====
-		{"获得灵石", 15, s.eventTreasureTrove},
-		{"获得强化石", 5, s.eventReinforceStone},
+		{"获得灵石", 9, s.eventTreasureTrove},
+		{"获得强化石", 3, s.eventReinforceStone},
 		{"获得洗炼石", 5, s.eventRefinementStone},
 		{"获得灵宠精华", 3, s.eventPetEssence},
-		// 小计 28
+		// 小计 20
 	}
 
 	// 计算总权重
@@ -488,16 +488,47 @@ func (s *ExplorationService) eventHerbDiscovery(user *models.User, r *rand.Rand)
 }
 
 // eventPillRecipeFragment 丹方残页：获得丹方残页
+// ✅ 改进：从窗子事件改为加权随机，根据丹方的权重决定是否掉该丹方
 func (s *ExplorationService) eventPillRecipeFragment(user *models.User, r *rand.Rand) *ExplorationEvent {
-	if len(PillRecipes) == 0 {
+	// ✅ 会筛收权重 > 0 的丹方
+	var activeRecipes []PillRecipe
+	for _, recipe := range PillRecipes {
+		if recipe.Weight > 0 {
+			activeRecipes = append(activeRecipes, recipe)
+		}
+	}
+
+	if len(activeRecipes) == 0 {
 		return nil
 	}
-	recipeIndex := r.Intn(len(PillRecipes))
-	recipe := PillRecipes[recipeIndex]
+
+	// 计算权重总和
+	totalWeight := 0.0
+	for _, recipe := range activeRecipes {
+		totalWeight += recipe.Weight
+	}
+
+	// 在 [0, totalWeight) 区间内取随机数
+	rnd := r.Float64() * totalWeight
+
+	// 命中区间判断
+	acc := 0.0
+	var selectedRecipe *PillRecipe
+	for i := range activeRecipes {
+		acc += activeRecipes[i].Weight
+		if rnd <= acc {
+			selectedRecipe = &activeRecipes[i]
+			break
+		}
+	}
+
+	if selectedRecipe == nil {
+		return nil
+	}
 
 	// 创建或更新丹方残页记录
 	var fragment models.PillFragment
-	result := db.DB.Where("user_id = ? AND recipe_id = ?", s.userID, recipe.ID).First(&fragment)
+	result := db.DB.Where("user_id = ? AND recipe_id = ?", s.userID, selectedRecipe.ID).First(&fragment)
 
 	if result.Error == nil {
 		fragment.Count++
@@ -505,15 +536,54 @@ func (s *ExplorationService) eventPillRecipeFragment(user *models.User, r *rand.
 	} else {
 		fragment = models.PillFragment{
 			UserID:   s.userID,
-			RecipeID: recipe.ID,
+			RecipeID: selectedRecipe.ID,
 			Count:    1,
 		}
 		db.DB.Create(&fragment)
 	}
 
+	// ✅ 检查是否可以自动合成完整丹方
+	description := fmt.Sprintf("获得%s的残页", selectedRecipe.Name)
+	fmt.Printf("[DEBUG eventPillRecipeFragment] recipeID=%s, currentFragments=%d, needed=%d, weight=%f\n",
+		selectedRecipe.ID, fragment.Count, selectedRecipe.FragmentsNeeded, selectedRecipe.Weight)
+
+	if fragment.Count >= selectedRecipe.FragmentsNeeded {
+		// 加载用户的炼丹数据
+		var userAlchemyData models.UserAlchemyDataDB
+		if err := db.DB.Where("user_id = ?", s.userID).First(&userAlchemyData).Error; err == nil {
+			// 解析已解锁的丹方
+			unlockedRecipes := make(map[string]bool)
+			if userAlchemyData.RecipesUnlocked != "" {
+				var recipesMap map[string]bool
+				if err := json.Unmarshal([]byte(userAlchemyData.RecipesUnlocked), &recipesMap); err == nil {
+					unlockedRecipes = recipesMap
+				}
+			}
+
+			// 如果丹方未被解锁，则标记为已解锁
+			if !unlockedRecipes[selectedRecipe.ID] {
+				fmt.Printf("[DEBUG eventPillRecipeFragment] 合成条件满足，开始合成\n")
+				unlockedRecipes[selectedRecipe.ID] = true
+				recipesJSON, _ := json.Marshal(unlockedRecipes)
+				userAlchemyData.RecipesUnlocked = string(recipesJSON)
+				fmt.Printf("[DEBUG eventPillRecipeFragment] 更新RecipesUnlocked: %s\n", userAlchemyData.RecipesUnlocked)
+				db.DB.Save(&userAlchemyData)
+
+				// 扣除用于合成的残页
+				fragment.Count -= selectedRecipe.FragmentsNeeded
+				db.DB.Save(&fragment)
+
+				description = fmt.Sprintf("获得%s的残页，集齐%d片残页后自动合成完整丹方！", selectedRecipe.Name, selectedRecipe.FragmentsNeeded)
+				fmt.Printf("[DEBUG eventPillRecipeFragment] 合成成功\n")
+			} else {
+				fmt.Printf("[DEBUG eventPillRecipeFragment] 丹方已解锁，不重复合成\n")
+			}
+		}
+	}
+
 	return &ExplorationEvent{
 		Type:        EventTypePillRecipeFragment,
-		Description: fmt.Sprintf("获得%s的残页", recipe.Name),
+		Description: description,
 		Fragments:   fragment.Count,
 	}
 }

@@ -4,10 +4,10 @@ import "math"
 
 // HerbQualities 灵草品质配置
 var HerbQualities = map[string]map[string]interface{}{
-	"common": {"name": "普通", "value": 1},
-	"uncommon": {"name": "优质", "value": 1.5},
-	"rare": {"name": "稀有", "value": 2},
-	"epic": {"name": "极品", "value": 3},
+	"common":    {"name": "普通", "value": 1},
+	"uncommon":  {"name": "优质", "value": 1.5},
+	"rare":      {"name": "稀有", "value": 2},
+	"epic":      {"name": "极品", "value": 3},
 	"legendary": {"name": "仙品", "value": 5},
 }
 
@@ -22,7 +22,7 @@ var HerbConfigs = []HerbConfig{
 		Description: "最常见的灵草，蕴含少量灵气",
 		BaseValue:   10,
 		Category:    "spirit",
-		Chance:      0.4,
+		Chance:      0.25,
 	},
 	{
 		ID:          "cloud_flower",
@@ -30,7 +30,7 @@ var HerbConfigs = []HerbConfig{
 		Description: "生长在云雾缭绕处的灵花，有助于修炼",
 		BaseValue:   15,
 		Category:    "cultivation",
-		Chance:      0.3,
+		Chance:      0.25,
 	},
 	{
 		ID:          "thunder_root",
@@ -46,7 +46,7 @@ var HerbConfigs = []HerbConfig{
 		Description: "吸收龙气孕育的灵草，极为珍贵",
 		BaseValue:   40,
 		Category:    "special",
-		Chance:      0.1,
+		Chance:      0.05,
 	},
 	{
 		ID:          "immortal_jade_grass",
@@ -54,7 +54,7 @@ var HerbConfigs = []HerbConfig{
 		Description: "传说中生长在仙境的灵草，可遇不可求",
 		BaseValue:   60,
 		Category:    "special",
-		Chance:      0.05,
+		Chance:      0.00,
 	},
 	{
 		ID:          "dark_yin_grass",
@@ -62,7 +62,7 @@ var HerbConfigs = []HerbConfig{
 		Description: "生长在阴暗处的奇特灵草，具有独特的灵气属性",
 		BaseValue:   30,
 		Category:    "spirit",
-		Chance:      0.2,
+		Chance:      0.1,
 	},
 	{
 		ID:          "nine_leaf_lingzhi",
@@ -70,7 +70,7 @@ var HerbConfigs = []HerbConfig{
 		Description: "传说中的灵芝，拥有九片叶子，蕴含强大的生命力",
 		BaseValue:   45,
 		Category:    "cultivation",
-		Chance:      0.12,
+		Chance:      0.05,
 	},
 	{
 		ID:          "purple_ginseng",
@@ -78,7 +78,7 @@ var HerbConfigs = []HerbConfig{
 		Description: "千年紫参，散发着淡淡的黄金，大补元气",
 		BaseValue:   50,
 		Category:    "attribute",
-		Chance:      0.08,
+		Chance:      0.05,
 	},
 	{
 		ID:          "frost_lotus",
@@ -86,7 +86,7 @@ var HerbConfigs = []HerbConfig{
 		Description: "生长在极寒之地的莲花，可以提升修炼者的灵力纯度",
 		BaseValue:   55,
 		Category:    "spirit",
-		Chance:      0.07,
+		Chance:      0.1,
 	},
 	{
 		ID:          "fire_heart_flower",
@@ -94,7 +94,7 @@ var HerbConfigs = []HerbConfig{
 		Description: "生长在火山口的奇花，花心似火焰跳动",
 		BaseValue:   35,
 		Category:    "attribute",
-		Chance:      0.15,
+		Chance:      0.00,
 	},
 	{
 		ID:          "moonlight_orchid",
@@ -102,7 +102,7 @@ var HerbConfigs = []HerbConfig{
 		Description: "只在月圆之夜绽放的神秘兰花，能吸收月华精华",
 		BaseValue:   70,
 		Category:    "spirit",
-		Chance:      0.04,
+		Chance:      0.00,
 	},
 	{
 		ID:          "sun_essence_flower",
@@ -110,7 +110,7 @@ var HerbConfigs = []HerbConfig{
 		Description: "吸收太阳精华的奇花，蕴含纯阳之力",
 		BaseValue:   75,
 		Category:    "cultivation",
-		Chance:      0.03,
+		Chance:      0.00,
 	},
 	{
 		ID:          "five_elements_grass",
@@ -118,7 +118,7 @@ var HerbConfigs = []HerbConfig{
 		Description: "一株草同时具备金木水火土五种属性的奇珍",
 		BaseValue:   80,
 		Category:    "attribute",
-		Chance:      0.02,
+		Chance:      0.00,
 	},
 	{
 		ID:          "phoenix_feather_herb",
@@ -126,7 +126,7 @@ var HerbConfigs = []HerbConfig{
 		Description: "传说生长在不死火凤栖息地的神草，具有涅槃之力",
 		BaseValue:   85,
 		Category:    "special",
-		Chance:      0.015,
+		Chance:      0.00,
 	},
 	{
 		ID:          "celestial_dew_grass",
@@ -134,107 +134,119 @@ var HerbConfigs = []HerbConfig{
 		Description: "凝聚天地精华的仙草，千年一遇",
 		BaseValue:   90,
 		Category:    "special",
-		Chance:      0.01,
+		Chance:      0.00,
 	},
 }
 
-// PillRecipes 丹药配方配置
+// PillRecipes 丹药配方配置（Weight 为掉率权重，数字越大越容易掉）
 var PillRecipes = []PillRecipe{
 	{
 		ID:              "spirit_gathering",
 		Name:            "聚灵丹",
-		Description:    "提升灵力恢复速度的丹药",
+		Description:     "十年灵草炼制，服用后恢复少量灵力",
 		Grade:           "grade1",
 		Type:            "spirit",
 		FragmentsNeeded: 10,
+		Weight:          50, // 最常见
 	},
 	{
 		ID:              "cultivation_boost",
 		Name:            "聚气丹",
-		Description:    "提升修炼速度的丹药",
+		Description:     "十年灵草炼制，服用后增加少量修为",
 		Grade:           "grade2",
 		Type:            "cultivation",
 		FragmentsNeeded: 15,
-	},
-	{
-		ID:              "thunder_power",
-		Name:            "雷灵丹",
-		Description:    "提升战斗属性的丹药",
-		Grade:           "grade3",
-		Type:            "attribute",
-		FragmentsNeeded: 20,
-	},
-	{
-		ID:              "immortal_essence",
-		Name:            "仙灵丹",
-		Description:    "全属性提升的神奇丹药",
-		Grade:           "grade4",
-		Type:            "special",
-		FragmentsNeeded: 25,
-	},
-	{
-		ID:              "five_elements_pill",
-		Name:            "五行丹",
-		Description:    "融合五行之力的神奇丹药，全面提升修炼者素质",
-		Grade:           "grade5",
-		Type:            "attribute",
-		FragmentsNeeded: 30,
-	},
-	{
-		ID:              "celestial_essence_pill",
-		Name:            "天元丹",
-		Description:    "凝聚天地精华的极品丹药，大幅提升修炼速度",
-		Grade:           "grade6",
-		Type:            "cultivation",
-		FragmentsNeeded: 35,
-	},
-	{
-		ID:              "sun_moon_pill",
-		Name:            "日月丹",
-		Description:    "融合日月精华的丹药，能大幅提升灵力上限",
-		Grade:           "grade7",
-		Type:            "spirit",
-		FragmentsNeeded: 40,
-	},
-	{
-		ID:              "phoenix_rebirth_pill",
-		Name:            "涅槃丹",
-		Description:    "蕴含不死凤凰之力的神丹，能在战斗中自动恢复生命",
-		Grade:           "grade8",
-		Type:            "special",
-		FragmentsNeeded: 45,
+		Weight:          10, // 常见
 	},
 	{
 		ID:              "spirit_recovery",
 		Name:            "回灵丹",
-		Description:    "快速恢复灵力的丹药",
+		Description:     "百年灵草炼制，服用后恢复大量灵力",
 		Grade:           "grade2",
 		Type:            "spirit",
 		FragmentsNeeded: 15,
+		Weight:          25, // 常见
+	},
+	{
+		ID:              "thunder_power",
+		Name:            "雷灵丹",
+		Description:     "千年灵草炼制，蕴含狂暴的天雷能量，服用后增加攻击",
+		Grade:           "grade3",
+		Type:            "attribute",
+		FragmentsNeeded: 20,
+		Weight:          10, // 较少
 	},
 	{
 		ID:              "essence_condensation",
 		Name:            "凝元丹",
-		Description:    "提升修炼效率的高级丹药",
+		Description:     "千年灵草炼制，服用后增加大量修为",
 		Grade:           "grade3",
 		Type:            "cultivation",
 		FragmentsNeeded: 20,
+		Weight:          5, // 较少
 	},
 	{
 		ID:              "mind_clarity",
 		Name:            "清心丹",
-		Description:    "提升心境和悟性的丹药",
+		Description:     "暂未开放",
 		Grade:           "grade3",
-		Type:            "special",
+		Type:            "spirit",
 		FragmentsNeeded: 20,
+		Weight:          0, // 暂未开放
+	},
+	{
+		ID:              "immortal_essence",
+		Name:            "仙灵丹",
+		Description:     "暂未开放",
+		Grade:           "grade4",
+		Type:            "spirit",
+		FragmentsNeeded: 25,
+		Weight:          0, // 暂未开放
 	},
 	{
 		ID:              "fire_essence",
 		Name:            "火元丹",
-		Description:    "提升火属性修炼速度的丹药",
+		Description:     "暂未开放",
 		Grade:           "grade4",
-		Type:            "attribute",
+		Type:            "spirit",
 		FragmentsNeeded: 25,
+		Weight:          0, // 暂未开放
+	},
+	{
+		ID:              "five_elements_pill",
+		Name:            "五行丹",
+		Description:     "暂未开放",
+		Grade:           "grade5",
+		Type:            "spirit",
+		FragmentsNeeded: 30,
+		Weight:          0, // 暂未开放
+	},
+	{
+		ID:              "celestial_essence_pill",
+		Name:            "天元丹",
+		Description:     "暂未开放",
+		Grade:           "grade6",
+		Type:            "spirit",
+		FragmentsNeeded: 35,
+		Weight:          0, // 暂未开放
+	},
+	{
+		ID:              "sun_moon_pill",
+		Name:            "日月丹",
+		Description:     "暂未开放",
+		Grade:           "grade7",
+		Type:            "spirit",
+		FragmentsNeeded: 40,
+		Weight:          0, // 暂未开放
+	},
+	{
+		ID:              "phoenix_rebirth_pill",
+		Name:            "涅槃丹",
+		Description:     "暂未开放",
+		Grade:           "grade8",
+		Type:            "spirit",
+		FragmentsNeeded: 45,
+		Weight:          0, // 暂未开放
 	},
 }
 

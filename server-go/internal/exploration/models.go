@@ -69,12 +69,13 @@ type HerbConfig struct {
 
 // PillRecipe 丹药配方
 type PillRecipe struct {
-	ID              string `json:"id"`
-	Name            string `json:"name"`
-	Description     string `json:"description"`
-	Grade           string `json:"grade"`
-	Type            string `json:"type"`
-	FragmentsNeeded int    `json:"fragmentsNeeded"`
+	ID              string  `json:"id"`
+	Name            string  `json:"name"`
+	Description     string  `json:"description"`
+	Grade           string  `json:"grade"`
+	Type            string  `json:"type"`
+	FragmentsNeeded int     `json:"fragmentsNeeded"`
+	Weight          float64 `json:"weight"` // ✅ 丹方掉率权重（用于加权随机）
 }
 
 // RandomEventConfig 随机事件配置

@@ -1,6 +1,7 @@
 package player
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -11,7 +12,9 @@ import (
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
+	"xiuxian/server-go/internal/alchemy"
 	"xiuxian/server-go/internal/db"
+	"xiuxian/server-go/internal/exploration"
 	"xiuxian/server-go/internal/models"
 	"xiuxian/server-go/internal/spirit"
 )
@@ -803,4 +806,458 @@ func calculateBaseAttributesByLevel(level int) map[string]interface{} {
 		"health":  float64(100 * level),
 		"defense": float64(5 * level),
 	}
+}
+
+// GetHerbsPaginated 对应 GET /api/player/herbs 获取玩家灵草分页列表
+func GetHerbsPaginated(c *gin.Context) {
+	userID, ok := currentUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "用户未授权"})
+		return
+	}
+
+	// 解析分页参数
+	page := c.DefaultQuery("page", "1")
+	pageSize := c.DefaultQuery("pageSize", "20")
+	sort := c.DefaultQuery("sort", "id")    // 排序字段
+	order := c.DefaultQuery("order", "asc") // 排序顺序
+
+	// 记录入参
+	logger, _ := c.Get("zap_logger")
+	zapLogger := logger.(*zap.Logger)
+	zapLogger.Info("GetHerbsPaginated 入参",
+		zap.Uint("userID", userID),
+		zap.String("page", page),
+		zap.String("pageSize", pageSize),
+		zap.String("sort", sort),
+		zap.String("order", order))
+
+	// 验证排序字段，防止SQL注入
+	allowedSortFields := map[string]bool{
+		"id": true, "herb_id": true, "name": true, "count": true,
+	}
+	if !allowedSortFields[sort] {
+		sort = "id"
+	}
+	if order != "asc" && order != "desc" {
+		order = "asc"
+	}
+
+	// 获取总数
+	var total int64
+	if err := db.DB.Model(&models.Herb{}).Where("user_id = ?", userID).Count(&total).Error; err != nil {
+		zapLogger.Error("获取灵草总数失败",
+			zap.Uint("userID", userID),
+			zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
+		return
+	}
+
+	// 计算分页
+	var pageInt, pageSizeInt int
+	if _, err := fmt.Sscanf(page, "%d", &pageInt); err != nil || pageInt < 1 {
+		pageInt = 1
+	}
+	if _, err := fmt.Sscanf(pageSize, "%d", &pageSizeInt); err != nil || pageSizeInt < 1 {
+		pageSizeInt = 20
+	}
+	if pageSizeInt > 100 {
+		pageSizeInt = 100 // 最大100条
+	}
+
+	offset := (pageInt - 1) * pageSizeInt
+
+	// 查询灵草列表
+	var herbs []models.Herb
+	query := db.DB.Where("user_id = ?", userID)
+	if err := query.Order(fmt.Sprintf("%s %s", sort, order)).
+		Offset(offset).
+		Limit(pageSizeInt).
+		Find(&herbs).Error; err != nil {
+		zapLogger.Error("获取灵草列表失败",
+			zap.Uint("userID", userID),
+			zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
+		return
+	}
+
+	// 获取灵草配置信息，组装完整数据
+	herbConfigs := exploration.HerbConfigs
+	enrichedHerbs := make([]gin.H, len(herbs))
+	for i, herb := range herbs {
+		enrichedHerb := gin.H{
+			"id":     herb.ID,
+			"userId": herb.UserID,
+			"herbId": herb.HerbID,
+			"name":   herb.Name,
+			"count":  herb.Count,
+		}
+
+		// 从配置中获取额外信息
+		for _, config := range herbConfigs {
+			if config.ID == herb.HerbID {
+				enrichedHerb["description"] = config.Description
+				enrichedHerb["baseValue"] = config.BaseValue
+				break
+			}
+		}
+
+		// 添加品质信息
+		quality := herb.Quality
+		if quality == "" {
+			quality = "common" // 默认品质
+		}
+		enrichedHerb["quality"] = quality
+
+		// 获取品质配置信息
+		qualityConfigs := exploration.HerbQualities
+		if qualityInfo, ok := qualityConfigs[quality]; ok {
+			enrichedHerb["qualityName"] = qualityInfo["name"]
+			enrichedHerb["qualityValue"] = qualityInfo["value"]
+		} else {
+			enrichedHerb["qualityName"] = "未知"
+			enrichedHerb["qualityValue"] = 1
+		}
+
+		enrichedHerbs[i] = enrichedHerb
+	}
+
+	// 构建返回结构
+	totalPages := (total + int64(pageSizeInt) - 1) / int64(pageSizeInt)
+	data := gin.H{
+		"herbs": enrichedHerbs,
+		"pagination": gin.H{
+			"page":       pageInt,
+			"pageSize":   pageSizeInt,
+			"total":      total,
+			"totalPages": totalPages,
+		},
+	}
+
+	zapLogger.Info("GetHerbsPaginated 出参",
+		zap.Uint("userID", userID),
+		zap.Int64("total", total),
+		zap.Int("herbCount", len(enrichedHerbs)))
+
+	c.JSON(http.StatusOK, data)
+}
+
+// GetPillsPaginated 对应 GET /api/player/pills 获取玩家丹药分页列表
+func GetPillsPaginated(c *gin.Context) {
+	userID, ok := currentUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "用户未授权"})
+		return
+	}
+
+	// 解析分页参数
+	page := c.DefaultQuery("page", "1")
+	pageSize := c.DefaultQuery("pageSize", "20")
+	sort := c.DefaultQuery("sort", "id")    // 排序字段
+	order := c.DefaultQuery("order", "asc") // 排序顺序
+
+	// 记录入参
+	logger, _ := c.Get("zap_logger")
+	zapLogger := logger.(*zap.Logger)
+	zapLogger.Info("GetPillsPaginated 入参",
+		zap.Uint("userID", userID),
+		zap.String("page", page),
+		zap.String("pageSize", pageSize),
+		zap.String("sort", sort),
+		zap.String("order", order))
+
+	// 验证排序字段，防止SQL注入
+	allowedSortFields := map[string]bool{
+		"id": true, "pill_id": true, "name": true,
+	}
+	if !allowedSortFields[sort] {
+		sort = "id"
+	}
+	if order != "asc" && order != "desc" {
+		order = "asc"
+	}
+
+	// 获取总数
+	var total int64
+	if err := db.DB.Model(&models.Pill{}).Where("user_id = ?", userID).Count(&total).Error; err != nil {
+		zapLogger.Error("获取丹药总数失败",
+			zap.Uint("userID", userID),
+			zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
+		return
+	}
+
+	// 计算分页
+	var pageInt, pageSizeInt int
+	if _, err := fmt.Sscanf(page, "%d", &pageInt); err != nil || pageInt < 1 {
+		pageInt = 1
+	}
+	if _, err := fmt.Sscanf(pageSize, "%d", &pageSizeInt); err != nil || pageSizeInt < 1 {
+		pageSizeInt = 20
+	}
+	if pageSizeInt > 100 {
+		pageSizeInt = 100 // 最大100条
+	}
+
+	offset := (pageInt - 1) * pageSizeInt
+
+	// 查询丹药列表
+	var pills []models.Pill
+	query := db.DB.Where("user_id = ?", userID)
+	if err := query.Order(fmt.Sprintf("%s %s", sort, order)).
+		Offset(offset).
+		Limit(pageSizeInt).
+		Find(&pills).Error; err != nil {
+		zapLogger.Error("获取丹药列表失败",
+			zap.Uint("userID", userID),
+			zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
+		return
+	}
+
+	// 构建返回结构
+	totalPages := (total + int64(pageSizeInt) - 1) / int64(pageSizeInt)
+	data := gin.H{
+		"pills": pills,
+		"pagination": gin.H{
+			"page":       pageInt,
+			"pageSize":   pageSizeInt,
+			"total":      total,
+			"totalPages": totalPages,
+		},
+	}
+
+	zapLogger.Info("GetPillsPaginated 出参",
+		zap.Uint("userID", userID),
+		zap.Int64("total", total),
+		zap.Int("pillCount", len(pills)))
+
+	c.JSON(http.StatusOK, data)
+}
+
+// GetFormulasPaginated 对应 GET /api/player/formulas 获取玩家丹方分页列表
+func GetFormulasPaginated(c *gin.Context) {
+	userID, ok := currentUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "用户未授权"})
+		return
+	}
+
+	// 解析分页参数
+	page := c.DefaultQuery("page", "1")
+	pageSize := c.DefaultQuery("pageSize", "20")
+	sort := c.DefaultQuery("sort", "id")    // 排序字段
+	order := c.DefaultQuery("order", "asc") // 排序顺序
+
+	// 记录入参
+	logger, _ := c.Get("zap_logger")
+	zapLogger := logger.(*zap.Logger)
+	zapLogger.Info("GetFormulasPaginated 入参",
+		zap.Uint("userID", userID),
+		zap.String("page", page),
+		zap.String("pageSize", pageSize),
+		zap.String("sort", sort),
+		zap.String("order", order))
+
+	// 验证排序字段，防止SQL注入
+	allowedSortFields := map[string]bool{
+		"id": true, "recipe_id": true, "count": true,
+	}
+	if !allowedSortFields[sort] {
+		sort = "id"
+	}
+	if order != "asc" && order != "desc" {
+		order = "asc"
+	}
+
+	// 获取总数
+	var total int64
+	if err := db.DB.Model(&models.PillFragment{}).Where("user_id = ?", userID).Count(&total).Error; err != nil {
+		zapLogger.Error("获取丹方总数失败",
+			zap.Uint("userID", userID),
+			zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
+		return
+	}
+
+	// 计算分页
+	var pageInt, pageSizeInt int
+	if _, err := fmt.Sscanf(page, "%d", &pageInt); err != nil || pageInt < 1 {
+		pageInt = 1
+	}
+	if _, err := fmt.Sscanf(pageSize, "%d", &pageSizeInt); err != nil || pageSizeInt < 1 {
+		pageSizeInt = 20
+	}
+	if pageSizeInt > 100 {
+		pageSizeInt = 100 // 最大100条
+	}
+
+	offset := (pageInt - 1) * pageSizeInt
+
+	// 查询丹方残页列表
+	var fragments []models.PillFragment
+	query := db.DB.Where("user_id = ?", userID)
+	if err := query.Order(fmt.Sprintf("%s %s", sort, order)).
+		Offset(offset).
+		Limit(pageSizeInt).
+		Find(&fragments).Error; err != nil {
+		zapLogger.Error("获取丹方列表失败",
+			zap.Uint("userID", userID),
+			zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误", "error": err.Error()})
+		return
+	}
+
+	// 构建返回结构
+	totalPages := (total + int64(pageSizeInt) - 1) / int64(pageSizeInt)
+	data := gin.H{
+		"formulas": fragments,
+		"pagination": gin.H{
+			"page":       pageInt,
+			"pageSize":   pageSizeInt,
+			"total":      total,
+			"totalPages": totalPages,
+		},
+	}
+
+	zapLogger.Info("GetFormulasPaginated 出参",
+		zap.Uint("userID", userID),
+		zap.Int64("total", total),
+		zap.Int("formulaCount", len(fragments)))
+
+	c.JSON(http.StatusOK, data)
+}
+
+// ConsumePill 对应 POST /api/player/pills/:id/consume 服用丹药
+func ConsumePill(c *gin.Context) {
+	userID, ok := currentUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "用户未授权"})
+		return
+	}
+
+	pillID := c.Param("id")
+	logger, _ := c.Get("zap_logger")
+	zapLogger := logger.(*zap.Logger)
+
+	zapLogger.Info("ConsumePill 入参",
+		zap.Uint("userID", userID),
+		zap.String("pillID", pillID))
+
+	// 查询丹药是否存在
+	var pill models.Pill
+	if err := db.DB.Where("id = ? AND user_id = ?", pillID, userID).First(&pill).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"message": "丹药不存在"})
+		} else {
+			zapLogger.Error("查询丹药失败",
+				zap.Uint("userID", userID),
+				zap.String("pillID", pillID),
+				zap.Error(err))
+			c.JSON(http.StatusInternalServerError, gin.H{"message": "服务器错误"})
+		}
+		return
+	}
+
+	// 查询玩家信息，用于获取等级和计算效果
+	var user models.User
+	if err := db.DB.First(&user, userID).Error; err != nil {
+		zapLogger.Error("查询玩家信息失败",
+			zap.Uint("userID", userID),
+			zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "查询玩家信息失败"})
+		return
+	}
+
+	// 解析丹药效果
+	var effectData map[string]interface{}
+	var effectType string
+	var baseValue float64
+	if err := json.Unmarshal(pill.Effect, &effectData); err == nil {
+		if t, ok := effectData["type"].(string); ok {
+			effectType = t
+		}
+		if v, ok := effectData["value"].(float64); ok {
+			baseValue = v
+		}
+	}
+
+	// 根据丹药 ID 查找对应的计算公式，计算效果值
+	actualValue := alchemy.CalculatePillEffect(pill.PillID, baseValue, user.Level)
+
+	zapLogger.Info("丹药效果计算",
+		zap.String("pillID", pill.PillID),
+		zap.String("effectType", effectType),
+		zap.Float64("baseValue", baseValue),
+		zap.Int("playerLevel", user.Level),
+		zap.Float64("actualValue", actualValue))
+
+	// 根据效果类型更新对应属性
+	switch effectType {
+	case "spirit":
+		user.Spirit += actualValue
+	case "cultivation":
+		user.Cultivation += actualValue
+	case "attributeAttack":
+		// 更新基础属性中的攻击
+		updateBaseAttributeAttack(&user, actualValue)
+	}
+
+	// 保存玩家更新
+	if err := db.DB.Save(&user).Error; err != nil {
+		zapLogger.Error("保存玩家属性失败",
+			zap.Uint("userID", userID),
+			zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "保存玩家属性失败"})
+		return
+	}
+
+	// 删除丹药记录
+	if err := db.DB.Delete(&pill).Error; err != nil {
+		zapLogger.Error("删除丹药失败",
+			zap.Uint("userID", userID),
+			zap.String("pillID", pillID),
+			zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "删除丹药失败"})
+		return
+	}
+
+	// 更新用户统计数据（从 BaseAttributes JSON 中更新 pillsConsumed）
+	baseAttrs := jsonToFloatMap(user.BaseAttributes)
+	if baseAttrs == nil {
+		baseAttrs = make(map[string]float64)
+	}
+	baseAttrs["pillsConsumed"]++
+	user.BaseAttributes = toJSON(baseAttrs)
+
+	if err := db.DB.Model(&user).Update("base_attributes", user.BaseAttributes).Error; err != nil {
+		zapLogger.Error("更新丹药统计失败",
+			zap.Uint("userID", userID),
+			zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "更新统计失败"})
+		return
+	}
+
+	zapLogger.Info("ConsumePill 出参",
+		zap.Uint("userID", userID),
+		zap.String("pillID", pillID),
+		zap.String("pillName", pill.Name),
+		zap.String("effectType", effectType),
+		zap.Float64("actualValue", actualValue))
+
+	// 返回丹药信息和效果
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": fmt.Sprintf("成功服用%s，增加%s %.0f", pill.Name, effectTypeToName(effectType), actualValue),
+		"data": gin.H{
+			"pillId":            pill.ID,
+			"pillName":          pill.Name,
+			"effect":            pill.Effect,
+			"description":       pill.Description,
+			"effectType":        effectType,
+			"actualValue":       actualValue,
+			"playerSpirit":      user.Spirit,
+			"playerCultivation": user.Cultivation,
+		},
+	})
 }

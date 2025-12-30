@@ -483,3 +483,28 @@ func upsertPill(tx *gorm.DB, userID uint, pill map[string]interface{}) error {
 	}
 	return tx.Create(&model).Error
 }
+
+// effectTypeToName 将效果类型转换为中文名称
+func effectTypeToName(effectType string) string {
+	switch effectType {
+	case "spirit":
+		return "灵力"
+	case "cultivation":
+		return "修为"
+	case "attributeAttack":
+		return "攻击"
+	default:
+		return "未知效果"
+	}
+}
+
+// updateBaseAttributeAttack 更新基础属性中的攻击值
+func updateBaseAttributeAttack(user *models.User, addValue float64) error {
+	baseAttrs := jsonToFloatMap(user.BaseAttributes)
+	if baseAttrs == nil {
+		baseAttrs = make(map[string]float64)
+	}
+	baseAttrs["attack"] += addValue
+	user.BaseAttributes = toJSON(baseAttrs)
+	return nil
+}

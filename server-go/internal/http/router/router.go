@@ -53,6 +53,9 @@ func RegisterRoutes(r *gin.Engine) {
 
 		playerGroup.GET("/equipment", player.GetPlayerEquipment)
 		playerGroup.GET("/equipment/details/:id", player.GetEquipmentDetails)
+		playerGroup.GET("/herbs", player.GetHerbsPaginated)
+		playerGroup.GET("/pills", player.GetPillsPaginated)
+		playerGroup.GET("/formulas", player.GetFormulasPaginated)
 
 		// 装备系统写操作
 		playerGroup.POST("/equipment/:id/enhance", player.EnhanceEquipment)
@@ -62,6 +65,9 @@ func RegisterRoutes(r *gin.Engine) {
 		playerGroup.POST("/equipment/:id/unequip", player.UnequipEquipment)
 		playerGroup.DELETE("/equipment/:id", player.SellEquipment)
 		playerGroup.POST("/equipment/batch-sell", player.BatchSellEquipment)
+
+		// 丹药系统
+		playerGroup.POST("/pills/:id/consume", player.ConsumePill)
 
 		// 灵宠系统
 		playerGroup.POST("/pets/:id/deploy", player.DeployPet)

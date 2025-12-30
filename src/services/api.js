@@ -62,7 +62,11 @@ function convertToCamelCase(obj) {
         'Experience': 'experience',
         'MaxExperience': 'maxExperience',
         'IsActive': 'isActive',
-        'Star': 'star'
+        'Star': 'star',
+        'PillID': 'pillId',
+        'Effect': 'effect',
+        'RecipeID': 'recipeId',
+        'Count': 'count'
       };
       
       // 使用特殊映射规则或默认转换规则（小驼峰字段直接返回）
@@ -509,6 +513,129 @@ class APIService {
     return convertToCamelCase(data);
   }
   
+  /**
+   * 获取玩家灵草分页列表
+   * @param {string} token - 认证令牌
+   * @param {Object} params - 查询参数 { page, pageSize, sort, order }
+   * @returns {Promise<Object>} 灵草分页列表
+   */
+  static async getHerbsList(token, params = {}) {
+    let url = `${API_BASE_URL}/player/herbs`;
+    
+    // 添加查询参数
+    const searchParams = new URLSearchParams();
+    Object.keys(params).forEach(key => {
+      if (params[key] !== undefined && params[key] !== null) {
+        searchParams.append(key, params[key]);
+      }
+    });
+
+    if (searchParams.toString()) {
+      url += `?${searchParams.toString()}`;
+    }
+
+    console.log(`[API Service] 调用获取灵草分页列表接口: ${url}`);
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('获取灵草列表失败');
+    }
+
+    const data = await response.json();
+    console.log(`[API Service] 获取灵草列表接口调用完成: ${url}`, data);
+    
+    // 统一转换后端返回的数据字段为小驼峰命名法
+    return convertToCamelCase(data);
+  }
+  
+  /**
+   * 获取玩家丹药分页列表
+   * @param {string} token - 认证令牌
+   * @param {Object} params - 查询参数 { page, pageSize, sort, order }
+   * @returns {Promise<Object>} 丹药分页列表
+   */
+  static async getPillsList(token, params = {}) {
+    let url = `${API_BASE_URL}/player/pills`;
+    
+    // 添加查询参数
+    const searchParams = new URLSearchParams();
+    Object.keys(params).forEach(key => {
+      if (params[key] !== undefined && params[key] !== null) {
+        searchParams.append(key, params[key]);
+      }
+    });
+
+    if (searchParams.toString()) {
+      url += `?${searchParams.toString()}`;
+    }
+
+    console.log(`[API Service] 调用获取丹药分页列表接口: ${url}`);
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('获取丹药列表失败');
+    }
+
+    const data = await response.json();
+    console.log(`[API Service] 获取丹药列表接口调用完成: ${url}`, data);
+    
+    // 统一转换后端返回的数据字段为小驼峰命名法
+    return convertToCamelCase(data);
+  }
+
+  /**
+   * 获取玩家丹方分页列表
+   * @param {string} token - 认证令牌
+   * @param {Object} params - 查询参数 { page, pageSize, sort, order }
+   * @returns {Promise<Object>} 丹方分页列表
+   */
+  static async getFormulasList(token, params = {}) {
+    let url = `${API_BASE_URL}/player/formulas`;
+    
+    // 添加查询参数
+    const searchParams = new URLSearchParams();
+    Object.keys(params).forEach(key => {
+      if (params[key] !== undefined && params[key] !== null) {
+        searchParams.append(key, params[key]);
+      }
+    });
+
+    if (searchParams.toString()) {
+      url += `?${searchParams.toString()}`;
+    }
+
+    console.log(`[API Service] 调用获取丹方分页列表接口: ${url}`);
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('获取丹方列表失败');
+    }
+
+    const data = await response.json();
+    console.log(`[API Service] 获取丹方列表接口调用完成: ${url}`, data);
+    
+    // 统一转换后端返回的数据字段为小驼峰命名法
+    return convertToCamelCase(data);
+  }
+
   /**
    * 获取装备详情
    * @param {string} token - 认证令牌

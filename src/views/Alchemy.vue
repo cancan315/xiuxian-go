@@ -1,9 +1,13 @@
 <template>
   <n-card title="丹药炼制">
     <n-space vertical>
+      <!-- 刷新按钮 -->
+      <n-button @click="initAlchemy" :loading="loading">
+        🔄 刷新丹方列表
+      </n-button>
+      <!-- 已解锁丹方 -->
       <template v-if="unlockedRecipes.length > 0">
-        <n-divider>丹方选择</n-divider>
-        <!-- 丹方选择 -->
+        <n-divider>已掌握丹方</n-divider>
         <n-grid :cols="2" :x-gap="12">
           <n-grid-item v-for="recipe in unlockedRecipes" :key="recipe.id">
             <n-card :title="recipe.name" size="small">
@@ -25,9 +29,10 @@
           </n-grid-item>
         </n-grid>
       </template>
-      <n-space vertical v-else>
+      <!-- 未获得过丹方 -->
+      <template v-if="unlockedRecipes.length === 0 && incompleteRecipes.length === 0">
         <n-empty description="暂未掌握任何丹方" />
-      </n-space>
+      </template>
       <!-- 材料需求 -->
       <template v-if="selectedRecipe">
         <n-divider>材料需求</n-divider>
@@ -54,7 +59,7 @@
           <n-descriptions-item label="丹药介绍">
             {{ selectedRecipe.description }}
           </n-descriptions-item>
-          <n-descriptions-item label="效果数值">+{{ (currentEffect.value * 100).toFixed(1) }}%</n-descriptions-item>
+          <n-descriptions-item label="效果数值">+{{ currentEffect.value  }}</n-descriptions-item>
           <n-descriptions-item label="持续时间">{{ Math.floor(currentEffect.duration / 60) }}分钟</n-descriptions-item>
           <n-descriptions-item label="成功率">{{ (currentEffect.successRate * 100).toFixed(1) }}%</n-descriptions-item>
         </n-descriptions>
@@ -73,6 +78,31 @@
       </n-button>
     </n-space>
     <log-panel v-if="selectedRecipe" ref="logRef" title="炼丹日志" />
+          <!-- 残缺丹方 -->
+      <template v-if="incompleteRecipes.length > 0">
+        <n-divider>残缺丹方</n-divider>
+        <n-grid :cols="2" :x-gap="12">
+          <n-grid-item v-for="recipe in incompleteRecipes" :key="recipe.id">
+            <n-card :title="recipe.name" size="small">
+              <n-space vertical>
+                <n-text depth="3">{{ recipe.description }}</n-text>
+                <n-space>
+                  <n-tag type="info">{{ recipe.gradeName }}</n-tag>
+                  <n-tag type="warning">{{ recipe.typeName }}</n-tag>
+                </n-space>
+                <n-progress
+                  type="line"
+                  :percentage="(recipe.currentFragments / recipe.fragmentsNeeded) * 100"
+                  :show-indicator="false"
+                />
+                <n-text depth="3" size="small">
+                  残页进度: {{ recipe.currentFragments }}/{{ recipe.fragmentsNeeded }}
+                </n-text>
+              </n-space>
+            </n-card>
+          </n-grid-item>
+        </n-grid>
+      </template>
   </n-card>
 </template>
 
@@ -96,26 +126,120 @@
   const allRecipes = ref([])
   const configs = ref(null)
 
-  // 初始化：获取后端配置
+  // 初始化：获取后端配置和火草数据
   const initAlchemy = async () => {
     try {
       loading.value = true
       const token = getAuthToken()
+        
+      // 1. 加载丹方数据
       const response = await APIService.get('/alchemy/recipes', { playerLevel: playerInfoStore.level }, token)
       if (response.success) {
-        allRecipes.value = response.data.recipes
+        allRecipes.value = response.data.recipes || []
+          
+        // ✅ 从后端返回的数据中更新玚家的已解锁丹方
+        if (response.data.playerStats && response.data.playerStats.recipesUnlocked) {
+          playerInfoStore.pillRecipes = Object.keys(response.data.playerStats.recipesUnlocked).filter(
+            id => response.data.playerStats.recipesUnlocked[id] === true
+          )
+          playerInfoStore.pillFragments = response.data.playerStats.fragments || {}
+        }
+          
+        console.log('[Alchemy] 成功加载丹方列表，已解锁数量:', playerInfoStore.pillRecipes.length)
       }
+        
+      // 2. 加载火草数据
+      await loadHerbs()
     } catch (error) {
-      console.error('初始化炼丹系统失败:', error)
+      console.error('[Alchemy] 初始化炼丹系统失败:', error)
       message.error('初始化炼丹系统失败')
     } finally {
       loading.value = false
+    }
+  }
+  
+  // 加载灵草数据
+  const loadHerbs = async () => {
+    try {
+      const token = getAuthToken()
+      if (!token) {
+        console.warn('[Alchemy] 未找到认证令牌，无法加载灵草')
+        return
+      }
+    
+      console.log('[Alchemy] 开始加载灵草数据')
+          
+      // 一次性加载所有灵草数据（不分页）
+      let allHerbs = []
+      let page = 1
+      let totalPages = 1
+    
+      while (page <= totalPages) {
+        const response = await APIService.getHerbsList(token, {
+          page: page,
+          pageSize: 100,
+          sort: 'id',
+          order: 'asc'
+        })
+    
+        if (response && response.herbs) {
+          // 转换字段映射
+          const processedHerbs = response.herbs.map(herb => ({
+            id: herb.id || herb.ID,
+            userId: herb.userId || herb.UserID,
+            herbId: herb.herbId || herb.HerbID,
+            name: herb.name || herb.Name,
+            count: herb.count || herb.Count || 0,
+            quality: herb.quality || herb.Quality || 'common'
+          }))
+          allHerbs = allHerbs.concat(processedHerbs)
+              
+          // 更新分页信息
+          if (response.pagination) {
+            totalPages = response.pagination.totalPages || 1
+            page++
+          } else {
+            break
+          }
+        } else {
+          break
+        }
+      }
+    
+      // ✅ 按 herbId 聚合灵草数据（合并相同种类）
+      const groupedByHerbId = {}
+      allHerbs.forEach(herb => {
+        if (groupedByHerbId[herb.herbId]) {
+          // 已存在该种灵草，累加数量
+          groupedByHerbId[herb.herbId].count += herb.count
+        } else {
+          // 新灵草种类
+          groupedByHerbId[herb.herbId] = { ...herb }
+        }
+      })
+        
+      // 转换为数组存储
+      const aggregatedHerbs = Object.values(groupedByHerbId)
+        
+      // 更新 playerInfoStore 中的 herbs 数据
+      playerInfoStore.herbs = aggregatedHerbs
+      console.log('[Alchemy] 成功加载灵草数据，总数:', allHerbs.length)
+      console.log('[Alchemy] 聚合后的灵草数据:', aggregatedHerbs)
+      console.log('[Alchemy] 按herbId分组统计:', groupedByHerbId)
+    } catch (error) {
+      console.error('[Alchemy] 加载灵草数据失败:', error)
+      // 不中断情流，继续执行
     }
   }
 
   // 解锁的丹方列表
   const unlockedRecipes = computed(() => {
     return allRecipes.value.filter(recipe => recipe.isUnlocked)
+  })
+
+  // 残缺丹方列表（未解锁但有残页）
+  const incompleteRecipes = computed(() => {
+    return allRecipes.value.filter(recipe => !recipe.isUnlocked && recipe.currentFragments > 0)
   })
 
   // 当前选中丹方的效果
@@ -140,7 +264,8 @@
 
   // 获取材料状态（拥有数量/需要数量）
   const getMaterialStatus = (material) => {
-    const ownedCount = playerInfoStore.herbs.filter(h => h.id === material.herbId).length
+    const herb = playerInfoStore.herbs.find(h => h.herbId === material.herbId)
+    const ownedCount = herb ? herb.count : 0
     return `${ownedCount}/${material.count}`
   }
 
@@ -148,7 +273,9 @@
   const checkMaterials = (recipe) => {
     if (!recipe || !recipe.materials) return false
     for (const material of recipe.materials) {
-      const ownedCount = playerInfoStore.herbs.filter(h => h.id === material.herbId).length
+      const herb = playerInfoStore.herbs.find(h => h.herbId === material.herbId)
+      const ownedCount = herb ? herb.count : 0
+      console.log(`[Alchemy] 检查材料: ${material.herbId}, 拥有: ${ownedCount}, 需要: ${material.count}`)
       if (ownedCount < material.count) {
         return false
       }
@@ -173,14 +300,11 @@
     try {
       loading.value = true
       
-      // 构建灵草库存数据
+      // 构建火草库存数据
       const inventoryHerbs = {}
       playerInfoStore.herbs.forEach(h => {
-        if (inventoryHerbs[h.id]) {
-          inventoryHerbs[h.id]++
-        } else {
-          inventoryHerbs[h.id] = 1
-        }
+        // 每个火草对象的count是该种火草的总数量
+        inventoryHerbs[h.herbId] = h.count
       })
       
       const token = getAuthToken()
@@ -199,22 +323,16 @@
           logRef.value.addLog(`成功炼制${recipe.name}`)
         }
         
-        // 根据后端返回的消耗材料从前端库存扣除
-        if (response.data.consumedHerbs) {
-          Object.entries(response.data.consumedHerbs).forEach(([herbId, count]) => {
-            for (let i = 0; i < count; i++) {
-              const index = playerInfoStore.herbs.findIndex(h => h.id === herbId)
-              if (index > -1) {
-                playerInfoStore.herbs.splice(index, 1)
-              }
-            }
-          })
-        }
+        // ✅ 移除前端手动扣除逻辑，直接刷新所有数据
+        // 后端已经消耗了灵草，initAlchemy 会重新加载最新的灵草数据
         
         // 更新炼制次数统计
         playerInfoStore.pillsCrafted++
         
-        // 刷新丹方列表
+        // ✅ 在刷新数据之前稍作等待，确保后端事务完成
+        await new Promise(resolve => setTimeout(resolve, 200))
+        
+        // 刷新丹方列表（包括重新加载灵草）
         await initAlchemy()
       } else {
         message.error(response.data?.message || '炼制失败')
