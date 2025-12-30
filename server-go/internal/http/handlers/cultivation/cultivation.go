@@ -88,3 +88,38 @@ func GetCultivationData(c *gin.Context) {
 		"data":    data,
 	})
 }
+
+// UseFormation 使用聚灵阵
+// POST /api/cultivation/formation
+func UseFormation(c *gin.Context) {
+	userID, ok := c.Get("userID")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "用户未授权"})
+		return
+	}
+
+	uid := userID.(uint)
+	logger, _ := c.Get("zap_logger")
+	zapLogger := logger.(*zap.Logger)
+
+	zapLogger.Info("UseFormation 入参",
+		zap.Uint("userID", uid))
+
+	service := cultivationSvc.NewCultivationService(uid)
+
+	resp, err := service.UseFormation()
+	if err != nil {
+		zapLogger.Error("formation failed",
+			zap.Uint("userID", uid),
+			zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "聚灵阵使用失败", "error": err.Error()})
+		return
+	}
+
+	zapLogger.Info("UseFormation 出参",
+		zap.Uint("userID", uid),
+		zap.Float64("cultivationGain", resp.CultivationGain),
+		zap.Int("stoneCost", resp.StoneCost))
+
+	c.JSON(http.StatusOK, resp)
+}

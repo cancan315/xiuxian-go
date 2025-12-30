@@ -10,6 +10,12 @@ const (
 	BreakthroughReward        = 100 // 突破奖励倍数
 	BreakthroughBonus         = 1.2 // 突破灵力获取倍率提升
 	ExtraCultivationChance    = 0.3 // 额外修为概率基数
+	// ✅ 新增：聚灵阵相关常量
+	BaseFormationCost       = 10   // 基础聚灵阵消耗灵石
+	BaseFormationGain       = 5    // 基础聚灵阵获得修为
+	FormationCostMultiplier = 1.3  // 聚灵阵消耗倍率
+	FormationGainMultiplier = 1.1  // 聚灵阵获得倍率
+	FormationInterval       = 1000 // 聚灵阵间隔时间（毫秒）
 )
 
 // 修炼请求
@@ -23,6 +29,17 @@ type CultivationResponse struct {
 	Success            bool        `json:"success"`
 	CultivationGain    float64     `json:"cultivationGain"`    // 获得的修为
 	SpiritCost         float64     `json:"spiritCost"`         // 消耗的灵力
+	CurrentCultivation float64     `json:"currentCultivation"` // 当前修为
+	Breakthrough       interface{} `json:"breakthrough,omitempty"`
+	Message            string      `json:"message,omitempty"`
+	Error              string      `json:"error,omitempty"`
+}
+
+// FormationResponse 聚灵阵响应
+type FormationResponse struct {
+	Success            bool        `json:"success"`
+	CultivationGain    float64     `json:"cultivationGain"`    // 获得的修为
+	StoneCost          int         `json:"stoneCost"`          // 消耗的灵石
 	CurrentCultivation float64     `json:"currentCultivation"` // 当前修为
 	Breakthrough       interface{} `json:"breakthrough,omitempty"`
 	Message            string      `json:"message,omitempty"`
@@ -75,6 +92,7 @@ type CultivationData struct {
 	CombatAttributes  map[string]interface{} `json:"combatAttributes,omitempty"`  // 战斗属性
 	CombatResistance  map[string]interface{} `json:"combatResistance,omitempty"`  // 战斗抗性
 	SpecialAttributes map[string]interface{} `json:"specialAttributes,omitempty"` // 特殊属性
+	// ✅ 修改：聚灵阵相关数据通过baseAttributes返回，不新增单独字段
 }
 
 // 境界信息

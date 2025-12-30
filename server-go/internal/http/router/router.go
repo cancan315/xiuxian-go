@@ -104,6 +104,8 @@ func RegisterRoutes(r *gin.Engine) {
 		cultivationGroup.POST("/single", cultivation.SingleCultivate)
 		// cultivationGroup.POST("/auto", cultivation.AutoCultivate)
 		cultivationGroup.GET("/data", cultivation.GetCultivationData)
+		// ✅ 新增：聚灵阵相关路由
+		cultivationGroup.POST("/formation", cultivation.UseFormation)
 	}
 
 	// /api/dungeon 路由

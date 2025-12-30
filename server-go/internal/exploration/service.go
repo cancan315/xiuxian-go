@@ -230,10 +230,10 @@ func (s *ExplorationService) triggerRandomEvent(user *models.User, r *rand.Rand)
 		// 小计 2
 
 		// ===== 稀有资源 =====
-		{"获得灵石", 13, s.eventTreasureTrove},
+		{"获得灵石", 15, s.eventTreasureTrove},
 		{"获得强化石", 5, s.eventReinforceStone},
 		{"获得洗炼石", 5, s.eventRefinementStone},
-		{"获得灵宠精华", 5, s.eventPetEssence},
+		{"获得灵宠精华", 3, s.eventPetEssence},
 		// 小计 28
 	}
 
@@ -346,23 +346,25 @@ func (s *ExplorationService) eventCultivationDeviation(user *models.User, r *ran
 
 // eventTreasureTrove 获得灵石+1
 func (s *ExplorationService) eventTreasureTrove(user *models.User, r *rand.Rand) *ExplorationEvent {
-	stoneBonus := 10
-	randNum := r.Float64()
-	// 更合理的概率分布（稀有度递增）
+	stoneBonus := 100
+	randNum := r.Float64() // [0,1)
 	switch {
-	case randNum < 0.001: // 0.1% 概率 200倍（极其稀有）
-		stoneBonus = 2000
-	case randNum < 0.003: // 0.2% 概率 150倍
-		stoneBonus = 1500
-	case randNum < 0.008: // 0.5% 概率 100倍
+	case randNum < 0.01: // 1%
 		stoneBonus = 1000
-	case randNum < 0.020: // 1.2% 概率 50倍
+	case randNum < 0.05: // 4%
+		stoneBonus = 700
+	case randNum < 0.10: // 5%
 		stoneBonus = 500
-	case randNum < 0.050: // 3% 概率 3倍
-		stoneBonus = 30
-	case randNum < 0.200: // 15% 概率 2倍（保持原概率）
-		stoneBonus = 20
+	case randNum < 0.20: // 10%
+		stoneBonus = 300
+	case randNum < 0.40: // 20%
+		stoneBonus = 200
+	case randNum < 0.60: // 20%
+		stoneBonus = 150
+	default: // 40%
+		stoneBonus = 100
 	}
+
 	user.SpiritStones += stoneBonus
 	db.DB.Model(user).Update("spirit_stones", user.SpiritStones)
 

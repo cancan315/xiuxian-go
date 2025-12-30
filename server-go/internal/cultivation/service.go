@@ -84,13 +84,25 @@ func getCurrentCultivationGain(level int) float64 {
 }
 
 // calculateCultivationGain 计算实际获得的修为（包含幸运暴击）
-func calculateCultivationGain(level int, luck float64, cultivationRate float64) float64 {
+func calculateCultivationGain(level int, cultivationRate float64) float64 {
 	gain := getCurrentCultivationGain(level) * cultivationRate
-	// 幸运暴击：30% × luck 概率触发双倍修为
-	if rand.Float64() < ExtraCultivationChance*luck {
+	r := rand.Float64() // [0,1)
+
+	switch {
+	case r < 0.01: // 1%
+		gain *= 10
+	case r < 0.06: // 5%
+		gain *= 5
+	case r < 0.16: // 10%
+		gain *= 4
+	case r < 0.36: // 20%
+		gain *= 3
+	case r < 0.66: // 30%
 		gain *= 2
 	}
+
 	// 保留一位小数
+	gain = math.Round(gain*10) / 10
 	return math.Round(gain*10) / 10
 }
 
@@ -106,7 +118,7 @@ func (s *CultivationService) SingleCultivate() (*CultivationResponse, error) {
 	lastCultivateTime, err := redis.Client.Get(redis.Ctx, lastCultivateKey).Int64()
 	if err == nil && lastCultivateTime > 0 {
 		elapsed := time.Now().UnixMilli() - lastCultivateTime
-		const cultivateInterval = 3000 // 3秒（毫秒）
+		const cultivateInterval = 1000 // 1秒（毫秒）
 		if elapsed < cultivateInterval {
 			waitTime := time.Duration(cultivateInterval-elapsed) * time.Millisecond
 			return &CultivationResponse{
@@ -122,12 +134,6 @@ func (s *CultivationService) SingleCultivate() (*CultivationResponse, error) {
 	// 获取玩家属性
 	attrs := s.getPlayerAttributes(&user)
 	cultivationRate := attrs["cultivationRate"].(float64)
-	luck := 1.0
-	if v, ok := attrs["luck"]; ok {
-		if l, ok := v.(float64); ok && l > 0 {
-			luck = l
-		}
-	}
 
 	// 计算当前等级的修炼消耗
 	cultivationCost := getCurrentCultivationCost(user.Level)
@@ -145,7 +151,7 @@ func (s *CultivationService) SingleCultivate() (*CultivationResponse, error) {
 	user.Spirit -= cultivationCost
 
 	// 计算修为获得（包含幸运暴击）
-	cultivationGain := calculateCultivationGain(user.Level, luck, cultivationRate)
+	cultivationGain := calculateCultivationGain(user.Level, cultivationRate)
 	user.Cultivation = math.Round((user.Cultivation+cultivationGain)*10) / 10
 	// 检查是否需要突破
 	var breakthroughResult *BreakthroughResponse
@@ -188,93 +194,6 @@ func (s *CultivationService) SingleCultivate() (*CultivationResponse, error) {
 	}
 
 	return resp, nil
-}
-
-// CultivateUntilBreakthrough 一键突破（快速修炼至突破）
-func (s *CultivationService) CultivateUntilBreakthrough() (*CultivationResponse, error) {
-	var user models.User
-	if err := db.DB.First(&user, s.userID).Error; err != nil {
-		return nil, fmt.Errorf("failed to get user: %w", err)
-	}
-
-	// 检查是否已达到最高等级
-	if user.Level >= GetMaxLevel() {
-		return &CultivationResponse{
-			Success: false,
-			Error:   "已达到最高境界，无法继续突破",
-		}, nil
-	}
-
-	// 获取玩家属性
-	attrs := s.getPlayerAttributes(&user)
-	cultivationRate := attrs["cultivationRate"].(float64)
-
-	// 计算需要的修为和灵力
-	remainingCultivation := user.MaxCultivation - user.Cultivation
-	gainPerCycle := getCurrentCultivationGain(user.Level) * cultivationRate
-	costPerCycle := getCurrentCultivationCost(user.Level)
-
-	if gainPerCycle <= 0 {
-		return &CultivationResponse{
-			Success: false,
-			Error:   "修炼效率异常",
-		}, nil
-	}
-
-	// 计算需要的修炼次数和总灵力消耗
-	times := int(math.Ceil(remainingCultivation / gainPerCycle))
-	spiritCost := float64(times) * costPerCycle
-
-	// 检查灵力是否充足
-	if user.Spirit < spiritCost {
-		return &CultivationResponse{
-			Success: false,
-			Error:   fmt.Sprintf("灵力不足，突破需要%.0f灵力，当前灵力：%.1f", spiritCost, user.Spirit),
-		}, nil
-	}
-
-	// 消耗灵力并达到突破条件
-	user.Spirit -= spiritCost
-	user.Cultivation = math.Round(user.MaxCultivation*10) / 10
-	// 执行突破
-	breakthroughResult := s.performBreakthrough(&user, &attrs)
-	if breakthroughResult == nil {
-		return &CultivationResponse{
-			Success: false,
-			Error:   "突破失败",
-		}, nil
-	}
-
-	// 保存属性
-	s.setPlayerAttributes(&user, attrs)
-
-	// 保存数据
-	if err := db.DB.Model(&user).Updates(map[string]interface{}{
-		"spirit":          user.Spirit,
-		"cultivation":     user.Cultivation,
-		"level":           user.Level,
-		"realm":           user.Realm,
-		"max_cultivation": user.MaxCultivation,
-		"base_attributes": user.BaseAttributes,
-	}).Error; err != nil {
-		return nil, fmt.Errorf("failed to update user: %w", err)
-	}
-
-	return &CultivationResponse{
-		Success:            true,
-		CultivationGain:    remainingCultivation,
-		SpiritCost:         spiritCost,
-		CurrentCultivation: user.Cultivation,
-		Breakthrough: map[string]interface{}{
-			"newLevel":          breakthroughResult.NewLevel,
-			"newRealm":          breakthroughResult.NewRealm,
-			"newMaxCultivation": breakthroughResult.NewMaxCultivation,
-			"spiritReward":      breakthroughResult.SpiritReward,
-			"newSpiritRate":     breakthroughResult.NewSpiritRate,
-			"message":           breakthroughResult.Message,
-		},
-		Message: breakthroughResult.Message,
-	}, nil
 }
 
 // performBreakthrough 执行突破逻辑
@@ -351,6 +270,124 @@ func (s *CultivationService) unlockRealm(user *models.User, attrs *map[string]in
 	return nil
 }
 
+// getCurrentFormationCost 计算当前等级的聚灵阵消耗
+func getCurrentFormationCost(level int) int {
+	return int(float64(BaseFormationCost) * math.Pow(FormationCostMultiplier, float64(level-1)))
+}
+
+// getCurrentFormationGain 计算当前等级的聚灵阵获得
+func getCurrentFormationGain(level int) float64 {
+	return float64(BaseFormationGain) * math.Pow(FormationGainMultiplier, float64(level-1))
+}
+
+// UseFormation 使用聚灵阵
+func (s *CultivationService) UseFormation() (*FormationResponse, error) {
+	var user models.User
+	if err := db.DB.First(&user, s.userID).Error; err != nil {
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+
+	// 检查聚灵阵间隔（1秒一次）
+	lastFormationKey := fmt.Sprintf("formation:lasttime:%d", s.userID)
+	lastFormationTime, err := redis.Client.Get(redis.Ctx, lastFormationKey).Int64()
+	if err == nil && lastFormationTime > 0 {
+		elapsed := time.Now().UnixMilli() - lastFormationTime
+		const formationInterval = FormationInterval // 1秒（毫秒）
+		if elapsed < formationInterval {
+			waitTime := time.Duration(formationInterval-elapsed) * time.Millisecond
+			return &FormationResponse{
+				Success: false,
+				Error:   fmt.Sprintf("聚灵阵正在运转，请等待%.1f秒再次使用", float64(waitTime.Milliseconds())/1000),
+			}, nil
+		}
+	}
+
+	// 记录本次聚灵阵的时间
+	redis.Client.Set(redis.Ctx, lastFormationKey, time.Now().UnixMilli(), 24*time.Hour)
+
+	// 获取玩家属性
+	attrs := s.getPlayerAttributes(&user)
+	cultivationRate := attrs["cultivationRate"].(float64)
+
+	// 计算当前等级的聚灵阵消耗
+	formationCost := getCurrentFormationCost(user.Level)
+
+	// 检查灵石是否足够
+	if user.SpiritStones < formationCost {
+		return &FormationResponse{
+			Success: false,
+			Error:   fmt.Sprintf("灵石不足，需要%d，当前%d", formationCost, user.SpiritStones),
+		}, nil
+	}
+
+	// 消耗灵石
+	user.SpiritStones -= formationCost
+
+	// 计算修为获得（包含多档幸运暴击）
+	formationGain := getCurrentFormationGain(user.Level) * cultivationRate
+
+	r := rand.Float64() // [0,1)
+
+	switch {
+	case r < 0.01: // 1%
+		formationGain *= 10
+	case r < 0.06: // 5%
+		formationGain *= 5
+	case r < 0.16: // 10%
+		formationGain *= 4
+	case r < 0.36: // 20%
+		formationGain *= 3
+	case r < 0.66: // 30%
+		formationGain *= 2
+	}
+
+	// 保留一位小数
+	formationGain = math.Round(formationGain*10) / 10
+	user.Cultivation = math.Round((user.Cultivation+formationGain)*10) / 10
+
+	// 检查是否需要突破
+	var breakthroughResult *BreakthroughResponse
+	if user.Cultivation >= user.MaxCultivation {
+		breakthroughResult = s.performBreakthrough(&user, &attrs)
+	}
+
+	// 保存属性
+	s.setPlayerAttributes(&user, attrs)
+
+	// 保存数据
+	if err := db.DB.Model(&user).Updates(map[string]interface{}{
+		"spirit_stones":   user.SpiritStones,
+		"cultivation":     user.Cultivation,
+		"level":           user.Level,
+		"realm":           user.Realm,
+		"max_cultivation": user.MaxCultivation,
+		"base_attributes": user.BaseAttributes,
+	}).Error; err != nil {
+		return nil, fmt.Errorf("failed to update user: %w", err)
+	}
+
+	resp := &FormationResponse{
+		Success:            true,
+		CultivationGain:    formationGain,
+		StoneCost:          formationCost,
+		CurrentCultivation: user.Cultivation,
+	}
+
+	if breakthroughResult != nil {
+		resp.Breakthrough = map[string]interface{}{
+			"newLevel":          breakthroughResult.NewLevel,
+			"newRealm":          breakthroughResult.NewRealm,
+			"newMaxCultivation": breakthroughResult.NewMaxCultivation,
+			"spiritReward":      breakthroughResult.SpiritReward,
+			"newSpiritRate":     breakthroughResult.NewSpiritRate,
+			"message":           breakthroughResult.Message,
+		}
+		resp.Message = breakthroughResult.Message
+	}
+
+	return resp, nil
+}
+
 // GetCultivationData 获取修炼数据
 // ✅ 改进：包括并重新计算已穿戴装备和出战灵宠的属性加成
 func (s *CultivationService) GetCultivationData() (*CultivationData, error) {
@@ -367,6 +404,14 @@ func (s *CultivationService) GetCultivationData() (*CultivationData, error) {
 	// 计算修炼消耗和获得
 	spiritCost := getCurrentCultivationCost(user.Level)
 	cultivationGain := getCurrentCultivationGain(user.Level)
+
+	// ✅ 新增：计算聚灵阵消耗和获得，并添加到属性中
+	formationCost := getCurrentFormationCost(user.Level)
+	formationGain := getCurrentFormationGain(user.Level)
+	// 将聚灵阵相关数据添加到基础属性中
+	attrs["formationLevel"] = user.Level // 使用玩家等级作为聚灵阵等级参考
+	attrs["formationGain"] = formationGain
+	attrs["formationCost"] = formationCost
 
 	// 解析已解锁的境界
 	unlockedRealms := []string{}
@@ -416,8 +461,8 @@ func (s *CultivationService) GetCultivationData() (*CultivationData, error) {
 		RefinementStones: user.RefinementStones,
 		PetEssence:       user.PetEssence,
 		UnlockedRealms:   unlockedRealms,
-		// ✅ 新增：返回属性数据
-		BaseAttributes:    baseAttributes,
+		// ✅ 新增：返回属性数据（包含聚灵阵相关数据）
+		BaseAttributes:    attrs, // 使用更新后的attrs，包含聚灵阵数据
 		CombatAttributes:  combatAttributes,
 		CombatResistance:  combatResistance,
 		SpecialAttributes: specialAttributes,
