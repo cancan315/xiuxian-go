@@ -249,22 +249,28 @@ func (s *PvEBattleService) ExecutePvERound() (*PvPRoundData, error) {
 			roundLogs = append(roundLogs, fmt.Sprintf("%s已被击败！%s获得胜利！", status.MonsterName, status.PlayerName))
 			status.BattleLog = append(status.BattleLog, roundLogs[len(roundLogs)-1])
 
-			// 获取玩家信息以获取等级
-			var player models.User
-			if err := db.DB.First(&player, s.playerID).Error; err != nil {
-				log.Printf("[PvE] 获取玩家等级失败: %v", err)
-			}
-
 			// 计算并发放奖励
-			baseRewards := s.rewardService.CalculateRewardsForPvE(status, player.Level)
-			finalRewards := s.rewardService.ApplyRewardMultiplier(baseRewards)
+			awardRewards := s.rewardService.CalculateRewardsForPvE(status, 0) // playerLevel 不用于灵草奖励
 
-			if err := s.rewardService.GrantRewardsToPlayer(s.playerID, finalRewards); err != nil {
-				log.Printf("[PvE] 发放奖励失败: %v", err)
+			if awardRewards != nil {
+				if err := s.rewardService.GrantPvERewardsToPlayer(s.playerID, awardRewards); err != nil {
+					log.Printf("[PvE] 发放奖励失败: %v", err)
+				}
 			}
 
 			// 清除回合时间标记
 			redis.Client.Del(redis.Ctx, lastRoundKey)
+
+			var rewardItems []interface{}
+			if awardRewards != nil {
+				rewardItems = append(rewardItems, map[string]interface{}{
+					"type":    "herb",
+					"herbId":  awardRewards.HerbID,
+					"name":    awardRewards.Name,
+					"count":   awardRewards.Count,
+					"quality": awardRewards.Quality,
+				})
+			}
 
 			return &PvPRoundData{
 				Round:          status.Round,
@@ -273,16 +279,7 @@ func (s *PvEBattleService) ExecutePvERound() (*PvPRoundData, error) {
 				Logs:           roundLogs,
 				BattleEnded:    true,
 				Victory:        true,
-				Rewards: []interface{}{
-					map[string]interface{}{
-						"type":   "spirit_stone",
-						"amount": finalRewards.SpiritStones,
-					},
-					map[string]interface{}{
-						"type":   "cultivation",
-						"amount": finalRewards.Cultivation,
-					},
-				},
+				Rewards:        rewardItems,
 			}, nil
 		}
 
@@ -423,22 +420,28 @@ func (s *PvEBattleService) ExecutePvERound() (*PvPRoundData, error) {
 				roundLogs = append(roundLogs, fmt.Sprintf("%s已被击败！%s获得胜利！", status.MonsterName, status.PlayerName))
 				status.BattleLog = append(status.BattleLog, roundLogs[len(roundLogs)-1])
 
-				// 计算奖励
-				var winnerPlayer models.User
-				if err := db.DB.First(&winnerPlayer, s.playerID).Error; err != nil {
-					log.Printf("[PvE] 获取玩家信息失败: %v", err)
-				}
-
 				// 计算并发放奖励
-				baseRewards := s.rewardService.CalculateRewardsForPvE(status, winnerPlayer.Level)
-				finalRewards := s.rewardService.ApplyRewardMultiplier(baseRewards)
+				awardRewards := s.rewardService.CalculateRewardsForPvE(status, 0) // playerLevel 不用于灵草奖励
 
-				if err := s.rewardService.GrantRewardsToPlayer(s.playerID, finalRewards); err != nil {
-					log.Printf("[PvE] 发放奖励失败: %v", err)
+				if awardRewards != nil {
+					if err := s.rewardService.GrantPvERewardsToPlayer(s.playerID, awardRewards); err != nil {
+						log.Printf("[PvE] 发放奖励失败: %v", err)
+					}
 				}
 
 				// 清除回合时间标记
 				redis.Client.Del(redis.Ctx, lastRoundKey)
+
+				var rewardItems []interface{}
+				if awardRewards != nil {
+					rewardItems = append(rewardItems, map[string]interface{}{
+						"type":    "herb",
+						"herbId":  awardRewards.HerbID,
+						"name":    awardRewards.Name,
+						"count":   awardRewards.Count,
+						"quality": awardRewards.Quality,
+					})
+				}
 
 				return &PvPRoundData{
 					Round:          status.Round,
@@ -447,16 +450,7 @@ func (s *PvEBattleService) ExecutePvERound() (*PvPRoundData, error) {
 					Logs:           roundLogs,
 					BattleEnded:    true,
 					Victory:        true,
-					Rewards: []interface{}{
-						map[string]interface{}{
-							"type":   "spirit_stone",
-							"amount": finalRewards.SpiritStones,
-						},
-						map[string]interface{}{
-							"type":   "cultivation",
-							"amount": finalRewards.Cultivation,
-						},
-					},
+					Rewards:        rewardItems,
 				}, nil
 			}
 		} else {

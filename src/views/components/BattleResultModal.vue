@@ -36,6 +36,7 @@
               <n-tag type="warning" size="large">
                 {{ reward.type === 'spirit_stone' ? `灵石 +${reward.amount}` : ''}}
                 {{ reward.type === 'cultivation' ? `修为 +${reward.amount}` : '' }}
+                {{ reward.type === 'herb' ? `+${reward.count} (${reward.name})` : '' }}
               </n-tag>
             </div>
           </n-space>

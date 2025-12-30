@@ -605,10 +605,17 @@ func getDailyDuelCount(userID int64) int {
 
 // ========== 斗法灵力消耗计算函数 ==========
 
-// calculateDuelSpritCost 计算斗法灵力消耗
-// 公式: duelCost = 1440 * 1.2^(Level-1)
+// calculateDuelSpiritCost 计算斧法灵力消耗
+// 公式: duelCost = 720 * 1.2^(Level-1)
 func calculateDuelSpiritCost(level int) float64 {
 	const baseCost = 720.0
+	const costMultiplier = 1.2
+	return baseCost * math.Pow(costMultiplier, float64(level-1))
+}
+
+// calculatePvESpiritCost 计算PvE战斗所需灵力（比PvP多50%）
+func calculatePvESpiritCost(level int) float64 {
+	const baseCost = 60.0
 	const costMultiplier = 1.2
 	return baseCost * math.Pow(costMultiplier, float64(level-1))
 }
@@ -660,6 +667,46 @@ func deductDuelSpirit(userID int64, duelCost float64) (float64, error) {
 	return user.Spirit, nil
 }
 
+// checkPvESpirit 检查玩家灵力是否足够进行PvE战斗
+// 返回 (足够, 需要消耗的灵力, 错误消息)
+func checkPvESpirit(user *models.User) (bool, float64, string) {
+	pveCost := calculatePvESpiritCost(user.Level)
+	if user.Spirit < pveCost {
+		requiredMore := pveCost - user.Spirit
+		errMsg := fmt.Sprintf("灵力不足！当前灵力: %.0f，PvE消耗: %.0f，还差: %.0f",
+			user.Spirit, pveCost, requiredMore)
+		return false, pveCost, errMsg
+	}
+	return true, pveCost, ""
+}
+
+// deductPvESpirit 扣除玩家PvE战斗灵力
+// 返回 (更新后的灵力, 错误)
+func deductPvESpirit(userID int64, pveCost float64) (float64, error) {
+	var user models.User
+	if err := db.DB.First(&user, userID).Error; err != nil {
+		return 0, fmt.Errorf("获取玩家信息失败: %w", err)
+	}
+
+	// 扣除灵力
+	user.Spirit -= pveCost
+
+	// 确保灵力不为负
+	if user.Spirit < 0 {
+		user.Spirit = 0
+	}
+
+	// 保存到数据库
+	if err := db.DB.Model(&user).Update("spirit", user.Spirit).Error; err != nil {
+		return 0, fmt.Errorf("扣除灵力失败: %w", err)
+	}
+
+	log.Printf("[PvE] 玩家 %d 消耗灵力 %.0f，剩余灵力: %.0f",
+		userID, pveCost, user.Spirit)
+
+	return user.Spirit, nil
+}
+
 // ========== PvE 操作 API ==========
 
 // StartPvEBattle 开始 PvE 战斗
@@ -691,6 +738,40 @@ func StartPvEBattle(c *gin.Context) {
 		})
 		return
 	}
+
+	// 检查玩家灵力是否足够
+	var user models.User
+	if err := db.DB.First(&user, userID).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "获取玩家信息失败",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	// 检查灵力
+	enough, pveCost, spiritErrMsg := checkPvESpirit(&user)
+	if !enough {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": spiritErrMsg,
+		})
+		return
+	}
+
+	// 扣除灵力
+	newSpirit, err := deductPvESpirit(userIDInt64, pveCost)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "扣除灵力失败",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	log.Printf("[PvE] 玩家 %d 开始战斗，剩余灵力: %.0f", userIDInt64, newSpirit)
 
 	// 创建 PvE 战斗服务
 	battleService := duel.NewPvEBattleService(userIDInt64, req.MonsterID)

@@ -548,7 +548,7 @@ func (s *AlchemyService) BuyFragment(recipeID string, quantity int, currentFragm
 			break
 		}
 	}
-	price := 100 + (gradeNum-1)*50 // grade1=100, grade2=150, ...
+	price := 50000 + (gradeNum-1)*50 // grade1=100, grade2=150, ...
 
 	totalCost := price * quantity
 	if user.SpiritStones < totalCost {

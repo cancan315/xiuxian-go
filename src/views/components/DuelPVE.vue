@@ -2,7 +2,7 @@
   <div class="pve-section">
     <!-- 妖兽挑战说明 -->
     <n-alert title="妖兽挑战" type="info" style="margin-bottom: 16px;">
-      挑战不同等级的妖兽，获得修为和灵石奖励。
+      消耗灵力，降服不同等级的妖兽，有概率获得灵草，灵草用于炼制丹药。
     </n-alert>
     
     <!-- 妖兽难度选择 -->

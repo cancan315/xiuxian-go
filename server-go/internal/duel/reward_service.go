@@ -1,18 +1,30 @@
 package duel
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"math"
 	"math/rand"
 	"xiuxian/server-go/internal/db"
+	"xiuxian/server-go/internal/exploration"
 	"xiuxian/server-go/internal/models"
+
+	"gorm.io/gorm"
 )
 
 // PvPRewards PvP战斗奖励结果
 type PvPRewards struct {
 	SpiritStones int64 `json:"spirit_stones"`
 	Cultivation  int64 `json:"cultivation"`
+}
+
+// PvERewards PvE战斗奖励结果（仅灵草）
+type PvERewards struct {
+	HerbID  string `json:"herb_id"` // 灵草ID
+	Name    string `json:"name"`    // 灵草名称
+	Count   int    `json:"count"`   // 灵草数量
+	Quality string `json:"quality"` // 灵草品质
 }
 
 // RewardService 奖励服务
@@ -40,15 +52,32 @@ func (rs *RewardService) CalculateRewards(status *PvPBattleStatus, playerLevel i
 	}
 }
 
-// CalculateRewardsForPvE 计算PvE战斗奖励
-// 需要传入玩家等级以计算基于等级的灵石和修为奖励
-func (rs *RewardService) CalculateRewardsForPvE(status *PvEBattleStatus, playerLevel int) *PvPRewards {
-	spiritStones := rs.calculateSpiritStoneReward(status.Round, playerLevel)
-	cultivation := rs.calculateCultivationReward(status.Round, playerLevel)
+// CalculateRewardsForPvE 计算PvE战斗奖励（仅灵草）
+func (rs *RewardService) CalculateRewardsForPvE(status *PvEBattleStatus, playerLevel int) *PvERewards {
+	// 60% 概率不奖励任何物品
+	if rand.Float64() < 0.7 {
+		return nil
+	}
 
-	return &PvPRewards{
-		SpiritStones: spiritStones,
-		Cultivation:  cultivation,
+	// 从配置中随机选择一种灵草
+	if len(exploration.HerbConfigs) == 0 {
+		log.Printf("[Reward] 灵草配置为空")
+		return nil
+	}
+
+	// 随机选择一种灵草
+	randomIndex := rand.Intn(len(exploration.HerbConfigs))
+	herbConfig := exploration.HerbConfigs[randomIndex]
+
+	// 随机生成灵草品质
+	quality := exploration.GetRandomQuality(rand.Float64())
+
+	// 每次战斗奖励1个灵草
+	return &PvERewards{
+		HerbID:  herbConfig.ID,
+		Name:    herbConfig.Name,
+		Count:   1,
+		Quality: quality,
 	}
 }
 
@@ -149,4 +178,45 @@ func (rs *RewardService) GrantRewardsToPlayerWithMultiplier(playerID int64, rewa
 	finalRewards := rs.ApplyRewardMultiplier(rewards)
 	// 发放奖励
 	return rs.GrantRewardsToPlayer(playerID, finalRewards)
+}
+
+// GrantPvERewardsToPlayer 发放PvE战斗奖励（灵草）给玩家
+func (rs *RewardService) GrantPvERewardsToPlayer(playerID int64, rewards *PvERewards) error {
+	if rewards == nil {
+		return fmt.Errorf("PvE奖励为空")
+	}
+
+	// 查询或创建灵草记录
+	var existingHerb models.Herb
+	queryErr := db.DB.Where("user_id = ? AND herb_id = ?", playerID, rewards.HerbID).First(&existingHerb).Error
+
+	if queryErr == nil {
+		// 灵草已存在，更新数量
+		existingHerb.Count += rewards.Count
+		if err := db.DB.Model(&existingHerb).Update("count", existingHerb.Count).Error; err != nil {
+			log.Printf("[Reward] 更新灵草数量失败: %v", err)
+			return fmt.Errorf("更新灵草数量失败: %w", err)
+		}
+	} else if errors.Is(queryErr, gorm.ErrRecordNotFound) {
+		// 灵草不存在，创建新记录
+		newHerb := models.Herb{
+			UserID:  uint(playerID),
+			HerbID:  rewards.HerbID,
+			Name:    rewards.Name,
+			Count:   rewards.Count,
+			Quality: rewards.Quality,
+		}
+		if err := db.DB.Create(&newHerb).Error; err != nil {
+			log.Printf("[Reward] 创建灵草记录失败: %v", err)
+			return fmt.Errorf("创建灵草记录失败: %w", err)
+		}
+	} else {
+		log.Printf("[Reward] 查询灵草失败: %v", queryErr)
+		return fmt.Errorf("查询灵草失败: %w", queryErr)
+	}
+
+	log.Printf("[Reward] 玩家 %d 获得PvE奖励 - 灵草: %s(%s), 数量: %d",
+		playerID, rewards.Name, rewards.Quality, rewards.Count)
+
+	return nil
 }
