@@ -1,10 +1,14 @@
 import { ref } from 'vue'
+import { useMessage } from 'naive-ui'
 import { usePlayerInfoStore } from '../../stores/playerInfo'
 import APIService from '../../services/api'
 import { getAuthToken } from '../../stores/db'
 import { simulateBattle } from '../../plugins/battleSimulator'
 
 export function useDuel() {
+  // 获取消息提示器
+  const message = useMessage()
+  
   // 响应式状态
   const showBattleModal = ref(false)
   const battleLogs = ref([])
@@ -22,7 +26,7 @@ export function useDuel() {
     try {
       const token = getAuthToken()
       if (!token) {
-        window.$message.error('请先登录')
+        message.error('请先登录')
         return
       }
 
@@ -31,7 +35,7 @@ export function useDuel() {
       const opponentBattleData = await APIService.getPlayerBattleData(opponent.id, token)
 
       if (!playerBattleData || !opponentBattleData) {
-        window.$message.error('获取战斗数据失败')
+        message.error('获取战斗数据失败')
         return
       }
 
@@ -56,7 +60,7 @@ export function useDuel() {
       await APIService.recordBattleResult(token, battleRecord)
     } catch (error) {
       console.error('挑战玩家失败:', error)
-      window.$message.error('挑战玩家失败')
+      message.error('挑战玩家失败')
     }
   }
 
@@ -67,7 +71,7 @@ export function useDuel() {
     try {
       const token = getAuthToken()
       if (!token) {
-        window.$message.error('请先登录')
+        message.error('请先登录')
         return
       }
 
@@ -75,7 +79,7 @@ export function useDuel() {
       const playerBattleData = await APIService.getPlayerBattleData(playerInfoStore.userId, token)
 
       if (!playerBattleData) {
-        window.$message.error('获取玩家战斗数据失败')
+        message.error('获取玩家战斗数据失败')
         return
       }
 
@@ -100,7 +104,7 @@ export function useDuel() {
       await APIService.recordBattleResult(token, battleRecord)
     } catch (error) {
       console.error('挑战妖兽失败:', error)
-      window.$message.error('挑战妖兽失败')
+      message.error('挑战妖兽失败')
     }
   }
 
@@ -129,12 +133,12 @@ export function useDuel() {
     try {
       const token = getAuthToken()
       if (!token) {
-        window.$message.error('请先登录')
+        message.error('请先登录')
         return
       }
 
       if (!battleResult.value || battleResult.value !== '胜利') {
-        window.$message.warning('只有胜利的战斗才能领取奖励')
+        message.warning('只有胜利的战斗才能领取奖励')
         return
       }
 
@@ -142,11 +146,11 @@ export function useDuel() {
       const rewards = battleResult.value === '胜利' ? ['修为', '灵石'] : []
       await APIService.claimBattleRewards(token, rewards)
 
-      window.$message.success('奖励领取成功')
+      message.success('奖励领取成功')
       closeBattleModal()
     } catch (error) {
       console.error('领取奖励失败:', error)
-      window.$message.error('领取奖励失败')
+      message.error('领取奖励失败')
     }
   }
 

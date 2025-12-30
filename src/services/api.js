@@ -1483,65 +1483,71 @@ class APIService {
    * @param {string} token - 认证令牌
    * @returns {Promise<Object>} 姐兽列表
    */
-  static async getMonsters(token) {
+  static async getMonsters(token, page = 1, pageSize = 10, difficulty = '') {
     try {
-      console.log('[API Service] 获取妖兽列表');
+      console.log('[API Service] 获取妖兽挑战列表', { page, pageSize, difficulty });
       
-      // 返回模拟数据
-      return {
-        success: true,
-        data: {
-          monsters: [
-            {
-              id: 1,
-              name: '赤焰虎',
-              difficulty: 'normal',
-              level: 1,
-              health: 150,
-              attack: 25,
-              defense: 10,
-              speed: 15,
-              critRate: 0.1,
-              dodgeRate: 0.05,
-              rewards: '修为150，灵石20，可能掉落虎骨',
-              description: '生活在火焰山脉的猛虎，浑身赤红如火'
-            },
-            {
-              id: 2,
-              name: '黑水玄蛇',
-              difficulty: 'normal',
-              level: 2,
-              health: 200,
-              attack: 30,
-              defense: 15,
-              speed: 18,
-              critRate: 0.15,
-              stunRate: 0.1,
-              rewards: '修为200，灵石30，可能掉落蛇胆',
-              description: '潜伏在深潭中的巨蛇，毒性猛烈'
-            },
-            {
-              id: 3,
-              name: '金翅大鹏',
-              difficulty: 'hard',
-              level: 3,
-              health: 300,
-              attack: 45,
-              defense: 20,
-              speed: 30,
-              critRate: 0.2,
-              dodgeRate: 0.15,
-              rewards: '修为300，灵石50，可能掉落鹏羽',
-              description: '翱翔天际的神鸟，速度极快'
-            }
-          ]
+      // 调用后端 API 获取妖兽挑战配置（支持分页和难度过滤）
+      const params = new URLSearchParams({
+        page,
+        pageSize
+      });
+      
+      if (difficulty) {
+        params.append('difficulty', difficulty);
+      }
+      
+      const url = `${API_BASE_URL}/duel/monster-challenges?${params}`;
+      console.log('[API Service] 请求 URL:', url);
+      
+      // 先尝试测试端点 (不需认证)
+      const testUrl = `${API_BASE_URL}/test/monster-challenges?${params}`;
+      console.log('[API Service] 先尝试测试端点 URL:', testUrl);
+      
+      const testResponse = await fetch(testUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
         }
-      };
+      });
+      
+      console.log('[API Service] 测试端点响应状态:', testResponse.status);
+      
+      const testText = await testResponse.text();
+      console.log('[API Service] 测试端点响应内容:', testText);
+      
+      // 正常调用
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      console.log('[API Service] 响应状态:', response.status, response.statusText);
+
+      if (!response.ok) {
+        const errText = await response.text();
+        console.error('[API Service] HTTP 错误内容:', errText);
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const responseText = await response.text();
+      console.log('[API Service] 响应内容:', responseText);
+      
+      const result = JSON.parse(responseText);
+      
+      if (!result.success) {
+        throw new Error(result.message || '获取妖兽挑战列表失败');
+      }
+
+      return result;
     } catch (error) {
-      console.error('获取妖兽列表失败:', error);
+      console.error('获取妖兽挑战列表失败:', error);
       return {
         success: false,
-        message: '获取妖兽列表失败'
+        message: '获取妖兽挑战列表失败: ' + error.message
       };
     }
   }
@@ -1931,6 +1937,111 @@ class APIService {
       winRate: 60,
       currentWinStreak: 3,
       maxWinStreak: 5
+    }
+  }
+
+  /**
+   * 获取妖兽详细信息
+   * @param {number} monsterId - 妖兽ID
+   * @param {string} token - 认证令牌
+   * @returns {Promise<Object>} 妖兽详细信息
+   */
+  static async getMonsterInfo(monsterId, token) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/duel/monster/${monsterId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      const result = JSON.parse(await response.text())
+      if (!result.success) throw new Error(result.message)
+      return result
+    } catch (error) {
+      return { success: false, message: '获取妖兽信息失败: ' + error.message }
+    }
+  }
+
+  /**
+   * 开始 PvE 妖兽战斗
+   * @param {number} monsterId - 妖兽ID
+   * @param {Object} playerData - 玩家战斗数据
+   * @param {Object} monsterData - 妖兽数据
+   * @param {string} token - 认证令牌
+   * @returns {Promise<Object>} 战斗初始化结果
+   */
+  static async startPvEBattle(monsterId, playerData, monsterData, token) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/duel/start-pve`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          monsterId,
+          playerData,
+          monsterData
+        })
+      })
+      const result = JSON.parse(await response.text())
+      if (!result.success) throw new Error(result.message)
+      return result
+    } catch (error) {
+      return { success: false, message: '开始妖兽战斗失败: ' + error.message }
+    }
+  }
+
+  /**
+   * 执行 PvE 战斗回合
+   * @param {number} monsterId - 妖兽ID
+   * @param {string} token - 认证令牌
+   * @returns {Promise<Object>} 本回合的战斗结果
+   */
+  static async executePvERound(monsterId, token) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/duel/execute-pve-round`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          monsterId
+        })
+      })
+      const result = JSON.parse(await response.text())
+      if (!result.success) throw new Error(result.message)
+      return result
+    } catch (error) {
+      return { success: false, message: '执行战斗回合失败: ' + error.message }
+    }
+  }
+
+  /**
+   * 结束 PvE 战斗
+   * @param {number} monsterId - 妖兽ID
+   * @param {string} token - 认证令牌
+   * @returns {Promise<Object>} 操作结果
+   */
+  static async endPvEBattle(monsterId, token) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/duel/end-pve`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          monsterId
+        })
+      })
+      const result = JSON.parse(await response.text())
+      if (!result.success) throw new Error(result.message)
+      return result
+    } catch (error) {
+      return { success: false, message: '结束妖兽战斗失败: ' + error.message }
     }
   }
 }

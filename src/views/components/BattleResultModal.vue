@@ -34,7 +34,8 @@
           <n-space vertical style="width: 100%;">
             <div v-for="(reward, index) in battleResultData.rewards" :key="index">
               <n-tag type="warning" size="large">
-                {{ reward.type === 'spirit_stone' ? `灵石 +${reward.amount}` : reward.type }}
+                {{ reward.type === 'spirit_stone' ? `灵石 +${reward.amount}` : ''}}
+                {{ reward.type === 'cultivation' ? `修为 +${reward.amount}` : '' }}
               </n-tag>
             </div>
           </n-space>

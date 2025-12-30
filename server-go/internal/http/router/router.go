@@ -144,9 +144,10 @@ func RegisterRoutes(r *gin.Engine) {
 	duelGroup := r.Group("/api/duel")
 	{
 		duelGroup.Use(middleware.Protect())
+		// PvP对手相关
 		duelGroup.GET("/opponents", duel.GetDuelOpponents)
 		duelGroup.GET("/player/:playerId/battle-data", duel.GetPlayerBattleData)
-		duelGroup.POST("/battle-attributes", duel.GetBattleAttributes) // 新增: 获取双方完整战斗属性
+		duelGroup.POST("/battle-attributes", duel.GetBattleAttributes) // 获取双方完整战斗属性
 		duelGroup.GET("/records", duel.GetDuelRecords)
 		duelGroup.POST("/record-result", duel.RecordBattleResult)
 		duelGroup.POST("/claim-rewards", duel.ClaimBattleRewards)
@@ -154,6 +155,19 @@ func RegisterRoutes(r *gin.Engine) {
 		duelGroup.POST("/start-pvp", duel.StartPvPBattle)
 		duelGroup.POST("/execute-pvp-round", duel.ExecutePvPRound)
 		duelGroup.POST("/end-pvp", duel.EndPvPBattle)
+		// PvE妖兽挑战相关
+		duelGroup.GET("/monster-challenges", duel.GetMonsterChallenges) // 获取妖兽挑战列表（支持分页和难度过滤）
+		duelGroup.GET("/monster/:id", duel.GetMonsterByIDAPI)           // 获取妖兽详细信息
+		// PvE战斗相关端点
+		duelGroup.POST("/start-pve", duel.StartPvEBattle)
+		duelGroup.POST("/execute-pve-round", duel.ExecutePvERound)
+		duelGroup.POST("/end-pve", duel.EndPvEBattle)
+	}
+
+	// 谊测端点 (有效期内不需要认证)
+	testGroup := r.Group("/api/test")
+	{
+		testGroup.GET("/monster-challenges", duel.GetMonsterChallenges) // 此测试端点不需要认证
 	}
 
 	// /api/admin 路由（管理员操作）

@@ -608,7 +608,7 @@ func getDailyDuelCount(userID int64) int {
 // calculateDuelSpritCost 计算斗法灵力消耗
 // 公式: duelCost = 1440 * 1.2^(Level-1)
 func calculateDuelSpiritCost(level int) float64 {
-	const baseCost = 1440.0
+	const baseCost = 720.0
 	const costMultiplier = 1.2
 	return baseCost * math.Pow(costMultiplier, float64(level-1))
 }
@@ -616,6 +616,13 @@ func calculateDuelSpiritCost(level int) float64 {
 // checkDuelSpirit 检查玩家灵力是否足够进行斗法
 // 返回 (足够, 需要消耗的灵力, 错误消息)
 func checkDuelSpirit(user *models.User) (bool, float64, string) {
+	// 检查等级是否满足要求
+	minLevel := 6 // 对应配置中的 MinLevelRequirement
+	if user.Level <= minLevel {
+		errMsg := fmt.Sprintf("境界不足！需要练气七层才可参与斗法，请道友提升境界", minLevel, user.Level)
+		return false, 0, errMsg
+	}
+
 	duelCost := calculateDuelSpiritCost(user.Level)
 	if user.Spirit < duelCost {
 		requiredMore := duelCost - user.Spirit
@@ -651,4 +658,152 @@ func deductDuelSpirit(userID int64, duelCost float64) (float64, error) {
 		userID, duelCost, user.Spirit)
 
 	return user.Spirit, nil
+}
+
+// ========== PvE 操作 API ==========
+
+// StartPvEBattle 开始 PvE 战斗
+// 对应 POST /api/duel/start-pve
+func StartPvEBattle(c *gin.Context) {
+	userIDInterface, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"message": "未授权",
+		})
+		return
+	}
+
+	userID := userIDInterface.(uint)
+	userIDInt64 := int64(userID)
+
+	var req struct {
+		MonsterID   int         `json:"monsterId" binding:"required"`
+		PlayerData  interface{} `json:"playerData" binding:"required"`
+		MonsterData interface{} `json:"monsterData" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "请求参数错误",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	// 创建 PvE 战斗服务
+	battleService := duel.NewPvEBattleService(userIDInt64, req.MonsterID)
+
+	// 开始战斗
+	roundData, err := battleService.StartPvEBattle(req.PlayerData, req.MonsterData)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "开始战斗失败",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "战斗已开始",
+		"data":    roundData,
+	})
+}
+
+// ExecutePvERound 执行 PvE 战斗回合
+// 对应 POST /api/duel/execute-pve-round
+func ExecutePvERound(c *gin.Context) {
+	userIDInterface, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"message": "未授权",
+		})
+		return
+	}
+
+	userID := userIDInterface.(uint)
+	userIDInt64 := int64(userID)
+
+	var req struct {
+		MonsterID int `json:"monsterId" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "请求参数错误",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	// 创建 PvE 战斗服务
+	battleService := duel.NewPvEBattleService(userIDInt64, req.MonsterID)
+
+	// 执行回合
+	roundData, err := battleService.ExecutePvERound()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "执行回合失败",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    roundData,
+	})
+}
+
+// EndPvEBattle 结束 PvE 战斗
+// 对应 POST /api/duel/end-pve
+func EndPvEBattle(c *gin.Context) {
+	userIDInterface, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"message": "未授权",
+		})
+		return
+	}
+
+	userID := userIDInterface.(uint)
+	userIDInt64 := int64(userID)
+
+	var req struct {
+		MonsterID int `json:"monsterId" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "请求参数错误",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	// 创建 PvE 战斗服务
+	battleService := duel.NewPvEBattleService(userIDInt64, req.MonsterID)
+
+	// 清除战斗状态
+	if err := battleService.ClearBattleStatusFromRedis(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "清除战斗状态失败",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "战斗已结束",
+	})
 }

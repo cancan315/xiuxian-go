@@ -3,6 +3,7 @@ package duel
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"math"
 	"math/rand"
 	"time"
@@ -19,35 +20,19 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-// 计算奖励倍率
-func calcRewardMultiplier() float64 {
-	r := rand.Float64() // [0.0, 1.0)
-
-	switch {
-	case r < 0.01:
-		return 3.0
-	case r < 0.06: // 0.01 + 0.05
-		return 2.5
-	case r < 0.16: // + 0.10
-		return 2.0
-	case r < 0.31: // + 0.15
-		return 1.5
-	default:
-		return 1.0
-	}
-}
-
 // PvPBattleService 斗法战斗服务
 type PvPBattleService struct {
-	playerID   int64 // 当前玩家ID
-	opponentID int64 // 对手ID
+	playerID      int64
+	opponentID    int64
+	rewardService *RewardService
 }
 
 // NewPvPBattleService 创建斗法战斗服务
 func NewPvPBattleService(playerID, opponentID int64) *PvPBattleService {
 	return &PvPBattleService{
-		playerID:   playerID,
-		opponentID: opponentID,
+		playerID:      playerID,
+		opponentID:    opponentID,
+		rewardService: NewRewardService(DefaultRewardConfig()),
 	}
 }
 
@@ -323,18 +308,18 @@ func (s *PvPBattleService) ExecutePvPRound() (*PvPRoundData, error) {
 			roundLogs = append(roundLogs, fmt.Sprintf("%s已被击败！%s获得胜利！", status.OpponentName, status.PlayerName))
 			status.BattleLog = append(status.BattleLog, roundLogs[len(roundLogs)-1])
 
-			// 计算奖励
-			reward := CalculatePvPReward(status)
+			// 获取玩家信息以获取等级
+			var player models.User
+			if err := db.DB.First(&player, s.playerID).Error; err != nil {
+				log.Printf("[Duel] 获取玩家等级失败: %v", err)
+			}
 
-			// 发放奖励到数据库
-			var user models.User
-			if err := db.DB.First(&user, s.playerID).Error; err == nil {
-				user.SpiritStones += int(reward)
-				if saveErr := db.DB.Model(&user).Update("spirit_stones", user.SpiritStones).Error; saveErr != nil {
-					fmt.Printf("更新玩家灵石失败: %v\n", saveErr)
-				} else {
-					fmt.Printf("玩家 %d 获得 %d 灵石\n", s.playerID, reward)
-				}
+			// 计算并发放奖励
+			baseRewards := s.rewardService.CalculateRewards(status, player.Level)
+			finalRewards := s.rewardService.ApplyRewardMultiplier(baseRewards)
+
+			if err := s.rewardService.GrantRewardsToPlayer(s.playerID, finalRewards); err != nil {
+				log.Printf("[Duel] 发放奖励失败: %v", err)
 			}
 
 			// 清除回合时间标记
@@ -350,7 +335,55 @@ func (s *PvPBattleService) ExecutePvPRound() (*PvPRoundData, error) {
 				Rewards: []interface{}{
 					map[string]interface{}{
 						"type":   "spirit_stone",
-						"amount": reward,
+						"amount": finalRewards.SpiritStones,
+					},
+					map[string]interface{}{
+						"type":   "cultivation",
+						"amount": finalRewards.Cultivation,
+					},
+				},
+			}, nil
+		}
+
+		// ... existing code ...
+
+		// 检查对手是否死亡
+		if opponentTakeDmgResult.IsDead {
+			roundLogs = append(roundLogs, fmt.Sprintf("%s已被击败！%s获得胜利！", status.OpponentName, status.PlayerName))
+			status.BattleLog = append(status.BattleLog, roundLogs[len(roundLogs)-1])
+
+			// 获取玩家信息以获取等级
+			var player models.User
+			if err := db.DB.First(&player, s.playerID).Error; err != nil {
+				log.Printf("[Duel] 获取玩家等级失败: %v", err)
+			}
+
+			// 计算并发放奖励
+			baseRewards := s.rewardService.CalculateRewards(status, player.Level)
+			finalRewards := s.rewardService.ApplyRewardMultiplier(baseRewards)
+
+			if err := s.rewardService.GrantRewardsToPlayer(s.playerID, finalRewards); err != nil {
+				log.Printf("[Duel] 发放奖励失败: %v", err)
+			}
+
+			// 清除回合时间标记
+			redis.Client.Del(redis.Ctx, lastRoundKey)
+
+			return &PvPRoundData{
+				Round:          status.Round,
+				PlayerHealth:   status.PlayerHealth,
+				OpponentHealth: math.Max(0, status.OpponentHealth),
+				Logs:           roundLogs,
+				BattleEnded:    true,
+				Victory:        true,
+				Rewards: []interface{}{
+					map[string]interface{}{
+						"type":   "spirit_stone",
+						"amount": finalRewards.SpiritStones,
+					},
+					map[string]interface{}{
+						"type":   "cultivation",
+						"amount": finalRewards.Cultivation,
 					},
 				},
 			}, nil
@@ -494,19 +527,17 @@ func (s *PvPBattleService) ExecutePvPRound() (*PvPRoundData, error) {
 				status.BattleLog = append(status.BattleLog, roundLogs[len(roundLogs)-1])
 
 				// 计算奖励
-				reward := CalculatePvPReward(status)
+				var winnerPlayer models.User
+				if err := db.DB.First(&winnerPlayer, s.playerID).Error; err != nil {
+					log.Printf("[Duel] 获取玩家信息失败: %v", err)
+				}
 
-				// 发放奖励到数据库
-				var user models.User
-				if err := db.DB.First(&user, s.playerID).Error; err == nil {
-					multiplier := calcRewardMultiplier()
-					finalReward := int(float64(reward) * multiplier)
-					user.SpiritStones += finalReward
-					if saveErr := db.DB.Model(&user).Update("spirit_stones", user.SpiritStones).Error; saveErr != nil {
-						fmt.Printf("更新玩家灵石失败: %v\n", saveErr)
-					} else {
-						fmt.Printf("玩家 %d 获得 %d 灵石\n", s.playerID, finalReward)
-					}
+				// 使用RewardService计算并发放奖励
+				baseRewards := s.rewardService.CalculateRewards(status, winnerPlayer.Level)
+				finalRewards := s.rewardService.ApplyRewardMultiplier(baseRewards)
+
+				if err := s.rewardService.GrantRewardsToPlayer(s.playerID, finalRewards); err != nil {
+					log.Printf("[Duel] 发放奖励失败: %v", err)
 				}
 
 				// 清除回合时间标记
@@ -522,7 +553,11 @@ func (s *PvPBattleService) ExecutePvPRound() (*PvPRoundData, error) {
 					Rewards: []interface{}{
 						map[string]interface{}{
 							"type":   "spirit_stone",
-							"amount": reward,
+							"amount": finalRewards.SpiritStones,
+						},
+						map[string]interface{}{
+							"type":   "cultivation",
+							"amount": finalRewards.Cultivation,
 						},
 					},
 				}, nil
@@ -565,15 +600,6 @@ func (s *PvPBattleService) ExecutePvPRound() (*PvPRoundData, error) {
 		Logs:           roundLogs,
 		BattleEnded:    false,
 	}, nil
-}
-
-// calculatePvPReward 计算PvP战斗奖励
-func CalculatePvPReward(status *PvPBattleStatus) int64 {
-	// 基础奖励：50灵石
-	baseReward := int64(50)
-	// 根据回合数调整奖励（回合越少，奖励越多）
-	roundBonus := int64(math.Max(0, 5-float64(status.Round)/20))
-	return baseReward + roundBonus
 }
 
 // SaveBattleStatusToRedis 将战斗状态保存到Redis

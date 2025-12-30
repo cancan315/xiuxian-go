@@ -52,6 +52,7 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 import { NCard, NTabs, NTabPane } from 'naive-ui'
+import { useMessage } from 'naive-ui'
 import { usePlayerInfoStore } from '../stores/playerInfo'
 import APIService from '../services/api'
 import { getAuthToken } from '../stores/db'
@@ -64,6 +65,9 @@ import DuelPVE from './components/DuelPVE.vue'
 import DuelRecords from './components/DuelRecords.vue'
 import BattleModal from './components/BattleModal.vue'
 import PlayerInfoModal from './components/PlayerInfoModal.vue'
+
+// 获取消息提示器
+const message = useMessage()
 
 // 获取玩家信息存储
 const playerInfoStore = usePlayerInfoStore()
@@ -120,7 +124,7 @@ const handleChallengeMonster = async (monster) => {
  */
 const handleViewMonsterInfo = (monster) => {
   // 可以显示更详细的妖兽信息
-  window.$message.info(`${monster.name}：${monster.description || '暂无详细描述'}`)
+  message.info(`${monster.name}：${monster.description || '暂无详细描述'}`)
 }
 
 /**
