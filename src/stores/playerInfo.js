@@ -36,7 +36,10 @@ export const usePlayerInfoStore = defineStore('playerInfo', {
       attack: 10, // 攻击
       health: 100, // 生命
       defense: 5, // 防御
-      speed: 10 // 速度
+      speed: 10, // 速度
+      formationLevel: 1, // 聚灵阵等级
+      formationGain: 5, // 聚灵阵获得修为
+      formationCost: 10, // 聚灵阵消耗灵石
     },
     // 战斗属性
     combatAttributes: {

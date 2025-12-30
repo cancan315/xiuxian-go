@@ -1,32 +1,66 @@
 <template>
   <n-card title="修炼">
-    <n-space vertical>
-      <n-alert type="info" show-icon>
-        <template #icon>
-          <n-icon>
-            <BookOutline />
-          </n-icon>
-        </template>
-        通过打坐修炼来提升修为，积累足够的修为后可以尝试突破境界，境界越高吸纳灵力速度越快。
-      </n-alert>
-      <n-space vertical>
-        <n-button type="primary" size="large" block @click="cultivate" :disabled="playerInfoStore.spirit < cultivationCost">
-          打坐修炼 (消耗 {{ cultivationCost }} 灵力)
-        </n-button>
-        <n-button :type="isAutoCultivating ? 'warning' : 'success'" size="large" block @click="toggleAutoCultivation">
-          {{ isAutoCultivating ? '停止自动修炼' : '开始自动修炼' }}
-        </n-button>
-      </n-space>
-      <n-divider>修炼详情</n-divider>
-      <n-descriptions bordered>
-        <n-descriptions-item label="灵力获取速率">{{ playerInfoStore.spiritGainRate }} / 秒</n-descriptions-item>
-        <n-descriptions-item label="修炼效率">{{ playerInfoStore.cultivationGain }} 修为 / 次</n-descriptions-item>
-        <n-descriptions-item label="突破所需修为">
-          {{ playerInfoStore.maxCultivation }}
-        </n-descriptions-item>
-      </n-descriptions>
-      <log-panel ref="logRef" title="修炼日志" />
-    </n-space>
+    <n-tabs type="line" animated>
+      <!-- 修炼分页 -->
+      <n-tab-pane name="cultivation" tab="修炼">
+        <n-space vertical>
+          <n-alert type="info" show-icon>
+            <template #icon>
+              <n-icon>
+                <BookOutline />
+              </n-icon>
+            </template>
+            通过打坐修炼来提升修为，获得修为，是修炼效率的随机倍数，积累足够的修为后可以尝试突破境界，境界越高吸纳灵力速度越快。
+          </n-alert>
+          <n-space vertical>
+            <n-button type="primary" size="large" block @click="cultivate" :disabled="playerInfoStore.spirit < cultivationCost">
+              打坐修炼 (消耗 {{ cultivationCost }} 灵力)
+            </n-button>
+            <n-button :type="isAutoCultivating ? 'warning' : 'success'" size="large" block @click="toggleAutoCultivation">
+              {{ isAutoCultivating ? '停止自动修炼' : '开始自动修炼' }}
+            </n-button>
+          </n-space>
+          <n-divider>修炼详情</n-divider>
+          <n-descriptions bordered>
+            <n-descriptions-item label="灵力获取速率">{{ playerInfoStore.spiritRate }} / 秒</n-descriptions-item>
+            <n-descriptions-item label="修炼效率">{{ playerInfoStore.cultivationGain }} 修为 / 次</n-descriptions-item>
+            <n-descriptions-item label="突破所需修为">
+              {{ playerInfoStore.maxCultivation }}
+            </n-descriptions-item>
+          </n-descriptions>
+          <log-panel ref="logRef" title="修炼日志" />
+        </n-space>
+      </n-tab-pane>
+
+      <!-- 聚灵阵分页 -->
+      <n-tab-pane name="formation" tab="聚灵阵">
+        <n-space vertical>
+          <n-alert type="info" show-icon>
+            <template #icon>
+              <n-icon>
+                <Sparkles />
+              </n-icon>
+            </template>
+            使用聚灵阵可以加速修炼，消耗灵石获得修为，是聚灵效率的随机倍数。
+          </n-alert>
+          <n-space vertical>
+            <n-button type="primary" size="large" block @click="useFormation" :disabled="playerInfoStore.spiritStones < formationCost">
+              启动聚灵阵 (消耗 {{ formationCost }} 灵石)
+            </n-button>
+            <n-button :type="isAutoFormation ? 'warning' : 'success'" size="large" block @click="toggleAutoFormation">
+              {{ isAutoFormation ? '停止自动聚灵' : '开始自动聚灵' }}
+            </n-button>
+          </n-space>
+          <n-divider>聚灵阵详情</n-divider>
+          <n-descriptions bordered>
+            <n-descriptions-item label="聚灵阵等级">{{ playerInfoStore.formationLevel }}</n-descriptions-item>
+            <n-descriptions-item label="聚灵效率">{{ playerInfoStore.formationGain }} 修为 / 次</n-descriptions-item>
+            <n-descriptions-item label="聚灵消耗">{{ formationCost }} 灵石 / 次</n-descriptions-item>
+          </n-descriptions>
+          <log-panel ref="formationLogRef" title="聚灵日志" />
+        </n-space>
+      </n-tab-pane>
+    </n-tabs>
   </n-card>
 </template>
 
@@ -34,8 +68,8 @@
   // 修改为使用模块化store
   import { usePlayerInfoStore } from '../stores/playerInfo'
   import { ref, computed, onMounted, onUnmounted } from 'vue'
-  import { useMessage } from 'naive-ui'
-  import { BookOutline } from '@vicons/ionicons5' // 导入图标组件
+  import { useMessage, NCard, NTabs, NTabPane, NAlert, NSpace, NButton, NDivider, NDescriptions, NDescriptionsItem, NIcon } from 'naive-ui'
+  import { BookOutline, Sparkles } from '@vicons/ionicons5' // 导入图标组件
   import LogPanel from '../components/LogPanel.vue'
   import APIService from '../services/api'
   import { getAuthToken } from '../stores/db'
@@ -44,12 +78,20 @@
   
   const message = useMessage()
   const isAutoCultivating = ref(false)
+  const isAutoFormation = ref(false)
   const logRef = ref(null)
+  const formationLogRef = ref(null)
 
   // 修炼消耗和获得（从后端获取准确数据）
   const cultivationCost = computed(() => {
     // 从后端获取准确的修炼消耗数据
     return playerInfoStore.cultivationCost || 1
+  })
+
+  // 聚灵阵消耗（固定值或从后端获取）
+  const formationCost = computed(() => {
+    // 聚灵阵每次使用的消耗，可以从后端获取或者根据等级计算
+    return playerInfoStore.formationCost || 10
   })
 
   // 修炼获得的修为
@@ -114,6 +156,51 @@
     }
   }
 
+  // 使用聚灵阵方法
+  const useFormation = async () => {
+    try {
+      const token = getAuthToken();
+      const response = await APIService.post('/cultivation/formation', {}, token)
+      
+      if (response.success) {
+        // 后端返回的数据字段名
+        playerInfoStore.spiritStones -= response.stoneCost
+        playerInfoStore.cultivation = response.currentCultivation
+        
+        // 记录日志
+        if (formationLogRef.value) {
+          formationLogRef.value.addLog(`聚灵阵获得 ${response.cultivationGain.toFixed(1)} 点修为，消耗 ${response.stoneCost} 灵石`)
+        }
+        
+        // 检查是否有突破
+        if (response.breakthrough) {
+          const bt = response.breakthrough
+          playerInfoStore.level = bt.newLevel
+          playerInfoStore.realm = bt.newRealm
+          playerInfoStore.maxCultivation = bt.newMaxCultivation
+          playerInfoStore.spirit += bt.spiritReward
+          playerInfoStore.spiritRate = bt.newSpiritRate
+          playerInfoStore.breakthroughCount += 1
+          message.success(bt.message)
+          if (formationLogRef.value) {
+            formationLogRef.value.addLog(bt.message)
+          }
+        }
+        message.success('聚灵阵使用成功，获得 ' + response.cultivationGain.toFixed(1) + ' 点修为')
+        return true
+      } else {
+        message.warning(response.error || '聚灵阵使用失败')
+        return false
+      }
+    } catch (error) {
+      message.error('聚灵阵请求失败：' + error.message)
+      if (formationLogRef.value) {
+        formationLogRef.value.addLog(`聚灵阵使用失败：${error.message}`)
+      }
+      return false
+    }
+  }
+
   // 切换自动修炼
   const toggleAutoCultivation = async () => {
     if (isAutoCultivating.value) {
@@ -153,6 +240,49 @@
       }
       
       // 短暂延迟，避免过快调用
+      await new Promise(resolve => setTimeout(resolve, 1000))
+    }
+  }
+
+  // 切换自动聚灵
+  const toggleAutoFormation = async () => {
+    if (isAutoFormation.value) {
+      // 停止自动聚灵
+      isAutoFormation.value = false
+      message.info('停止自动聚灵')
+      return
+    }
+    
+    // 检查灵石是否满足一次聚灵消耗
+    if (playerInfoStore.spiritStones < formationCost.value) {
+      message.error('灵石不足，聚灵失败')
+      return
+    }
+    
+    // 开始自动聚灵
+    isAutoFormation.value = true
+    message.success('开始自动聚灵')
+    
+    // 循环调用聚灵阵直到灵石不足或用户停止
+    while (isAutoFormation.value) {
+      // 检查灵石是否满足一次聚灵消耗
+      if (playerInfoStore.spiritStones < formationCost.value) {
+        isAutoFormation.value = false
+        message.warning('灵石不足，聚灵停止')
+        if (formationLogRef.value) {
+          formationLogRef.value.addLog('灵石不足，聚灵停止')
+        }
+        break
+      }
+      
+      // 调用聚灵阵
+      const success = await useFormation()
+      if (!success) {
+        isAutoFormation.value = false
+        break
+      }
+      
+      // 短暂延迟，避免过快调用
       await new Promise(resolve => setTimeout(resolve, 3000))
     }
   }
@@ -179,6 +309,10 @@
         // ✅ 新增：洗练石和灵宠精华
         playerInfoStore.refinementStones = response.data.refinementStones // 洗练石数量
         playerInfoStore.petEssence = response.data.petEssence // 灵宠精华数量
+        // 新增：聚灵阵相关数据
+        playerInfoStore.formationLevel = response.data.baseAttributes?.formationLevel ?? 1
+        playerInfoStore.formationGain = response.data.baseAttributes?.formationGain ?? 5
+        playerInfoStore.formationCost = response.data.baseAttributes?.formationCost ?? 10
         
       }
     } catch (error) {
@@ -217,5 +351,9 @@
 
   .n-collapse {
     margin-top: 12px;
+  }
+  
+  .n-tabs {
+    margin-top: 16px;
   }
 </style>
