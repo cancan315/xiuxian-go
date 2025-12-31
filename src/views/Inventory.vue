@@ -73,15 +73,16 @@
       // 更新已装备的装备状态
       if (data.equipment) {
         data.equipment.forEach(item => {
-          if (item.slot) {
-            playerInfoStore.equippedArtifacts[item.slot] = item
+          // 根据 equipped 字段判断是否已装备，使用 equipType 确定槽位
+          if (item.equipped && item.equipType) {
+            playerInfoStore.equippedArtifacts[item.equipType] = item
           }
         })
       }
       
       // 清空没有装备的槽位
       Object.keys(playerInfoStore.equippedArtifacts).forEach(slot => {
-        const isEquipped = data.equipment && data.equipment.some(item => item.slot === slot);
+        const isEquipped = data.equipment && data.equipment.some(item => item.equipped && item.equipType === slot);
         if (!isEquipped) {
           playerInfoStore.equippedArtifacts[slot] = null;
         }

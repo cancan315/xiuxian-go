@@ -1498,23 +1498,6 @@ class APIService {
       }
       
       const url = `${API_BASE_URL}/duel/monster-challenges?${params}`;
-      console.log('[API Service] 请求 URL:', url);
-      
-      // 先尝试测试端点 (不需认证)
-      const testUrl = `${API_BASE_URL}/test/monster-challenges?${params}`;
-      console.log('[API Service] 先尝试测试端点 URL:', testUrl);
-      
-      const testResponse = await fetch(testUrl, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      console.log('[API Service] 测试端点响应状态:', testResponse.status);
-      
-      const testText = await testResponse.text();
-      console.log('[API Service] 测试端点响应内容:', testText);
       
       // 正常调用
       const response = await fetch(url, {
@@ -1525,8 +1508,6 @@ class APIService {
         }
       });
 
-      console.log('[API Service] 响应状态:', response.status, response.statusText);
-
       if (!response.ok) {
         const errText = await response.text();
         console.error('[API Service] HTTP 错误内容:', errText);
@@ -1534,8 +1515,6 @@ class APIService {
       }
 
       const responseText = await response.text();
-      console.log('[API Service] 响应内容:', responseText);
-      
       const result = JSON.parse(responseText);
       
       if (!result.success) {

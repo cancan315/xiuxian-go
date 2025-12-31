@@ -52,7 +52,7 @@
                       :loading="buyingFragmentFor === formula.recipeId"
                       @click="buyFragment(formula.recipeId)"
                     >
-                      购买残页 (100灵石/片)
+                      购买残页 (50000灵石/片)
                     </n-button>
                   </n-space>
                 </n-card>

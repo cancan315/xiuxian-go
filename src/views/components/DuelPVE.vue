@@ -51,6 +51,14 @@
                     >
                       降服
                     </n-button>
+                    <!-- 自动降伏按钮 -->
+                    <n-button 
+                      :type="isAutoFighting === monster.id ? 'warning' : 'success'" 
+                      size="small"
+                      @click="toggleAutoFight(monster)"
+                    >
+                      {{ isAutoFighting === monster.id ? '停止自动降伏' : '开始自动降伏' }}
+                    </n-button>
                     <!-- 查看妖兽详细信息按钮 -->
                     <n-button size="small" @click="handleViewMonsterInfo(monster)">
                       详细信息
@@ -97,11 +105,17 @@
       @update:show="showBattleResultModal = $event"
       @close="handleCloseBattleResultModal"
     />
+
+    <!-- 自动降伏日志面板 -->
+    <n-card style="margin-top: 16px;" v-if="showAutoFightLog">
+  <LogPanel ref="autoFightLogRef" title="自动降伏妖兽日志" />
+</n-card>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, nextTick } from 'vue'
+import LogPanel from '../../components/LogPanel.vue'
 import { 
   NCard, NAlert, NSpace, NButton, NList, NListItem, NThing, NTag, 
   NDescriptions, NDescriptionsItem, NRadioGroup, NRadio, NSpin,
@@ -136,6 +150,13 @@ const showBattleResultModal = ref(false)
 const battleResultData = ref(null)
 const currentBattleMonster = ref(null) // 当前战斗的妖兽
 const isBattleInProgress = ref(false) // 战斗是否进行中
+// 是否正在自动降伏（逻辑状态）
+const isAutoFighting = ref(null) // monster.id | null
+const autoFightMonsterId = ref(null) // 自动降伏锁定的 monster.id
+// 是否显示日志面板（UI 状态）
+const showAutoFightLog = ref(true)
+// 日志组件引用
+const autoFightLogRef = ref(null)
 
 // 难度选项
 const difficulties = [
@@ -143,6 +164,125 @@ const difficulties = [
   { label: '困难', value: 'hard' },
   { label: '噩梦', value: 'boss' }
 ]
+ // 开始下一场自动战斗
+const startNextAutoBattle = async () => {
+  const token = getAuthToken()
+  if (!token || !autoFightMonsterId.value) return false
+
+  const monster = monsters.value.find(
+    m => m.id === autoFightMonsterId.value
+  )
+  if (!monster) {
+    autoFightLogRef.value?.addLog('❌ 未找到妖兽，自动降伏终止')
+    return false
+  }
+
+  autoFightLogRef.value?.addLog('🔄 开始下一场自动降伏')
+
+  const playerBattleDataRes = await APIService.getPlayerBattleData(
+    playerInfoStore.id,
+    token
+  )
+  if (!playerBattleDataRes.success) {
+    autoFightLogRef.value?.addLog('❌ 获取玩家数据失败')
+    return false
+  }
+
+  const startBattleRes = await APIService.startPvEBattle(
+    monster.id,
+    playerBattleDataRes.data,
+    monster,
+    token
+  )
+  if (!startBattleRes.success) {
+    autoFightLogRef.value?.addLog('❌ 开始新战斗失败')
+    return false
+  }
+
+  currentBattleMonster.value = monster
+  autoFightLogRef.value?.addLog(
+    `⚔️ 新战斗开始（回合 ${startBattleRes.data.round || 1}）`
+  )
+
+  return true
+}
+
+const autoFightLoop = async () => {
+  while (isAutoFighting.value === autoFightMonsterId.value) {
+    const token = getAuthToken()
+    if (!token) {
+      autoFightLogRef.value?.addLog('❌ 登录失效，自动降伏停止')
+      break
+    }
+
+    try {
+      const res = await APIService.executePvERound(
+        autoFightMonsterId.value,
+        token
+      )
+
+      if (!res.success) {
+        autoFightLogRef.value?.addLog('❌ 战斗异常，自动降伏停止')
+        break
+      }
+
+      const data = res.data
+
+      // 👉 这里你可以继续补充详细回合日志
+      // ✅ 打印每回合日志（关键）
+      if (Array.isArray(data.logs)) {
+        data.logs.forEach(log => {
+          autoFightLogRef.value?.addLog(log)
+        })
+      }
+
+      if (data.battle_ended) {
+        if (data.victory) {
+          autoFightLogRef.value?.addLog('🎉 战斗胜利')
+
+          // ✅ 奖励日志（关键）
+          if (Array.isArray(data.rewards) && data.rewards.length > 0) {
+            autoFightLogRef.value?.addLog('🎁 获得奖励：')
+            data.rewards.forEach(reward => {
+              autoFightLogRef.value?.addLog(
+                `- ${reward.name} ×${reward.count}`
+              )
+            })
+          }
+
+          await APIService.endPvEBattle(
+            autoFightMonsterId.value,
+            token
+          )
+
+          await new Promise(r => setTimeout(r, 800))
+
+          const started = await startNextAutoBattle()
+          if (!started) {
+            isAutoFighting.value = null
+            break
+          }
+
+          continue
+        } else {
+          autoFightLogRef.value?.addLog('❌ 战斗失败，自动降伏停止')
+          break
+        }
+      }
+
+      await new Promise(r => setTimeout(r, 1000))
+    } catch (e) {
+      autoFightLogRef.value?.addLog('❌ 自动降伏异常')
+      break
+    }
+  }
+
+  // ✅ 统一收尾
+  isAutoFighting.value = null
+  autoFightMonsterId.value = null
+  currentBattleMonster.value = null
+  autoFightLogRef.value?.addLog('自动降伏结束')
+}
 
 /**
  * 加载妖兽列表
@@ -311,6 +451,62 @@ const handleCloseBattleResultModal = async () => {
 
   showBattleResultModal.value = false
   battleResultData.value = null
+}
+
+/**
+ * 切换自动降伏
+ */
+const toggleAutoFight = async (monster) => {
+  // 🛑 停止
+  if (isAutoFighting.value === monster.id) {
+    isAutoFighting.value = null
+    autoFightLogRef.value?.addLog('🛑 玩家手动停止自动降伏')
+    return
+  }
+
+  // ▶ 开始
+  const token = getAuthToken()
+  if (!token) {
+    message.error('请先登录')
+    return
+  }
+
+  isAutoFighting.value = monster.id
+  autoFightMonsterId.value = monster.id
+  currentBattleMonster.value = monster
+  showAutoFightLog.value = true
+
+  await nextTick()
+
+  autoFightLogRef.value?.addLog(`开始自动降伏 ${monster.name}`)
+
+  const playerBattleDataRes = await APIService.getPlayerBattleData(
+    playerInfoStore.id,
+    token
+  )
+  if (!playerBattleDataRes.success) {
+    message.error('获取玩家战斗数据失败')
+    isAutoFighting.value = null
+    return
+  }
+
+  const startBattleRes = await APIService.startPvEBattle(
+    monster.id,
+    playerBattleDataRes.data,
+    monster,
+    token
+  )
+  if (!startBattleRes.success) {
+    message.error('开始战斗失败')
+    isAutoFighting.value = null
+    return
+  }
+
+  autoFightLogRef.value?.addLog(
+    `初始化战斗数据，回合 ${startBattleRes.data.round || 1}`
+  )
+
+  await autoFightLoop()
 }
 
 // 初始化加载
