@@ -28,7 +28,10 @@ func GetDuelOpponents(currentUserID int64, offset, limit int) ([]gin.H, error) {
 		u.combat_attributes,
 		u.combat_resistance
 	FROM users u
-	WHERE u.id != ?
+	WHERE 
+		u.id != ?
+		AND u.level >= 10
+    	AND u.player_name != '无名修士'
 	ORDER BY u.id
 	LIMIT ? OFFSET ?
 	`
