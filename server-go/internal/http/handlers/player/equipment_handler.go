@@ -1378,8 +1378,11 @@ func BatchSellEquipment(c *gin.Context) {
 		return
 	}
 
-	// 构建查询条件
-	query := db.DB.Model(&models.Equipment{}).Where("user_id = ?", userID)
+	// 构建查询条件（只卖未穿戴装备）
+	query := db.DB.Model(&models.Equipment{}).
+		Where("user_id = ?", userID).
+		Where("equipped = ?", false)
+
 	if req.Quality != "" {
 		query = query.Where("quality = ?", req.Quality)
 	}

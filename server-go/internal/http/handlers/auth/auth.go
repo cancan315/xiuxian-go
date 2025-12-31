@@ -317,18 +317,22 @@ func initializePlayerAttributesOnLogin(user *models.User, zapLogger *zap.Logger)
 
 	// 步骤5：重新穿戴装备（获取玩家已有的装备）
 	var equipments []models.Equipment
-	if err := db.DB.Where("user_id = ? AND equipped = ?", userID, true).Find(&equipments).Error; err == nil {
+	if err := db.DB.Where("user_id = ?", userID).Find(&equipments).Error; err == nil {
 		for _, equipment := range equipments {
-			if err := reequipEquipmentAfterLogin(user, &equipment, zapLogger); err != nil {
-				zapLogger.Warn("[登录初始化] 重新装备失败",
-					zap.Uint("userID", userID),
-					zap.String("equipmentID", equipment.ID),
-					zap.Error(err))
+			// ✅ 只重新穿戴有槽位信息的装备（这说明之前是已装备的）
+			if equipment.Slot != nil {
+				if err := reequipEquipmentAfterLogin(user, &equipment, zapLogger); err != nil {
+					zapLogger.Warn("[登录初始化] 重新装备失败",
+						zap.Uint("userID", userID),
+						zap.String("equipmentID", equipment.ID),
+						zap.Error(err))
+				}
 			}
 		}
 	}
 
 	// 步骤6：重新出战灵宠（获取玩家已有的灵宠）
+	// ✅ 修改：重新激活灵宠
 	var pets []models.Pet
 	if err := db.DB.Where("user_id = ? AND is_active = ?", userID, true).Find(&pets).Error; err == nil {
 		for _, pet := range pets {
@@ -395,6 +399,14 @@ func unequipAllEquipment(userID uint, zapLogger *zap.Logger) error {
 		return err
 	}
 
+	// 先保存已装备的装备信息（记录槽位），然后再卸下
+	equippedSlots := make(map[string]models.Equipment)
+	for _, equipment := range equipments {
+		if equipment.Slot != nil {
+			equippedSlots[*equipment.Slot] = equipment
+		}
+	}
+
 	for _, equipment := range equipments {
 		equipment.Equipped = false
 		equipment.Slot = nil
@@ -451,6 +463,11 @@ func reequipEquipmentAfterLogin(user *models.User, equipment *models.Equipment, 
 	user.CombatResistance = toJSONInterface(attrMgr.CombatRes)
 	user.SpecialAttributes = toJSONInterface(attrMgr.SpecialAttrs)
 
+	// ✅ 重新设置装备为已装备状态
+	equipment.Equipped = true
+	if err := db.DB.Save(equipment).Error; err != nil {
+		return err
+	}
 	zapLogger.Debug("[重新装备] 应用装备属性成功",
 		zap.Uint("userID", user.ID),
 		zap.String("equipmentID", equipment.ID))

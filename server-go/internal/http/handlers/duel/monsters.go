@@ -67,45 +67,45 @@ var monsterConfigs = []Monster{
 		Level:       1,
 		Description: "生活在火焰山脉的猛虎，浑身赤红如火",
 		BaseAttributes: datatypes.JSON([]byte(
-			"{\"attack\":25,\"health\":150,\"defense\":10,\"speed\":15}",
+			"{\"attack\":90,\"health\":900,\"defense\":45,\"speed\":90}",
 		)),
 		CombatAttributes: datatypes.JSON([]byte(
 			"{\"critRate\":0.1,\"comboRate\":0,\"counterRate\":0,\"stunRate\":0,\"dodgeRate\":0.05,\"vampireRate\":0}",
 		)),
 		Rewards: datatypes.JSON([]byte(
-			"{\"dropItems\":\"虎骨\"}",
+			"{\"dropItems\":\"灵草\"}",
 		)),
 	},
 	{
 		ID:          2,
 		Name:        "黑水玄蛇",
-		Difficulty:  "normal",
+		Difficulty:  "hard",
 		Level:       2,
 		Description: "潜伏在深潭中的巨蛇，毒性猛烈",
 		BaseAttributes: datatypes.JSON([]byte(
-			"{\"attack\":30,\"health\":200,\"defense\":15,\"speed\":18}",
+			"{\"attack\":180,\"health\":1800,\"defense\":90,\"speed\":180}",
 		)),
 		CombatAttributes: datatypes.JSON([]byte(
 			"{\"critRate\":0.15,\"comboRate\":0,\"counterRate\":0,\"stunRate\":0.1,\"dodgeRate\":0,\"vampireRate\":0}",
 		)),
 		Rewards: datatypes.JSON([]byte(
-			"{\"dropItems\":\"蛇胆\"}",
+			"{\"dropItems\":\"灵草\"}",
 		)),
 	},
 	{
 		ID:          3,
 		Name:        "金翅大鹏",
-		Difficulty:  "hard",
+		Difficulty:  "boss",
 		Level:       3,
 		Description: "翱翔天际的神鸟，速度极快",
 		BaseAttributes: datatypes.JSON([]byte(
-			"{\"attack\":45,\"health\":300,\"defense\":20,\"speed\":30}",
+			"{\"attack\":3000,\"health\":30000,\"defense\":2000,\"speed\":3000}",
 		)),
 		CombatAttributes: datatypes.JSON([]byte(
 			"{\"critRate\":0.2,\"comboRate\":0.1,\"counterRate\":0,\"stunRate\":0,\"dodgeRate\":0.15,\"vampireRate\":0}",
 		)),
 		Rewards: datatypes.JSON([]byte(
-			"{\"dropItems\":\"鹏羽\"}",
+			"{\"dropItems\":\"灵草\"}",
 		)),
 	},
 }

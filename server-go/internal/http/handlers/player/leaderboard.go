@@ -84,6 +84,7 @@ func getRealmLeaderboard(c *gin.Context, zapLogger *zap.Logger) {
 
 	if err := db.DB.Model(&models.User{}).
 		Select("id, player_name, realm, level").
+		Where("users.player_name <> ?", "无名修士").
 		Order("level DESC").
 		Limit(100).
 		Scan(&list).Error; err != nil {
@@ -139,6 +140,7 @@ func getSpiritStonesLeaderboard(c *gin.Context, zapLogger *zap.Logger) {
 
 	if err := db.DB.Model(&models.User{}).
 		Select("id, player_name, spirit_stones, realm").
+		Where("users.player_name <> ?", "无名修士").
 		Order("spirit_stones DESC").
 		Limit(100).
 		Scan(&list).Error; err != nil {
@@ -211,6 +213,7 @@ func getEquipmentLeaderboard(c *gin.Context, zapLogger *zap.Logger) {
 			equipment.enhance_level
 		`).
 		Where("equipment.equipped = ?", true).
+		Where("users.player_name <> ?", "无名修士").
 		Order("CASE equipment.quality WHEN 'mythic' THEN 1 WHEN 'legendary' THEN 2 WHEN 'epic' THEN 3 WHEN 'rare' THEN 4 WHEN 'uncommon' THEN 5 ELSE 6 END").
 		Order("equipment.enhance_level DESC").
 		Limit(100).
@@ -287,6 +290,7 @@ func getPetsLeaderboard(c *gin.Context, zapLogger *zap.Logger) {
 			pets.level
 		`).
 		Where("pets.is_active = ?", true).
+		Where("users.player_name <> ?", "无名修士").
 		Order("CASE pets.rarity WHEN 'mythic' THEN 1 WHEN 'legendary' THEN 2 WHEN 'epic' THEN 3 WHEN 'rare' THEN 4 WHEN 'uncommon' THEN 5 ELSE 6 END").
 		Order("pets.star DESC").
 		Order("pets.level DESC").
@@ -374,6 +378,7 @@ func getDuelLeaderboard(c *gin.Context, zapLogger *zap.Logger) {
 			COALESCE(duel_stats.win_rate, 0) as win_rate
 		`).
 		Where("duel_stats.total_battle > 0").
+		Where("users.player_name <> ?", "无名修士").
 		Order("duel_stats.wins DESC, duel_stats.win_rate DESC, duel_stats.total_battle DESC").
 		Limit(100).
 		Find(&items).Error; err != nil {

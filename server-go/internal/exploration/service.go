@@ -212,29 +212,29 @@ func (s *ExplorationService) triggerRandomEvent(user *models.User, r *rand.Rand)
 		handler func(*models.User, *rand.Rand) *ExplorationEvent
 	}{
 		// ===== 修为正向 =====
-		{"论道大会", 9, s.eventAncientTablet}, // +1%
-		{"百鬼门杂役", 9, s.eventSpiritSpring}, // +2% -10%
-		{"古修遗府", 7, s.eventAncientMaster}, // +3% 稀有
-		{"灵山顿悟", 5, s.eventEnlightenment}, // +5% 极稀有
-		// 小计 30
+		{"论道大会", 10, s.eventAncientTablet}, // +1%
+		{"百鬼门杂役", 11, s.eventSpiritSpring}, // +2% -10%
+		{"古修遗府", 7, s.eventAncientMaster},  // +3% 稀有
+		{"灵山顿悟", 5, s.eventEnlightenment},  // +5% 极稀有
+		// 小计 33
 
 		// ===== 修为负向 =====
-		{"家族招婿", 10, s.eventCultivationDeviation}, // -2% 灵力-5%
+		{"家族招婿", 11, s.eventCultivationDeviation}, // -2% 灵力-5%
 		{"合欢女修", 12, s.eventQiDeviation},          // -1% 灵力-5%
 		{"鬼鬼妖王", 8, s.eventMonsterAttack},         // -5%
-		// 小计 30
+		// 小计 31
 
 		// ===== 普通资源 =====
-		{"灵草发现", 10, s.eventHerbDiscovery},
-		{"丹方残页", 10, s.eventPillRecipeFragment},
-		// 小计 20
+		{"灵草发现", 6, s.eventHerbDiscovery},
+		{"丹方残页", 1, s.eventPillRecipeFragment},
+		// 小计 7
 
 		// ===== 稀有资源 =====
-		{"获得灵石", 9, s.eventTreasureTrove},
-		{"获得强化石", 3, s.eventReinforceStone},
-		{"获得洗炼石", 5, s.eventRefinementStone},
-		{"获得灵宠精华", 3, s.eventPetEssence},
-		// 小计 20
+		{"获得灵石", 12, s.eventTreasureTrove},
+		{"获得强化石", 6, s.eventReinforceStone},
+		{"获得洗炼石", 6, s.eventRefinementStone},
+		{"获得灵宠精华", 5, s.eventPetEssence},
+		// 小计 29
 	}
 
 	// 计算总权重
