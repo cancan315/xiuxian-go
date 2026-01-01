@@ -56,6 +56,56 @@ func GetDuelSpiritCost(c *gin.Context) {
 	})
 }
 
+// GetDuelStatus 获取斗法状态（每日挑战次数、灵力消耗）
+// 对应 GET /api/duel/status
+func GetDuelStatus(c *gin.Context) {
+	userIDInterface, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"message": "未授权",
+		})
+		return
+	}
+
+	userID := userIDInterface.(uint)
+	userIDInt64 := int64(userID)
+
+	var user models.User
+	if err := db.DB.Select("level, spirit").First(&user, userIDInt64).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "获取玩家信息失败",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	// 计算灵力消耗
+	duelCost := calculateDuelSpiritCost(user.Level)
+	pveCost := calculatePvESpiritCost(user.Level)
+
+	// 获取今天的斗法次数
+	dailyDuelCount := getDailyDuelCount(userIDInt64)
+
+	// 获取今天的PvE挑战次数（降服妖兽和除魔卫道）
+	pveCount, demonCount := getDailyPvECount(userIDInt64)
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data": gin.H{
+			"dailyDuelCount": dailyDuelCount,
+			"maxDailyDuels":  20,
+			"spiritCost":     duelCost,
+			"pveCost":        pveCost,
+			"currentSpirit":  user.Spirit,
+			"pveCount":       pveCount,
+			"demonCount":     demonCount,
+			"maxDailyPvE":    100,
+		},
+	})
+}
+
 // GetDuelOpponents 获取斗法对手列表（随机选择在线玩家）
 // 对应 GET /api/duel/opponents
 func GetDuelOpponents(c *gin.Context) {
@@ -603,6 +653,83 @@ func getDailyDuelCount(userID int64) int {
 	return count
 }
 
+// checkDailyPvELimit 检查每日PvE挑战次数限制（降服妖兽和除魔卫道）
+// 返回 (error, remaining, currentCount) - 如果error为nil表示通过检查
+func checkDailyPvELimit(userID int64, monsterID int) (error, int, int) {
+	const maxDailyPvE = 100
+
+	// 根据怪物ID判断类型：101+为除魔卫道，其他为降服妖兽
+	var keyPrefix string
+	var errorMsg string
+	if monsterID >= 101 {
+		keyPrefix = "demon-slaying:daily:"
+		errorMsg = "魔道中人已被道友斩尽杀绝，请明天再接悬赏榜"
+	} else {
+		keyPrefix = "pve:daily:"
+		errorMsg = "妖兽已被道友的煞气吓得闻风丧胆，请明天再入万兽山脉"
+	}
+
+	// 获取今天的日期字符串（格式: 2025-12-29）
+	today := time.Now().Format("2006-01-02")
+	pveCountKey := keyPrefix + today + ":" + strconv.FormatInt(userID, 10)
+
+	// 从 Redis 获取今天已经挑战的次数
+	countStr, err := redis.Client.Get(redis.Ctx, pveCountKey).Result()
+
+	var pveCount int
+	if err != nil {
+		// Redis中不存在该键，说明是新的一天
+		pveCount = 0
+	} else {
+		pveCount, _ = strconv.Atoi(countStr)
+	}
+
+	// 检查是否超过限制
+	if pveCount >= maxDailyPvE {
+		log.Printf("[PvE] 玩家 %d 今日PvE挑战次数已满(%d/%d), 怪物ID: %d", userID, pveCount, maxDailyPvE, monsterID)
+		return fmt.Errorf(errorMsg), 0, pveCount
+	}
+
+	// 增加计数
+	newCount := pveCount + 1
+	remaining := maxDailyPvE - newCount
+
+	// 设置Redis键值，过期时间为今天剩余的秒数
+	timeUntilMidnight := getTimeUntilMidnight()
+	redis.Client.Set(redis.Ctx, pveCountKey, newCount, timeUntilMidnight)
+
+	log.Printf("[PvE] 玩家 %d PvE挑战次数: %d/%d, 剩余: %d, 怪物ID: %d", userID, newCount, maxDailyPvE, remaining, monsterID)
+
+	return nil, remaining, newCount
+}
+
+// getDailyPvECount 获取玩家今日PvE挑战次数（降服妖兽和除魔卫道分别统计）
+func getDailyPvECount(userID int64) (int, int) {
+	today := time.Now().Format("2006-01-02")
+
+	// 获取降服妖兽次数
+	pveCountKey := "pve:daily:" + today + ":" + strconv.FormatInt(userID, 10)
+	countStr, err := redis.Client.Get(redis.Ctx, pveCountKey).Result()
+	var pveCount int
+	if err != nil {
+		pveCount = 0
+	} else {
+		pveCount, _ = strconv.Atoi(countStr)
+	}
+
+	// 获取除魔卫道次数
+	demonCountKey := "demon-slaying:daily:" + today + ":" + strconv.FormatInt(userID, 10)
+	countStr2, err2 := redis.Client.Get(redis.Ctx, demonCountKey).Result()
+	var demonCount int
+	if err2 != nil {
+		demonCount = 0
+	} else {
+		demonCount, _ = strconv.Atoi(countStr2)
+	}
+
+	return pveCount, demonCount
+}
+
 // ========== 斗法灵力消耗计算函数 ==========
 
 // calculateDuelSpiritCost 计算斧法灵力消耗
@@ -739,6 +866,17 @@ func StartPvEBattle(c *gin.Context) {
 		return
 	}
 
+	// 检查每日PvE挑战次数限制
+	if err, remaining, currentCount := checkDailyPvELimit(userIDInt64, req.MonsterID); err != nil {
+		c.JSON(http.StatusTooManyRequests, gin.H{
+			"success":      false,
+			"message":      err.Error(),
+			"remaining":    remaining,
+			"currentCount": currentCount,
+		})
+		return
+	}
+
 	// 检查玩家灵力是否足够
 	var user models.User
 	if err := db.DB.First(&user, userID).Error; err != nil {
@@ -773,8 +911,15 @@ func StartPvEBattle(c *gin.Context) {
 
 	log.Printf("[PvE] 玩家 %d 开始战斗，剩余灵力: %.0f", userIDInt64, newSpirit)
 
+	// 获取怪物配置，读取难度
+	monster := GetMonsterByID(req.MonsterID)
+	difficulty := "normal" // 默认难度
+	if monster != nil {
+		difficulty = monster.Difficulty
+	}
+
 	// 创建 PvE 战斗服务
-	battleService := duel.NewPvEBattleService(userIDInt64, req.MonsterID)
+	battleService := duel.NewPvEBattleService(userIDInt64, req.MonsterID, difficulty)
 
 	// 开始战斗
 	roundData, err := battleService.StartPvEBattle(req.PlayerData, req.MonsterData)
@@ -822,8 +967,15 @@ func ExecutePvERound(c *gin.Context) {
 		return
 	}
 
+	// 获取怪物配置，读取难度
+	monster := GetMonsterByID(req.MonsterID)
+	difficulty := "normal" // 默认难度
+	if monster != nil {
+		difficulty = monster.Difficulty
+	}
+
 	// 创建 PvE 战斗服务
-	battleService := duel.NewPvEBattleService(userIDInt64, req.MonsterID)
+	battleService := duel.NewPvEBattleService(userIDInt64, req.MonsterID, difficulty)
 
 	// 执行回合
 	roundData, err := battleService.ExecutePvERound()
@@ -870,8 +1022,15 @@ func EndPvEBattle(c *gin.Context) {
 		return
 	}
 
+	// 获取怪物配置，读取难度
+	monster := GetMonsterByID(req.MonsterID)
+	difficulty := "normal" // 默认难度
+	if monster != nil {
+		difficulty = monster.Difficulty
+	}
+
 	// 创建 PvE 战斗服务
-	battleService := duel.NewPvEBattleService(userIDInt64, req.MonsterID)
+	battleService := duel.NewPvEBattleService(userIDInt64, req.MonsterID, difficulty)
 
 	// 清除战斗状态
 	if err := battleService.ClearBattleStatusFromRedis(); err != nil {

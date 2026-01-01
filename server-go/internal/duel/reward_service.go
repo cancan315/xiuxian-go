@@ -27,6 +27,14 @@ type PvERewards struct {
 	Quality string `json:"quality"` // 灵草品质
 }
 
+// DemonSlayingRewards 除魔卫道战斗奖励结果（灵石、修为、丹方残页）
+type DemonSlayingRewards struct {
+	SpiritStones     int64  `json:"spirit_stones"`      // 灵石奖励
+	Cultivation      int64  `json:"cultivation"`        // 修为奖励
+	PillFragmentID   string `json:"pill_fragment_id"`   // 丹方残页ID（可为空）
+	PillFragmentName string `json:"pill_fragment_name"` // 丹方名称
+}
+
 // RewardService 奖励服务
 type RewardService struct {
 	config *RewardConfig
@@ -53,7 +61,8 @@ func (rs *RewardService) CalculateRewards(status *PvPBattleStatus, playerLevel i
 }
 
 // CalculateRewardsForPvE 计算PvE战斗奖励（仅灵草）
-func (rs *RewardService) CalculateRewardsForPvE(status *PvEBattleStatus, playerLevel int) *PvERewards {
+// difficulty: normal(普通), hard(困难), boss(噩梦)
+func (rs *RewardService) CalculateRewardsForPvE(status *PvEBattleStatus, playerLevel int, difficulty string) *PvERewards {
 	// 60% 概率不奖励任何物品
 	if rand.Float64() < 0.7 {
 		return nil
@@ -72,13 +81,66 @@ func (rs *RewardService) CalculateRewardsForPvE(status *PvEBattleStatus, playerL
 	// 随机生成灵草品质
 	quality := exploration.GetRandomQuality(rand.Float64())
 
-	// 每次战斗奖励1个灵草
+	// 根据难度获取奖励倍数：normal=1, hard=1-2随机, boss=1-3随机
+	multiplier := rs.getDifficultyMultiplier(difficulty)
+
+	// 每次战斗奖励的灵草数量根据难度倍增（四舍五入取整）
 	return &PvERewards{
 		HerbID:  herbConfig.ID,
 		Name:    herbConfig.Name,
-		Count:   1,
+		Count:   int(math.Round(multiplier)),
 		Quality: quality,
 	}
+}
+
+// CalculateRewardsForDemonSlaying 计算除魔卫道战斗奖励（灵石、修为、丹方残页）
+// difficulty: normal(普通), hard(困难), boss(噩梦)
+func (rs *RewardService) CalculateRewardsForDemonSlaying(status *PvEBattleStatus, playerLevel int, difficulty string) *DemonSlayingRewards {
+	// 基础灵石奖励（比PvP少一些）
+	baseSpiritStones := rs.calculateSpiritStoneReward(status.Round, playerLevel) / 2
+	// 基础修为奖励（比PvP少一些）
+	baseCultivation := rs.calculateCultivationReward(status.Round, playerLevel) / 2
+
+	// 根据难度获取奖励倍数：normal=1, hard=1-2随机, boss=1-3随机
+	multiplier := rs.getDifficultyMultiplier(difficulty)
+
+	rewards := &DemonSlayingRewards{
+		SpiritStones: int64(math.Round(float64(baseSpiritStones) * multiplier)),
+		Cultivation:  int64(math.Round(float64(baseCultivation) * multiplier)),
+	}
+
+	// 30% 概率获得丹方残页
+	if rand.Float64() < 0.3 {
+		// 从探索配置中随机选择一个丹方（按权重）
+		var activeRecipes []exploration.PillRecipe
+		for _, recipe := range exploration.PillRecipes {
+			if recipe.Weight > 0 {
+				activeRecipes = append(activeRecipes, recipe)
+			}
+		}
+
+		if len(activeRecipes) > 0 {
+			// 计算权重总和
+			totalWeight := 0.0
+			for _, recipe := range activeRecipes {
+				totalWeight += recipe.Weight
+			}
+
+			// 在 [0, totalWeight) 区间内取随机数
+			rnd := rand.Float64() * totalWeight
+			sum := 0.0
+			for _, recipe := range activeRecipes {
+				sum += recipe.Weight
+				if rnd < sum {
+					rewards.PillFragmentID = recipe.ID
+					rewards.PillFragmentName = recipe.Name
+					break
+				}
+			}
+		}
+	}
+
+	return rewards
 }
 
 // calculateSpiritStoneReward 计算灵石奖励
@@ -105,7 +167,7 @@ func (rs *RewardService) calculateSpiritStoneReward(round int, playerLevel int) 
 func (rs *RewardService) calculateCultivationReward(round int, playerLevel int) int64 {
 	cfg := rs.config.Cultivation
 
-	// 使用公式计算基础奖励：504 * 0.96^(level-1)
+	// 使用公式计算基础奖励：504 * 1.05^(level-1)
 	baseReward := int64(cfg.BaseFormula.Base * math.Pow(cfg.BaseFormula.Multiplier, float64(playerLevel-1)))
 
 	// 根据回合数调整奖励
@@ -140,6 +202,25 @@ func (rs *RewardService) calculateRewardMultiplier() float64 {
 
 	// 默认返回1.0倍率
 	return 1.0
+}
+
+// getDifficultyMultiplier 根据难度获取随机奖励倍数
+// normal(普通)=1倍(固定), hard(困难)=1-2個随机), boss(噩梦)=1-3倍(随机)
+func (rs *RewardService) getDifficultyMultiplier(difficulty string) float64 {
+	switch difficulty {
+	case "normal":
+		// 普通难度：固定1倍
+		return 1.0
+	case "hard":
+		// 困难难度：1-2倍随机
+		return 1.0 + rand.Float64() // [1.0, 2.0)
+	case "boss":
+		// 噩梦难度：1-3倍随机
+		return 1.0 + rand.Float64()*2.0 // [1.0, 3.0)
+	default:
+		// 默认返回1倍
+		return 1.0
+	}
 }
 
 // GrantRewardsToPlayer 将奖励发放给玩家
@@ -217,6 +298,72 @@ func (rs *RewardService) GrantPvERewardsToPlayer(playerID int64, rewards *PvERew
 
 	log.Printf("[Reward] 玩家 %d 获得PvE奖励 - 灵草: %s(%s), 数量: %d",
 		playerID, rewards.Name, rewards.Quality, rewards.Count)
+
+	return nil
+}
+
+// GrantDemonSlayingRewardsToPlayer 发放除魔卫道战斗奖励给玩家
+func (rs *RewardService) GrantDemonSlayingRewardsToPlayer(playerID int64, rewards *DemonSlayingRewards) error {
+	if rewards == nil {
+		return fmt.Errorf("除魔卫道奖励为空")
+	}
+
+	var user models.User
+	if err := db.DB.First(&user, playerID).Error; err != nil {
+		return fmt.Errorf("获取玩家信息失败: %w", err)
+	}
+
+	// 更新灵石
+	user.SpiritStones += int(rewards.SpiritStones)
+
+	// 更新修为
+	user.Cultivation += float64(rewards.Cultivation)
+	if user.Cultivation > user.MaxCultivation {
+		user.Cultivation = user.MaxCultivation
+	}
+
+	// 保存到数据库
+	if err := db.DB.Model(&user).
+		Update("spirit_stones", user.SpiritStones).
+		Update("cultivation", user.Cultivation).Error; err != nil {
+		log.Printf("[Reward] 更新玩家资源失败: %v", err)
+		return fmt.Errorf("更新玩家资源失败: %w", err)
+	}
+
+	// 如果有丹方残页，增加残页数量
+	if rewards.PillFragmentID != "" {
+		var fragment models.PillFragment
+		queryErr := db.DB.Where("user_id = ? AND recipe_id = ?", playerID, rewards.PillFragmentID).First(&fragment).Error
+
+		if queryErr == nil {
+			// 残页已存在，更新数量
+			fragment.Count += 1
+			if err := db.DB.Model(&fragment).Update("count", fragment.Count).Error; err != nil {
+				log.Printf("[Reward] 更新丹方残页数量失败: %v", err)
+				return fmt.Errorf("更新丹方残页数量失败: %w", err)
+			}
+		} else if errors.Is(queryErr, gorm.ErrRecordNotFound) {
+			// 残页不存在，创建新记录
+			newFragment := models.PillFragment{
+				UserID:   uint(playerID),
+				RecipeID: rewards.PillFragmentID,
+				Count:    1,
+			}
+			if err := db.DB.Create(&newFragment).Error; err != nil {
+				log.Printf("[Reward] 创建丹方残页记录失败: %v", err)
+				return fmt.Errorf("创建丹方残页记录失败: %w", err)
+			}
+		} else {
+			log.Printf("[Reward] 查询丹方残页失败: %v", queryErr)
+			return fmt.Errorf("查询丹方残页失败: %w", queryErr)
+		}
+
+		log.Printf("[Reward] 玩家 %d 获得除魔卫道奖励 - 灵石: %d, 修为: %d, 丹方残页: %s",
+			playerID, rewards.SpiritStones, rewards.Cultivation, rewards.PillFragmentName)
+	} else {
+		log.Printf("[Reward] 玩家 %d 获得除魔卫道奖励 - 灵石: %d, 修为: %d",
+			playerID, rewards.SpiritStones, rewards.Cultivation)
+	}
 
 	return nil
 }

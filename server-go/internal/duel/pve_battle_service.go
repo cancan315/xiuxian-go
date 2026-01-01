@@ -17,6 +17,7 @@ import (
 type PvEBattleService struct {
 	playerID       int64
 	monsterID      int
+	difficulty     string // 怪物难度: normal, hard, boss
 	rewardService  *RewardService
 	monsterFactory *MonsterFactory // 妖兽工厂
 }
@@ -104,11 +105,18 @@ func (mf *MonsterFactory) GetMonsterBattleStats(monster interface{}) (*DuelComba
 	return nil, fmt.Errorf("无法转换妖兽数据")
 }
 
-// NewPvEBattleService 创建 PvE 战斗服务
-func NewPvEBattleService(playerID int64, monsterID int) *PvEBattleService {
+// NewPvEBattleService 创建PvE战斗服务
+// difficulty: 怪物难度 (normal, hard, boss)，由调用方从怪物配置中传入
+func NewPvEBattleService(playerID int64, monsterID int, difficulty string) *PvEBattleService {
+	// 如果未传入难度，默认为normal
+	if difficulty == "" {
+		difficulty = "normal"
+	}
+
 	return &PvEBattleService{
 		playerID:       playerID,
 		monsterID:      monsterID,
+		difficulty:     difficulty,
 		rewardService:  NewRewardService(DefaultRewardConfig()),
 		monsterFactory: NewMonsterFactory(),
 	}
@@ -249,28 +257,44 @@ func (s *PvEBattleService) ExecutePvERound() (*PvPRoundData, error) {
 			roundLogs = append(roundLogs, fmt.Sprintf("%s已被击败！%s获得胜利！", status.MonsterName, status.PlayerName))
 			status.BattleLog = append(status.BattleLog, roundLogs[len(roundLogs)-1])
 
-			// 计算并发放奖励
-			awardRewards := s.rewardService.CalculateRewardsForPvE(status, 0) // playerLevel 不用于灵草奖励
-
-			if awardRewards != nil {
-				if err := s.rewardService.GrantPvERewardsToPlayer(s.playerID, awardRewards); err != nil {
-					log.Printf("[PvE] 发放奖励失败: %v", err)
+			// 检查是普通妖兽还是除魔卫道（通过ID区分：101+为除魔卫道）
+			var rewardItems []interface{}
+			if s.monsterID >= 101 {
+				// 除魔卫道奖励：灵石、修为、丹方残页
+				var user models.User
+				if err := db.DB.First(&user, s.playerID).Error; err == nil {
+					demonRewards := s.rewardService.CalculateRewardsForDemonSlaying(status, user.Level, s.difficulty)
+					if demonRewards != nil {
+						if err := s.rewardService.GrantDemonSlayingRewardsToPlayer(s.playerID, demonRewards); err != nil {
+							log.Printf("[PvE] 发放除魔卫道奖励失败: %v", err)
+						}
+						rewardItems = append(rewardItems, map[string]interface{}{
+							"type":         "demon_slaying",
+							"spiritStones": demonRewards.SpiritStones,
+							"cultivation":  demonRewards.Cultivation,
+							"pillFragment": demonRewards.PillFragmentName,
+						})
+					}
+				}
+			} else {
+				// 普通妖兽奖励：仅灵草
+				awardRewards := s.rewardService.CalculateRewardsForPvE(status, 0, s.difficulty)
+				if awardRewards != nil {
+					if err := s.rewardService.GrantPvERewardsToPlayer(s.playerID, awardRewards); err != nil {
+						log.Printf("[PvE] 发放奖励失败: %v", err)
+					}
+					rewardItems = append(rewardItems, map[string]interface{}{
+						"type":    "herb",
+						"herbId":  awardRewards.HerbID,
+						"name":    awardRewards.Name,
+						"count":   awardRewards.Count,
+						"quality": awardRewards.Quality,
+					})
 				}
 			}
 
 			// 清除回合时间标记
 			redis.Client.Del(redis.Ctx, lastRoundKey)
-
-			var rewardItems []interface{}
-			if awardRewards != nil {
-				rewardItems = append(rewardItems, map[string]interface{}{
-					"type":    "herb",
-					"herbId":  awardRewards.HerbID,
-					"name":    awardRewards.Name,
-					"count":   awardRewards.Count,
-					"quality": awardRewards.Quality,
-				})
-			}
 
 			return &PvPRoundData{
 				Round:          status.Round,
@@ -421,7 +445,7 @@ func (s *PvEBattleService) ExecutePvERound() (*PvPRoundData, error) {
 				status.BattleLog = append(status.BattleLog, roundLogs[len(roundLogs)-1])
 
 				// 计算并发放奖励
-				awardRewards := s.rewardService.CalculateRewardsForPvE(status, 0) // playerLevel 不用于灵草奖励
+				awardRewards := s.rewardService.CalculateRewardsForPvE(status, 0, s.difficulty) // playerLevel 不用于灵草奖励
 
 				if awardRewards != nil {
 					if err := s.rewardService.GrantPvERewardsToPlayer(s.playerID, awardRewards); err != nil {

@@ -2,7 +2,15 @@
   <div class="pvp-section">
     <!-- 道友对战说明 -->
     <n-alert title="道友对战" type="info" style="margin-bottom: 16px;">
-      与其他道友斗法，印证修炼所得！每天20次，消耗灵力，胜利可获得修为和灵石。00:00重置
+      <n-space vertical size="small">
+        <div>与其他道友斗法，印证修炼所得！胜利可获得修为和灵石。</div>
+        <n-space>
+          <n-tag type="warning">已挑战：{{ dailyDuelCount }}/20</n-tag>
+          <n-tag type="info">灵力消耗：{{ spiritCost }}</n-tag>
+          <n-tag type="success">当前灵力：{{ currentSpirit }}</n-tag>
+        </n-space>
+        <div style="font-size: 12px; color: #999;">每日00:00重置挑战次数</div>
+      </n-space>
     </n-alert>
     
     <!-- 道友列表 -->
@@ -101,6 +109,11 @@ const currentBattleOpponent = ref(null)
 const showBattleResult = ref(false)
 const battleResultData = ref(null)
 const battleResultModalRef = ref(null)
+
+// 每日挑战次数和灵力状态
+const dailyDuelCount = ref(0)
+const spiritCost = ref(0)
+const currentSpirit = ref(0)
 
 // PVP对战记录表格列定义
 const pvpRecordColumns = [
@@ -361,6 +374,7 @@ const refreshOpponents = async () => {
       preview: token.substring(0, 20) + '...'
     })
     
+    // 获取道友列表
     const response = await APIService.getDuelOpponents(token)
     console.log('[DuelPVP] API响应:', { success: response.success, hasData: !!response.data })
     
@@ -370,10 +384,30 @@ const refreshOpponents = async () => {
     } else {
       console.error('[DuelPVP] 获取道友列表失败:', response.message)
     }
+
+    // 获取斗法状态（每日挑战次数、灵力消耗）
+    await loadDuelStatus()
   } catch (error) {
     console.error('获取道友列表失败:', error)
   } finally {
     isLoadingOpponents.value = false
+  }
+}
+
+// 加载斗法状态
+const loadDuelStatus = async () => {
+  const token = getAuthToken()
+  if (!token) return
+
+  try {
+    const response = await APIService.getDuelStatus(token)
+    if (response.success && response.data) {
+      dailyDuelCount.value = response.data.dailyDuelCount || 0
+      spiritCost.value = response.data.spiritCost || 0
+      currentSpirit.value = Math.floor(playerInfoStore.spirit || 0)
+    }
+  } catch (error) {
+    console.error('[DuelPVP] 获取斗法状态失败:', error)
   }
 }
 

@@ -13,7 +13,7 @@
           />
         </n-tab-pane>
       
-        <!-- 姖兽挑战标签页 -->
+        <!-- 妖兽挑战标签页 -->
         <n-tab-pane name="pve" tab="降服妖兽">
           <!-- PVE组件 -->
           <DuelPVE 
@@ -21,8 +21,17 @@
             @view-monster-info="handleViewMonsterInfo"
           />
         </n-tab-pane>
+
+        <!-- 除魔卫道标签页（新增） -->
+        <n-tab-pane name="demon-slaying" tab="除魔卫道">
+          <!-- 除魔卫道组件 -->
+          <DuelDemonSlaying 
+            @challenge-demon="handleChallengeMonster" 
+            @view-demon-info="handleViewMonsterInfo"
+          />
+        </n-tab-pane>
       
-        <!-- 斜法战绩标签页 -->
+        <!-- 斗法战绩标签页 -->
         <n-tab-pane name="records" tab="战绩">
           <!-- 战绩组件 -->
           <DuelRecords />
@@ -62,6 +71,7 @@ import { useDuel } from './composables/useDuel'
 // 导入子组件
 import DuelPVP from './components/DuelPVP.vue'
 import DuelPVE from './components/DuelPVE.vue'
+import DuelDemonSlaying from './components/DuelDemonSlaying.vue'
 import DuelRecords from './components/DuelRecords.vue'
 import BattleModal from './components/BattleModal.vue'
 import PlayerInfoModal from './components/PlayerInfoModal.vue'

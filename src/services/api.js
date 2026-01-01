@@ -1477,6 +1477,37 @@ class APIService {
       };
     }
   }
+
+  /**
+   * 获取斗法状态信息（每日挑战次数、灵力消耗）
+   * @param {string} token - 认证令牌
+   * @returns {Promise<Object>} 斗法状态
+   */
+  static async getDuelStatus(token) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/duel/status`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || '获取斗法状态失败');
+      }
+      
+      const data = await response.json();
+      return convertToCamelCase(data);
+    } catch (error) {
+      console.error('获取斗法状态失败:', error);
+      return {
+        success: false,
+        message: '获取斗法状态失败'
+      };
+    }
+  }
   
   /**
    * 获取姐兽列表
@@ -2021,6 +2052,39 @@ class APIService {
       return result
     } catch (error) {
       return { success: false, message: '结束妖兽战斗失败: ' + error.message }
+    }
+  }
+
+  /**
+   * 获取除魔卫道挑战列表
+   * @param {string} token - 认证令牌
+   * @param {number} page - 页码
+   * @param {number} pageSize - 每页数量
+   * @param {string} difficulty - 难度过滤（normal/hard/boss，空表示不过滤）
+   * @returns {Promise<Object>} 除魔卫道列表
+   */
+  static async getDemonSlayingChallenges(token, page = 1, pageSize = 10, difficulty = '') {
+    try {
+      const params = new URLSearchParams({
+        page: page.toString(),
+        pageSize: pageSize.toString()
+      })
+      if (difficulty) {
+        params.append('difficulty', difficulty)
+      }
+
+      const response = await fetch(`${API_BASE_URL}/duel/demon-slaying-challenges?${params}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      const result = JSON.parse(await response.text())
+      if (!result.success) throw new Error(result.message)
+      return result
+    } catch (error) {
+      return { success: false, message: '获取除魔卫道列表失败: ' + error.message }
     }
   }
 }

@@ -130,6 +130,8 @@ func RegisterRoutes(r *gin.Engine) {
 	duelGroup := r.Group("/api/duel")
 	{
 		duelGroup.Use(middleware.Protect())
+		// 斗法状态
+		duelGroup.GET("/status", duel.GetDuelStatus) // 获取斗法状态（每日挑战次数、灵力消耗）
 		// PvP对手相关
 		duelGroup.GET("/opponents", duel.GetDuelOpponents)
 		duelGroup.GET("/player/:playerId/battle-data", duel.GetPlayerBattleData)
@@ -148,6 +150,8 @@ func RegisterRoutes(r *gin.Engine) {
 		duelGroup.POST("/start-pve", duel.StartPvEBattle)
 		duelGroup.POST("/execute-pve-round", duel.ExecutePvERound)
 		duelGroup.POST("/end-pve", duel.EndPvEBattle)
+		// 除魔卫道相关（新增）
+		duelGroup.GET("/demon-slaying-challenges", duel.GetDemonSlayingChallenges) // 获取除魔卫道挑战列表
 	}
 
 	// 谊测端点 (有效期内不需要认证)
