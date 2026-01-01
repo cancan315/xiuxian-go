@@ -154,8 +154,9 @@ func (s *CultivationService) SingleCultivate() (*CultivationResponse, error) {
 	cultivationGain := calculateCultivationGain(user.Level, cultivationRate)
 	user.Cultivation = math.Round((user.Cultivation+cultivationGain)*10) / 10
 	// 检查是否需要突破
+	// Level 27（金丹期九层）不自动突破，需要手动突破。
 	var breakthroughResult *BreakthroughResponse
-	if user.Cultivation >= user.MaxCultivation {
+	if user.Cultivation >= user.MaxCultivation && user.Level != 27 {
 		breakthroughResult = s.performBreakthrough(&user, &attrs)
 	}
 
@@ -346,8 +347,9 @@ func (s *CultivationService) UseFormation() (*FormationResponse, error) {
 	user.Cultivation = math.Round((user.Cultivation+formationGain)*10) / 10
 
 	// 检查是否需要突破
+	// Level 27（金丹期九层）不自动突破，需要手动突破。
 	var breakthroughResult *BreakthroughResponse
-	if user.Cultivation >= user.MaxCultivation {
+	if user.Cultivation >= user.MaxCultivation && user.Level != 27 {
 		breakthroughResult = s.performBreakthrough(&user, &attrs)
 	}
 
@@ -508,4 +510,91 @@ func CalculateBaseAttributesByLevel(level int) map[string]interface{} {
 		"health":  float64(100 * level),
 		"defense": float64(5 * level),
 	}
+}
+
+// BreakthroughJieYing 结婴突破处理
+func (s *CultivationService) BreakthroughJieYing() (map[string]interface{}, error) {
+	var user models.User
+	if err := db.DB.First(&user, s.userID).Error; err != nil {
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+
+	// 检查是否满足结婴条件
+	if user.Level != 27 || user.Cultivation < user.MaxCultivation {
+		return map[string]interface{}{
+			"success": false,
+			"message": "不满足结婴条件",
+		}, nil
+	}
+
+	// 从 BaseAttributes 中读取 jieYingRate
+	attrs := s.getPlayerAttributes(&user)
+	jieYingRate := 0.05 // 默认值
+	if rate, ok := attrs["jieYingRate"].(float64); ok {
+		jieYingRate = rate
+	}
+
+	// 判断结婴是否成功
+	randomVal := rand.Float64()
+	success := randomVal < jieYingRate
+
+	if success {
+		// 结婴成功，晋升为元婴期
+		nextRealm := GetNextRealm(user.Level)
+		if nextRealm == nil {
+			return map[string]interface{}{
+				"success": false,
+				"message": "已是最高境界",
+			}, nil
+		}
+
+		user.Level = nextRealm.Level
+		user.Realm = nextRealm.Name
+		user.MaxCultivation = nextRealm.MaxCultivation
+		user.Cultivation = 0.0
+		// 重置 jieYingRate 为 5%
+		attrs["jieYingRate"] = 0.05
+
+		// 保存属性
+		s.setPlayerAttributes(&user, attrs)
+
+		// 保存数据
+		if err := db.DB.Model(&user).Updates(map[string]interface{}{
+			"level":           user.Level,
+			"realm":           user.Realm,
+			"cultivation":     user.Cultivation,
+			"max_cultivation": user.MaxCultivation,
+			"base_attributes": user.BaseAttributes,
+		}).Error; err != nil {
+			return nil, fmt.Errorf("failed to update user: %w", err)
+		}
+
+		return map[string]interface{}{
+			"success":     true,
+			"message":     "突破成功，恭喜道友修炼千年，成为元婴道君",
+			"newRealm":    user.Realm,
+			"newLevel":    user.Level,
+			"jieYingRate": 0.05,
+		}, nil
+	}
+
+	// 结婴失败，金丹破碎
+	user.Cultivation = 0.0
+	// 重置 jieYingRate 为 0
+	attrs["jieYingRate"] = 0.0
+
+	// 保存属性
+	s.setPlayerAttributes(&user, attrs)
+
+	if err := db.DB.Model(&user).Updates(map[string]interface{}{
+		"cultivation":     user.Cultivation,
+		"base_attributes": user.BaseAttributes,
+	}).Error; err != nil {
+		return nil, fmt.Errorf("failed to update user: %w", err)
+	}
+
+	return map[string]interface{}{
+		"success": false,
+		"message": "突破失败，金丹破碎，请道友夯实修为，磨炼道心后再行突破",
+	}, nil
 }

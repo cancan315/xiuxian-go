@@ -183,7 +183,7 @@ import {
   HappyOutline,
   FlashOutline  // 新增斗法图标
 } from '@vicons/ionicons5'
-import { Moon, Sunny, Flash } from '@vicons/ionicons5'
+import { Moon, Sunny } from '@vicons/ionicons5'
 import { getRealmName } from './plugins/realm'
 import { getAuthToken, clearAuthToken } from './stores/db'
 import APIService from './services/api'
@@ -194,7 +194,7 @@ import Inventory from './views/Inventory.vue'
 import Exploration from './views/Exploration.vue'
 import Settings from './views/Settings.vue'
 import Alchemy from './views/Alchemy.vue'
-import Dungeon from './views/Dungeon.vue'
+// Dungeon component removed - dungeon feature deleted
 import Gacha from './views/Gacha.vue'
 import Leaderboard from './views/Leaderboard.vue'
 import Duel from './views/Duel.vue'  // 新增斗法页面组件
@@ -267,8 +267,7 @@ const currentViewComponent = computed(() => {
       return Settings
     case 'alchemy':
       return Alchemy
-    case 'dungeon':
-      return Dungeon
+
     case 'gacha':
       return Gacha
     case 'leaderboard':
@@ -302,8 +301,7 @@ const menuItems = [
   { label: '背包', key: 'inventory', icon: BriefcaseOutline },
   { label: '抽奖', key: 'gacha', icon: GiftOutline },
   { label: '探索', key: 'exploration', icon: CompassOutline },
-  { label: '秘境', key: 'dungeon', icon: Flash },
-  { label: '斗法', key: 'duel', icon: FlashOutline },  // 新增斗法菜单项
+  { label: '斗法', key: 'duel', icon: FlashOutline },
   { label: '炼丹', key: 'alchemy', icon: FlaskOutline },
   { label: '排行榜', key: 'leaderboard', icon: TrophyOutline },
   { label: '设置', key: 'settings', icon: SettingsOutline }
@@ -460,8 +458,7 @@ const menuKeyToMessage = {
   gacha: '打开抽奖',
   alchemy: '进入丹房',
   exploration: '打开探索',
-  dungeon: '进入秘境',
-  duel: '进入斗法',  // 新增斗法提示文本
+  duel: '进入斗法',
   leaderboard: '查看排行榜',
   settings: '打开设置'
 }

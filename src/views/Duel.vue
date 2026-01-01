@@ -12,8 +12,8 @@
             @view-player-info="handleViewPlayerInfo"
           />
         </n-tab-pane>
-
-        <!-- 妖兽挑战标签页 -->
+      
+        <!-- 姖兽挑战标签页 -->
         <n-tab-pane name="pve" tab="降服妖兽">
           <!-- PVE组件 -->
           <DuelPVE 
@@ -21,8 +21,8 @@
             @view-monster-info="handleViewMonsterInfo"
           />
         </n-tab-pane>
-
-        <!-- 斗法战绩标签页 -->
+      
+        <!-- 斜法战绩标签页 -->
         <n-tab-pane name="records" tab="战绩">
           <!-- 战绩组件 -->
           <DuelRecords />
@@ -132,13 +132,6 @@ const handleViewMonsterInfo = (monster) => {
  */
 const handleCloseBattleModal = () => {
   closeBattleModal()
-}
-
-/**
- * 处理领取奖励事件
- */
-const handleClaimRewards = async () => {
-  await claimRewards()
 }
 
 // 初始化

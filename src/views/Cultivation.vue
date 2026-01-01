@@ -57,7 +57,53 @@
             <n-descriptions-item label="聚灵效率">{{ playerInfoStore.formationGain }} 修为 / 次</n-descriptions-item>
             <n-descriptions-item label="聚灵消耗">{{ formationCost }} 灵石 / 次</n-descriptions-item>
           </n-descriptions>
-          <log-panel ref="formationLogRef" title="聚灵日志" />
+          <log-panel ref="formationLogRef" title="聚火日志" />
+        </n-space>
+      </n-tab-pane>
+      
+      <!-- 渡劫破镜分页 -->
+      <n-tab-pane name="breakthrough" tab="渡劫">
+        <n-space vertical>
+          <n-alert v-if="playerInfoStore.level === 27 && playerInfoStore.cultivation >= playerInfoStore.maxCultivation" type="warning" show-icon>
+            <template #icon>
+              <n-icon>
+                <Sparkles />
+              </n-icon>
+            </template>
+            道友困于瓶颈百年，已将境界打磨圆满，理应借助雷劫，打碎桎梏
+          </n-alert>
+          <n-alert v-else type="info" show-icon>
+            <template #icon>
+              <n-icon>
+                <BookOutline />
+              </n-icon>
+            </template>
+            修仙本是逆天而行，道友境界不足，无需渡劫
+          </n-alert>
+          <n-descriptions v-if="playerInfoStore.level === 27" bordered>
+            <n-descriptions-item label="当前修为">{{ playerInfoStore.cultivation.toFixed(1) }} / {{ playerInfoStore.maxCultivation }}</n-descriptions-item>
+            <n-descriptions-item label="渡劫成功率">{{ (playerInfoStore.jieYingRate * 100).toFixed(1) }}%</n-descriptions-item>
+          </n-descriptions>
+          <n-button 
+            v-if="playerInfoStore.level === 27 && playerInfoStore.cultivation >= playerInfoStore.maxCultivation"
+            type="success" 
+            size="large" 
+            block 
+            @click="breakthroughJieYing"
+            :loading="isBreakthroughLoading"
+          >
+            渡劫 (成功率: {{ (playerInfoStore.jieYingRate * 100).toFixed(1) }}%)
+          </n-button>
+          <n-button 
+            v-else
+            type="primary" 
+            size="large" 
+            block
+            disabled
+          >
+            不满足突破条件
+          </n-button>
+          <log-panel ref="breakthroughLogRef" title="突破日志" />
         </n-space>
       </n-tab-pane>
     </n-tabs>
@@ -79,8 +125,10 @@
   const message = useMessage()
   const isAutoCultivating = ref(false)
   const isAutoFormation = ref(false)
+  const isBreakthroughLoading = ref(false)
   const logRef = ref(null)
   const formationLogRef = ref(null)
+  const breakthroughLogRef = ref(null)
 
   // 修炼消耗和获得（从后端获取准确数据）
   const cultivationCost = computed(() => {
@@ -201,6 +249,48 @@
     }
   }
 
+  // 结婴突破方法
+  const breakthroughJieYing = async () => {
+    try {
+      isBreakthroughLoading.value = true
+      const token = getAuthToken();
+      const response = await APIService.post('/cultivation/breakthrough-jieying', {}, token)
+      
+      if (response.success) {
+        // 结婴成功
+        playerInfoStore.level = response.newLevel
+        playerInfoStore.realm = response.newRealm
+        playerInfoStore.maxCultivation = response.newMaxCultivation || 10000
+        playerInfoStore.cultivation = 0.0
+        playerInfoStore.jieYingRate = 0.05
+        
+        message.success(response.message)
+        if (breakthroughLogRef.value) {
+          breakthroughLogRef.value.addLog(response.message)
+        }
+        return true
+      } else {
+        // 结婴失败
+        playerInfoStore.cultivation = 0.0
+        playerInfoStore.jieYingRate = 0.0
+        
+        message.error(response.message)
+        if (breakthroughLogRef.value) {
+          breakthroughLogRef.value.addLog(response.message)
+        }
+        return false
+      }
+    } catch (error) {
+      message.error('渡劫请求失败：' + error.message)
+      if (breakthroughLogRef.value) {
+        breakthroughLogRef.value.addLog(`渡劫失败：${error.message}`)
+      }
+      return false
+    } finally {
+      isBreakthroughLoading.value = false
+    }
+  }
+
   // 切换自动修炼
   const toggleAutoCultivation = async () => {
     if (isAutoCultivating.value) {
@@ -313,6 +403,9 @@
         playerInfoStore.formationLevel = response.data.baseAttributes?.formationLevel ?? 1
         playerInfoStore.formationGain = response.data.baseAttributes?.formationGain ?? 5
         playerInfoStore.formationCost = response.data.baseAttributes?.formationCost ?? 10
+        // ✅ 新增：结婴成功率（从 baseAttributes 中读取）
+        const jieYingRate = response.data.baseAttributes?.jieYingRate || 0.05
+        playerInfoStore.jieYingRate = jieYingRate
         
       }
     } catch (error) {

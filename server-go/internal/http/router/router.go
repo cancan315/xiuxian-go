@@ -7,7 +7,6 @@ import (
 	"xiuxian/server-go/internal/http/handlers/auth"
 	"xiuxian/server-go/internal/http/handlers/cultivation"
 	"xiuxian/server-go/internal/http/handlers/duel"
-	"xiuxian/server-go/internal/http/handlers/dungeon"
 	"xiuxian/server-go/internal/http/handlers/exploration"
 	"xiuxian/server-go/internal/http/handlers/gacha"
 	"xiuxian/server-go/internal/http/handlers/online"
@@ -112,21 +111,8 @@ func RegisterRoutes(r *gin.Engine) {
 		cultivationGroup.GET("/data", cultivation.GetCultivationData)
 		// ✅ 新增：聚灵阵相关路由
 		cultivationGroup.POST("/formation", cultivation.UseFormation)
-	}
-
-	// /api/dungeon 路由
-	dungeonGroup := r.Group("/api/dungeon")
-	{
-		dungeonGroup.Use(middleware.Protect())
-		dungeonGroup.POST("/start", dungeon.StartDungeon)
-		dungeonGroup.GET("/buffs/:floor", dungeon.GetBuffOptions)
-		dungeonGroup.POST("/select-buff", dungeon.SelectBuff)
-		dungeonGroup.POST("/save-buff", dungeon.SaveBuff)      // 新增: 保存已选增益
-		dungeonGroup.GET("/load-session", dungeon.LoadSession) // 新增: 加载断线重连的会话
-		dungeonGroup.POST("/fight", dungeon.StartFight)
-		dungeonGroup.GET("/round-data", dungeon.GetRoundData)     // 新增: 获取回合数据
-		dungeonGroup.POST("/execute-round", dungeon.ExecuteRound) // 新增: 执行回合
-		dungeonGroup.POST("/end", dungeon.EndDungeon)
+		// ✅ 新增：结婴突破路由
+		cultivationGroup.POST("/breakthrough-jieying", cultivation.BreakthroughJieYing)
 	}
 
 	// /api/alchemy 路由
@@ -155,9 +141,9 @@ func RegisterRoutes(r *gin.Engine) {
 		duelGroup.POST("/start-pvp", duel.StartPvPBattle)
 		duelGroup.POST("/execute-pvp-round", duel.ExecutePvPRound)
 		duelGroup.POST("/end-pvp", duel.EndPvPBattle)
-		// PvE妖兽挑战相关
-		duelGroup.GET("/monster-challenges", duel.GetMonsterChallenges) // 获取妖兽挑战列表（支持分页和难度过滤）
-		duelGroup.GET("/monster/:id", duel.GetMonsterByIDAPI)           // 获取妖兽详细信息
+		// PvE妖2B挑战相关
+		duelGroup.GET("/monster-challenges", duel.GetMonsterChallenges) // 获取妖2B挑战列表（支持分页和难度过滤）
+		duelGroup.GET("/monster/:id", duel.GetMonsterByIDAPI)           // 获取妖2B详细信息
 		// PvE战斗相关端点
 		duelGroup.POST("/start-pve", duel.StartPvEBattle)
 		duelGroup.POST("/execute-pve-round", duel.ExecutePvERound)

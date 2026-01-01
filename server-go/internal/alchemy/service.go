@@ -129,6 +129,22 @@ var recipes = []RecipeConfig{
 		BaseEffect:      PillEffect{Type: "cultivation", Value: 50, Duration: 0},
 	},
 	{
+		ID:          "jie_ying_pill",
+		Name:        "渡劫丹",
+		Description: "万年灵草炼制，服用后增加少许渡劫成功率",
+		Grade:       "grade3",
+		Type:        "cultivation",
+		Materials: []MaterialRequire{
+			{HerbID: "thunder_root", Count: 10},
+			{HerbID: "nine_leaf_lingzhi", Count: 10},
+			{HerbID: "purple_ginseng", Count: 10},
+			{HerbID: "dragon_breath_herb", Count: 10},
+			{HerbID: "dark_yin_grass", Count: 10},
+		},
+		FragmentsNeeded: 20,
+		BaseEffect:      PillEffect{Type: "jieYingRate", Value: 0.05, Duration: 0},
+	},
+	{
 		ID:          "mind_clarity",
 		Name:        "清心丹",
 		Description: "暂未开放",

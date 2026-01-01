@@ -122,6 +122,16 @@ var pillFormulas = map[string]PillFormulaConfig{
 			return 880 * math.Pow(1.2, float64(level-1))
 		},
 	},
+	// 渡劫丹：效果类型jieYingRate，服用后增加渡劫成功率
+	"jie_ying_pill": {
+		PillID:    "jie_ying_pill",
+		Name:      "渡劫丹",
+		EffectKey: "jieYingRate",
+		Calculate: func(baseValue float64, level int) float64 {
+			// 渡劫丹效果：提高渡劫成功率 0.05 (5%)
+			return 0.05
+		},
+	},
 }
 
 // GetPillFormula 根据丹药ID获取对应的计算公式

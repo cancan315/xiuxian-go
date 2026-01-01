@@ -147,7 +147,7 @@ var PillRecipes = []PillRecipe{
 		Grade:           "grade1",
 		Type:            "spirit",
 		FragmentsNeeded: 10,
-		Weight:          50, // 最常见
+		Weight:          25, // 最常见
 	},
 	{
 		ID:              "cultivation_boost",
@@ -156,7 +156,7 @@ var PillRecipes = []PillRecipe{
 		Grade:           "grade2",
 		Type:            "cultivation",
 		FragmentsNeeded: 15,
-		Weight:          10, // 常见
+		Weight:          30, // 常见
 	},
 	{
 		ID:              "spirit_recovery",
@@ -165,7 +165,7 @@ var PillRecipes = []PillRecipe{
 		Grade:           "grade2",
 		Type:            "spirit",
 		FragmentsNeeded: 15,
-		Weight:          25, // 常见
+		Weight:          20, // 常见
 	},
 	{
 		ID:              "thunder_power",
@@ -184,6 +184,15 @@ var PillRecipes = []PillRecipe{
 		Type:            "cultivation",
 		FragmentsNeeded: 20,
 		Weight:          5, // 较少
+	},
+	{
+		ID:              "jie_ying_pill",
+		Name:            "渡劫丹",
+		Description:     "万年灵草炼制，服用后增加少许渡劫成功率",
+		Grade:           "grade3",
+		Type:            "cultivation",
+		FragmentsNeeded: 20,
+		Weight:          10, // 较少
 	},
 	{
 		ID:              "mind_clarity",

@@ -123,3 +123,37 @@ func UseFormation(c *gin.Context) {
 
 	c.JSON(http.StatusOK, resp)
 }
+
+// BreakthroughJieYing 结婴突破
+// POST /api/cultivation/breakthrough-jieying
+func BreakthroughJieYing(c *gin.Context) {
+	userID, ok := c.Get("userID")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "用户未授权"})
+		return
+	}
+
+	uid := userID.(uint)
+	logger, _ := c.Get("zap_logger")
+	zapLogger := logger.(*zap.Logger)
+
+	zapLogger.Info("BreakthroughJieYing 入参",
+		zap.Uint("userID", uid))
+
+	service := cultivationSvc.NewCultivationService(uid)
+
+	resp, err := service.BreakthroughJieYing()
+	if err != nil {
+		zapLogger.Error("breakthrough jieying failed",
+			zap.Uint("userID", uid),
+			zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "结婴失败", "error": err.Error()})
+		return
+	}
+
+	zapLogger.Info("BreakthroughJieYing 出参",
+		zap.Uint("userID", uid),
+		zap.Any("result", resp))
+
+	c.JSON(http.StatusOK, resp)
+}
