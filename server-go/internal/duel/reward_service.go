@@ -60,10 +60,10 @@ func (rs *RewardService) CalculateRewards(status *PvPBattleStatus, playerLevel i
 	}
 }
 
-// CalculateRewardsForPvE 计算PvE战斗奖励（仅灵草）
+// CalculateRewardsForPvE 计算降伏妖兽战斗奖励（仅灵草）
 // difficulty: normal(普通), hard(困难), boss(噩梦)
 func (rs *RewardService) CalculateRewardsForPvE(status *PvEBattleStatus, playerLevel int, difficulty string) *PvERewards {
-	// 60% 概率不奖励任何物品
+	// 70% 概率不奖励任何物品
 	if rand.Float64() < 0.7 {
 		return nil
 	}
@@ -81,14 +81,18 @@ func (rs *RewardService) CalculateRewardsForPvE(status *PvEBattleStatus, playerL
 	// 随机生成灵草品质
 	quality := exploration.GetRandomQuality(rand.Float64())
 
-	// 根据难度获取奖励倍数：normal=1, hard=1-2随机, boss=1-3随机
-	multiplier := rs.getDifficultyMultiplier(difficulty)
+	// 使用降伏妖兽专用的难度倍数计算
+	multiplier := rs.getMonsterDifficultyMultiplier(difficulty)
+	herbCount := int(math.Round(multiplier))
+
+	log.Printf("[Reward] 计算降伏妖兽奖励 - 难度: %s, 倍数: %.2f, 灵草: %s, 数量: %d, 品质: %s",
+		difficulty, multiplier, herbConfig.Name, herbCount, quality)
 
 	// 每次战斗奖励的灵草数量根据难度倍增（四舍五入取整）
 	return &PvERewards{
 		HerbID:  herbConfig.ID,
 		Name:    herbConfig.Name,
-		Count:   int(math.Round(multiplier)),
+		Count:   herbCount,
 		Quality: quality,
 	}
 }
@@ -101,8 +105,8 @@ func (rs *RewardService) CalculateRewardsForDemonSlaying(status *PvEBattleStatus
 	// 基础修为奖励（比PvP少一些）
 	baseCultivation := rs.calculateCultivationReward(status.Round, playerLevel) / 2
 
-	// 根据难度获取奖励倍数：normal=1, hard=1-2随机, boss=1-3随机
-	multiplier := rs.getDifficultyMultiplier(difficulty)
+	// 使用除魔卫道专用的难度倍数计算
+	multiplier := rs.getDemonSlayingDifficultyMultiplier(difficulty)
 
 	rewards := &DemonSlayingRewards{
 		SpiritStones: int64(math.Round(float64(baseSpiritStones) * multiplier)),
@@ -207,7 +211,7 @@ func (rs *RewardService) calculateRewardMultiplier() float64 {
 	return 1.0
 }
 
-// getDifficultyMultiplier 根据难度获取随机奖励倍数
+// getDifficultyMultiplier 根据难度获取随机奖励倍数（通用）
 // normal(普通)=1倍(固定), hard(困难)=1-2個随机), boss(噩梦)=1-3倍(随机)
 func (rs *RewardService) getDifficultyMultiplier(difficulty string) float64 {
 	switch difficulty {
@@ -222,6 +226,36 @@ func (rs *RewardService) getDifficultyMultiplier(difficulty string) float64 {
 		return 1.0 + rand.Float64()*2.0 // [1.0, 3.0)
 	default:
 		// 默认返回1倍
+		return 1.0
+	}
+}
+
+// getMonsterDifficultyMultiplier 降伏妖兽难度倍数（仅影响灵草数量）
+// normal(普通)=1倍, hard(困难)=1-2倍随机, boss(噩梦)=1-3倍随机
+func (rs *RewardService) getMonsterDifficultyMultiplier(difficulty string) float64 {
+	switch difficulty {
+	case "normal":
+		return 1.0
+	case "hard":
+		return 1.0 + rand.Float64()
+	case "boss":
+		return 1.0 + rand.Float64()*2.0
+	default:
+		return 1.0
+	}
+}
+
+// getDemonSlayingDifficultyMultiplier 除魔卫道难度倍数（影响灵石和修为）
+// normal(普通)=1倍, hard(困难)=1-2倍随机, boss(噩梦)=1-3倍随机
+func (rs *RewardService) getDemonSlayingDifficultyMultiplier(difficulty string) float64 {
+	switch difficulty {
+	case "normal":
+		return 1.0
+	case "hard":
+		return 1.0 + rand.Float64()
+	case "boss":
+		return 1.0 + rand.Float64()*2.0
+	default:
 		return 1.0
 	}
 }
