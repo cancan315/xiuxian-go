@@ -109,6 +109,9 @@ func (rs *RewardService) CalculateRewardsForDemonSlaying(status *PvEBattleStatus
 		Cultivation:  int64(math.Round(float64(baseCultivation) * multiplier)),
 	}
 
+	log.Printf("[Reward] 计算除魔卫道奖励 - 玩家等级: %d, 难度: %s, 倍数: %.2f, 灵石: %d, 修为: %d",
+		playerLevel, difficulty, multiplier, rewards.SpiritStones, rewards.Cultivation)
+
 	// 20% 概率获得丹方残页
 	if rand.Float64() < 0.2 {
 		// 从探索配置中随机选择一个丹方（按权重）
@@ -322,13 +325,19 @@ func (rs *RewardService) GrantDemonSlayingRewardsToPlayer(playerID int64, reward
 		user.Cultivation = user.MaxCultivation
 	}
 
-	// 保存到数据库
-	if err := db.DB.Model(&user).
-		Update("spirit_stones", user.SpiritStones).
-		Update("cultivation", user.Cultivation).Error; err != nil {
+	log.Printf("[Reward] 准备发放除魔卫道奖励 - 玩家ID: %d, 灵石增加: %d -> %d, 修为增加: %d -> %.2f",
+		playerID, rewards.SpiritStones, user.SpiritStones, rewards.Cultivation, user.Cultivation)
+
+	// 使用 Updates map 方式更新，避免零值字段更新失败
+	if err := db.DB.Model(&user).Updates(map[string]interface{}{
+		"spirit_stones": user.SpiritStones,
+		"cultivation":   user.Cultivation,
+	}).Error; err != nil {
 		log.Printf("[Reward] 更新玩家资源失败: %v", err)
 		return fmt.Errorf("更新玩家资源失败: %w", err)
 	}
+
+	log.Printf("[Reward] 成功发放灵石和修为 - 玩家ID: %d", playerID)
 
 	// 如果有丹方残页，增加残页数量
 	if rewards.PillFragmentID != "" {
