@@ -67,13 +67,13 @@ const handleLogin = async (e) => {
         storedToken: getAuthToken() ? getAuthToken().substring(0, 20) + '...' : 'null'
       })
       
-      // ✅ 立即设置玩家ID到Store，确保后续数据加载时能使用
+      // ✅ 先标记玩家上线，再设置ID（触发watch时能立即获取正确的在线数量）
+      await APIService.playerOnline(String(response.id))
+      
+      // 设置玩家ID到Store
       const playerStore = usePlayerInfoStore()
       playerStore.id = response.id
       console.log('[Login.vue] 用户登录成功，已设置playerInfoStore.id:', playerStore.id)
-
-      // 标记玩家上线
-      await APIService.playerOnline(String(response.id))
 
       message.success('登录成功');
       // 登录成功后跳转到游戏主界面
@@ -124,15 +124,15 @@ const handleRegister = async (e) => {
       // 保存令牌
       setAuthToken(response.token);
       
-      // ✅ 立即设置玩家ID到Store
-      const playerStore = usePlayerInfoStore()
-      playerStore.id = response.id
-      console.log('[Login.vue] 用户注册成功，已设置playerInfoStore.id:', playerStore.id)
-
-      // 标记新玩家上线，启动灵力增长任务
+      // ✅ 先标记玩家上线，再设置ID
       if (response.id) {
         await APIService.playerOnline(String(response.id))
       }
+      
+      // 设置玩家ID到Store
+      const playerStore = usePlayerInfoStore()
+      playerStore.id = response.id
+      console.log('[Login.vue] 用户注册成功，已设置playerInfoStore.id:', playerStore.id)
 
       message.success('注册成功');
       // 注册成功后跳转到游戏主界面

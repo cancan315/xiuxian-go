@@ -312,6 +312,11 @@ func GetOnlinePlayers(c *gin.Context) {
 		if err != nil {
 			continue
 		}
+		// Hash key 已过期，从 SET 中移除该玩家
+		if len(data) == 0 {
+			rdb.SRem(redisc.Ctx, "server:online:players", id)
+			continue
+		}
 		if status, ok := data["status"]; !ok || status != "online" {
 			continue
 		}

@@ -41,7 +41,7 @@
                 <Sparkles />
               </n-icon>
             </template>
-            使用聚灵阵可以加速修炼，消耗灵石获得修为，是聚灵效率的随机倍数。
+            每日前10次降低10倍消耗。使用聚灵阵可以加速修炼，消耗灵石获得修为，是聚灵效率的随机倍数。
           </n-alert>
           <n-space vertical>
             <n-button type="primary" size="large" block @click="useFormation" :disabled="playerInfoStore.spiritStones < formationCost">

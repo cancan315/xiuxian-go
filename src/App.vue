@@ -385,6 +385,21 @@ const getPlayerData = async () => {
       const response = await APIService.getCultivationData(token)
       if (response.success) {
       //  console.log('[Cultivation] 修炼消耗:', response.data.spiritCost, '获得:', response.data.cultivationGain)
+        
+        // ✅ 设置用户ID并标记上线（页面刷新后重新标记）
+        if (response.data.id) {
+          playerInfoStore.id = response.data.id
+          // 重新标记玩家上线，创建Redis记录
+          try {
+            await APIService.playerOnline(String(response.data.id))
+            console.log('[App.vue] 页面刷新后重新标记玩家上线:', response.data.id)
+            // ✅ 登录后立即更新在线玩家数量
+            await fetchOnlinePlayers()
+          } catch (onlineErr) {
+            console.warn('[App.vue] 标记玩家上线失败:', onlineErr)
+          }
+        }
+        
         playerInfoStore.playerName = response.data.playerName // 玩家名称
         playerInfoStore.level = response.data.level // 境界等级
         playerInfoStore.realm = response.data.realm // 境界

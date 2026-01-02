@@ -29,12 +29,13 @@ func StartHeartbeatMonitor(logger *zap.Logger) {
 }
 
 // checkAndCleanupTimeoutPlayers 检查并清理心跳超时的玩家
+// ✅ 优化：直接使用 player:online:* 模式获取在线玩家
 func checkAndCleanupTimeoutPlayers(logger *zap.Logger) {
 	rdb := redisc.Client
 	ctx := context.Background()
 
-	// 获取所有在线玩家
-	playerIDs, err := rdb.SMembers(ctx, "server:online:players").Result()
+	// 使用 Keys 命令获取所有 player:online:* 的 key
+	keys, err := rdb.Keys(ctx, "player:online:*").Result()
 	if err != nil {
 		logger.Error("获取在线玩家列表失败", zap.Error(err))
 		return
@@ -43,8 +44,9 @@ func checkAndCleanupTimeoutPlayers(logger *zap.Logger) {
 	currentTime := time.Now().UnixMilli()
 	heartbeatTimeoutMs := int64(600 * 1000) // 10分钟超时
 
-	for _, playerIDStr := range playerIDs {
-		key := "player:online:" + playerIDStr
+	for _, key := range keys {
+		// 从 key 中提取 playerID，格式: player:online:{id}
+		playerIDStr := key[len("player:online:"):]
 
 		// 获取玩家的最后心跳时间
 		data, err := rdb.HGetAll(ctx, key).Result()
@@ -54,6 +56,7 @@ func checkAndCleanupTimeoutPlayers(logger *zap.Logger) {
 		}
 
 		if len(data) == 0 {
+			// Hash key 已过期，跳过
 			continue
 		}
 
@@ -135,13 +138,6 @@ func checkAndCleanupTimeoutPlayers(logger *zap.Logger) {
 			// 删除在线状态
 			if err := rdb.Del(ctx, key).Err(); err != nil {
 				logger.Error("删除超时玩家在线状态失败",
-					zap.String("playerID", playerIDStr),
-					zap.Error(err))
-			}
-
-			// 从在线集合中移除
-			if err := rdb.SRem(ctx, "server:online:players", playerIDStr).Err(); err != nil {
-				logger.Error("从在线集合中移除超时玩家失败",
 					zap.String("playerID", playerIDStr),
 					zap.Error(err))
 			}
