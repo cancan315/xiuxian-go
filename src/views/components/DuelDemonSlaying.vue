@@ -5,7 +5,7 @@
       <n-space vertical size="small">
         <div>除魔卫道，降服邪道弟子！战胜后可获得灵石、修为以及随机丹方残页（聚灵丹、聚气丹、回灵丹、雷灵丹、凝元丹、渡劫丹）。</div>
         <n-space>
-          <n-tag type="warning">已挑战：{{ demonCount }}/100</n-tag>
+          <n-tag type="warning">已挑战：{{ demonCount }}/20</n-tag>
           <n-tag type="info">灵力消耗：{{ spiritCost }}</n-tag>
           <n-tag type="success">当前灵力：{{ currentSpirit }}</n-tag>
         </n-space>
@@ -257,12 +257,14 @@ const autoFightLoop = async () => {
           if (Array.isArray(data.rewards) && data.rewards.length > 0) {
             autoFightLogRef.value?.addLog('🎁 获得奖励：')
             data.rewards.forEach(reward => {
-              if (reward.type === 'demon_slaying') {
-                autoFightLogRef.value?.addLog(`- 灵石 ×${reward.spiritStones}`)
-                autoFightLogRef.value?.addLog(`- 修为 ×${reward.cultivation}`)
-                if (reward.pillFragment) {
-                  autoFightLogRef.value?.addLog(`- 丹方残页：${reward.pillFragment}`)
-                }
+              if (reward.type === 'spirit_stone') {
+                autoFightLogRef.value?.addLog(`- 灵石 +${reward.amount}`)
+              } else if (reward.type === 'cultivation') {
+                autoFightLogRef.value?.addLog(`- 修为 +${reward.amount}`)
+              } else if (reward.type === 'pill_fragment') {
+                autoFightLogRef.value?.addLog(`- ${reward.name}残页 +${reward.count}`)
+              } else if (reward.type === 'herb') {
+                autoFightLogRef.value?.addLog(`- ${reward.name} +${reward.count}`)
               }
             })
           }

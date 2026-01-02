@@ -36,7 +36,8 @@
               <n-tag type="warning" size="large">
                 {{ reward.type === 'spirit_stone' ? `灵石 +${reward.amount}` : ''}}
                 {{ reward.type === 'cultivation' ? `修为 +${reward.amount}` : '' }}
-                {{ reward.type === 'herb' ? `+${reward.count} (${reward.name})` : '' }}
+                {{ reward.type === 'herb' ? `${reward.name} +${reward.count}` : '' }}
+                {{ reward.type === 'pill_fragment' ? `${reward.name}残页 +${reward.count}` : '' }}
               </n-tag>
             </div>
           </n-space>
