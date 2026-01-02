@@ -11,7 +11,24 @@
                   <n-page-header>
                     <template #title>我的小小修仙界   欢迎道友，请入Q群: 755301571 恳请道友邀请好友一起修仙</template>
                     <template #extra>
-                      <n-space>
+                      <n-space align="center">
+                        <n-popover trigger="click" placement="bottom">
+                          <template #trigger>
+                            <n-tag type="success" style="cursor: pointer;">
+                              在线: {{ onlineCount }} 人
+                            </n-tag>
+                          </template>
+                          <div style="max-height: 300px; overflow-y: auto;">
+                            <n-list bordered size="small" style="min-width: 150px;">
+                              <n-list-item v-for="player in onlinePlayers" :key="player.playerId">
+                                {{ player.name }}
+                              </n-list-item>
+                              <n-list-item v-if="onlinePlayers.length === 0">
+                                <n-text depth="3">暂无在线道友</n-text>
+                              </n-list-item>
+                            </n-list>
+                          </div>
+                        </n-popover>
                         <n-button @click="logout">退出游戏</n-button>
                       </n-space>
                     </template>
@@ -249,6 +266,11 @@ const isLoading = ref(true) // 添加加载状态
 const isLoggingOut = ref(false) // 添加登出状态
 const currentView = ref('cultivation') // 默认显示修炼页面
 
+// 在线玩家状态
+const onlinePlayers = ref([])
+const onlineCount = ref(0)
+let onlinePlayersTimer = null
+
 // Check if user is authenticated
 const isAuthenticated = computed(() => {
   return !!getAuthToken()
@@ -436,6 +458,8 @@ watch(() => playerInfoStore.id, async (newId) => {
       // 启动心跳和灵力同步定时器
       startHeartbeatTimer(newId, token)
       startSpiritSyncTimer(token)
+      // 启动在线玩家刷新定时器
+      startOnlinePlayersTimer()
     }
   }
 })
@@ -449,7 +473,40 @@ onUnmounted(() => {
   // 停止定时器
   stopHeartbeatTimer()
   stopSpiritSyncTimer()
+  stopOnlinePlayersTimer()
 })
+
+// ========== 在线玩家相关函数 ==========
+
+// 获取在线玩家列表
+const fetchOnlinePlayers = async () => {
+  try {
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/online/players`)
+    if (response.ok) {
+      const data = await response.json()
+      onlinePlayers.value = data.players || []
+      onlineCount.value = data.count || 0
+    }
+  } catch (error) {
+    console.error('获取在线玩家失败:', error)
+  }
+}
+
+// 启动在线玩家刷新定时器（30秒刷新一次）
+const startOnlinePlayersTimer = () => {
+  // 立即获取一次
+  fetchOnlinePlayers()
+  // 每30秒刷新
+  onlinePlayersTimer = setInterval(fetchOnlinePlayers, 30000)
+}
+
+// 停止在线玩家刷新定时器
+const stopOnlinePlayersTimer = () => {
+  if (onlinePlayersTimer) {
+    clearInterval(onlinePlayersTimer)
+    onlinePlayersTimer = null
+  }
+}
 
 // 菜单 key 到提示文本的映射
 const menuKeyToMessage = {

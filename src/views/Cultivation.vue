@@ -215,9 +215,22 @@
         playerInfoStore.spiritStones -= response.stoneCost
         playerInfoStore.cultivation = response.currentCultivation
         
-        // 记录日志
-        if (formationLogRef.value) {
-          formationLogRef.value.addLog(`聚灵阵获得 ${response.cultivationGain.toFixed(1)} 点修为，消耗 ${response.stoneCost} 灵石`)
+        // ✅ 高等级聚灵阵逻辑（等级>27）：增加修为上限
+        if (response.maxCultivationGain > 0) {
+          playerInfoStore.maxCultivation = response.newMaxCultivation
+          
+          // 记录日志
+          if (formationLogRef.value) {
+            formationLogRef.value.addLog(`聚灵阵威能增幅！修为上限+${response.maxCultivationGain.toFixed(1)} (${response.maxCultivationRate.toFixed(1)}%)，消耗 ${response.stoneCost} 灵石`)
+          }
+          message.success(`聚灵阵威能增幅！修为上限+${response.maxCultivationGain.toFixed(1)} (${response.maxCultivationRate.toFixed(1)}%)`)
+        } else {
+          // ✅ 普通等级聚灵阵逻辑（等级<=27）：增加修为
+          // 记录日志
+          if (formationLogRef.value) {
+            formationLogRef.value.addLog(`聚灵阵获得 ${response.cultivationGain.toFixed(1)} 点修为，消耗 ${response.stoneCost} 灵石`)
+          }
+          message.success('聚灵阵使用成功，获得 ' + response.cultivationGain.toFixed(1) + ' 点修为')
         }
         
         // 检查是否有突破
@@ -234,7 +247,6 @@
             formationLogRef.value.addLog(bt.message)
           }
         }
-        message.success('聚灵阵使用成功，获得 ' + response.cultivationGain.toFixed(1) + ' 点修为')
         return true
       } else {
         message.warning(response.error || '聚灵阵使用失败')

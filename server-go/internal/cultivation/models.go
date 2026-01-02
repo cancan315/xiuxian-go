@@ -13,8 +13,8 @@ const (
 	// ✅ 新增：聚灵阵相关常量
 	BaseFormationCost       = 10   // 基础聚灵阵消耗灵石
 	BaseFormationGain       = 5    // 基础聚灵阵获得修为
-	FormationCostMultiplier = 1.3  // 聚灵阵消耗倍率
-	FormationGainMultiplier = 1.1  // 聚灵阵获得倍率
+	FormationCostMultiplier = 1.25  // 聚灵阵消耗倍率
+	FormationGainMultiplier = 1.12  // 聚灵阵获得倍率
 	FormationInterval       = 1000 // 聚灵阵间隔时间（毫秒）
 )
 
@@ -37,13 +37,16 @@ type CultivationResponse struct {
 
 // FormationResponse 聚灵阵响应
 type FormationResponse struct {
-	Success            bool        `json:"success"`
-	CultivationGain    float64     `json:"cultivationGain"`    // 获得的修为
-	StoneCost          int         `json:"stoneCost"`          // 消耗的灵石
-	CurrentCultivation float64     `json:"currentCultivation"` // 当前修为
-	Breakthrough       interface{} `json:"breakthrough,omitempty"`
-	Message            string      `json:"message,omitempty"`
-	Error              string      `json:"error,omitempty"`
+	Success              bool        `json:"success"`
+	CultivationGain      float64     `json:"cultivationGain"`      // 获得的修为
+	StoneCost            int         `json:"stoneCost"`            // 消耗的灵石
+	CurrentCultivation   float64     `json:"currentCultivation"`   // 当前修为
+	MaxCultivationGain   float64     `json:"maxCultivationGain"`   // ✅ 新增：增加的最大修为上限
+	NewMaxCultivation    float64     `json:"newMaxCultivation"`    // ✅ 新增：新的最大修为上限
+	MaxCultivationRate   float64     `json:"maxCultivationRate"`   // ✅ 新增：增加的百分比
+	Breakthrough         interface{} `json:"breakthrough,omitempty"`
+	Message              string      `json:"message,omitempty"`
+	Error                string      `json:"error,omitempty"`
 }
 
 // 突破响应

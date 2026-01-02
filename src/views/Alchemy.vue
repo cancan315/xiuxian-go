@@ -335,10 +335,16 @@
         // 刷新丹方列表（包括重新加载灵草）
         await initAlchemy()
       } else {
-        message.error(response.data?.message || '炼制失败')
+        // ✅ 炼丹失败也要刷新灵草数据，因为后端已经消耗了灵草
+        const failMsg = response.data?.message || '炼制失败'
+        message.warning(failMsg)
         if (logRef.value) {
-          logRef.value.addLog(`炼制${recipe.name}失败: ${response.data?.message || '成功率不足'}`)
+          logRef.value.addLog(`炼制${recipe.name}失败: ${failMsg}`)
         }
+        
+        // ✅ 刷新灵草数据（后端已消耗灵草）
+        await new Promise(resolve => setTimeout(resolve, 200))
+        await initAlchemy()
       }
     } catch (error) {
       console.error('炼制失败:', error)

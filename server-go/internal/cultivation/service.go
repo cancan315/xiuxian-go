@@ -165,12 +165,15 @@ func (s *CultivationService) SingleCultivate() (*CultivationResponse, error) {
 
 	// 保存数据
 	if err := db.DB.Model(&user).Updates(map[string]interface{}{
-		"spirit":          user.Spirit,
-		"cultivation":     user.Cultivation,
-		"level":           user.Level,
-		"realm":           user.Realm,
-		"max_cultivation": user.MaxCultivation,
-		"base_attributes": user.BaseAttributes,
+		"spirit":             user.Spirit,
+		"cultivation":        user.Cultivation,
+		"level":              user.Level,
+		"realm":              user.Realm,
+		"max_cultivation":    user.MaxCultivation,
+		"base_attributes":    user.BaseAttributes,
+		"combat_attributes":  user.CombatAttributes,
+		"combat_resistance":  user.CombatResistance,
+		"special_attributes": user.SpecialAttributes,
 	}).Error; err != nil {
 		return nil, fmt.Errorf("failed to update user: %w", err)
 	}
@@ -215,6 +218,9 @@ func (s *CultivationService) performBreakthrough(user *models.User, attrs *map[s
 	spiritReward := float64(BreakthroughReward * user.Level)
 	user.Spirit += spiritReward
 
+	// ✅ 新增：升级时重新计算玩家属性
+	s.reinitializePlayerAttributes(user, attrs)
+
 	// 突破奖励：提升灵力获取速率
 	newSpiritRate := 1.0
 	if spiritRate, ok := (*attrs)["spiritRate"].(float64); ok {
@@ -236,6 +242,144 @@ func (s *CultivationService) performBreakthrough(user *models.User, attrs *map[s
 		SpiritReward:      spiritReward,
 		NewSpiritRate:     newSpiritRate,
 		Message:           fmt.Sprintf("恭喜突破至 %s！", user.Realm),
+	}
+}
+
+// reinitializePlayerAttributes 升级时重新初始化玩家属性
+// 步骤：
+// 1. 重新计算基础属性（基于新等级）
+// 2. 重新应用装备加成
+// 3. 重新应用灵宠加成
+func (s *CultivationService) reinitializePlayerAttributes(user *models.User, attrs *map[string]interface{}) {
+	level := user.Level
+
+	// 步骤1：重新计算基础属性
+	baseAttrs := map[string]interface{}{
+		"speed":   float64(10 * level),
+		"attack":  float64(10 * level),
+		"health":  float64(100 * level),
+		"defense": float64(5 * level),
+	}
+
+	// 计算灵力速率
+	spiritRate := 1.0 * math.Pow(1.2, float64(level-1))
+	spiritRate = math.Round(spiritRate*100) / 100
+	baseAttrs["spiritRate"] = spiritRate
+
+	// 保留cultivationRate
+	if cr, ok := (*attrs)["cultivationRate"]; ok {
+		baseAttrs["cultivationRate"] = cr
+	} else {
+		baseAttrs["cultivationRate"] = 1.0
+	}
+
+	// 保留unlockedRealms
+	if ur, ok := (*attrs)["unlockedRealms"]; ok {
+		baseAttrs["unlockedRealms"] = ur
+	}
+
+	// 初始化战斗属性
+	combatAttrs := map[string]float64{
+		"critRate":     0,
+		"critDamage":   0,
+		"comboRate":    0,
+		"stunRate":     0,
+		"lifesteal":    0,
+		"attackBonus":  0,
+		"defenseBonus": 0,
+	}
+
+	// 初始化抗性属性
+	combatRes := map[string]float64{
+		"critResist":  0,
+		"comboResist": 0,
+		"stunResist":  0,
+	}
+
+	// 初始化特殊属性
+	specialAttrs := map[string]float64{
+		"luck":        0,
+		"spiritBonus": 0,
+	}
+
+	// 步骤2：重新应用装备加成
+	var equipments []models.Equipment
+	if err := db.DB.Where("user_id = ? AND equipped = ?", user.ID, true).Find(&equipments).Error; err == nil {
+		for _, equipment := range equipments {
+			s.applyEquipmentStats(&baseAttrs, &combatAttrs, &combatRes, &specialAttrs, &equipment)
+		}
+	}
+
+	// 步骣3：重新应用灵宠加成
+	var pets []models.Pet
+	if err := db.DB.Where("user_id = ? AND is_active = ?", user.ID, true).Find(&pets).Error; err == nil {
+		for _, pet := range pets {
+			s.applyPetStats(&baseAttrs, &combatAttrs, &combatRes, &specialAttrs, &pet)
+		}
+	}
+
+	// 更新用户属性JSON
+	baseJSON, _ := json.Marshal(baseAttrs)
+	combatJSON, _ := json.Marshal(combatAttrs)
+	resJSON, _ := json.Marshal(combatRes)
+	specialJSON, _ := json.Marshal(specialAttrs)
+
+	user.BaseAttributes = datatypes.JSON(baseJSON)
+	user.CombatAttributes = datatypes.JSON(combatJSON)
+	user.CombatResistance = datatypes.JSON(resJSON)
+	user.SpecialAttributes = datatypes.JSON(specialJSON)
+
+	// 更新attrs以便之后使用
+	*attrs = baseAttrs
+}
+
+// applyEquipmentStats 应用装备属性加成
+func (s *CultivationService) applyEquipmentStats(baseAttrs *map[string]interface{}, combatAttrs, combatRes, specialAttrs *map[string]float64, equipment *models.Equipment) {
+	var stats map[string]interface{}
+	if equipment.Stats != nil {
+		json.Unmarshal(equipment.Stats, &stats)
+	}
+
+	for key, value := range stats {
+		if v, ok := value.(float64); ok {
+			switch key {
+			case "speed", "attack", "health", "defense":
+				if current, ok := (*baseAttrs)[key].(float64); ok {
+					(*baseAttrs)[key] = current + v
+				}
+			case "critRate", "critDamage", "comboRate", "stunRate", "lifesteal", "attackBonus", "defenseBonus":
+				(*combatAttrs)[key] += v
+			case "critResist", "comboResist", "stunResist":
+				(*combatRes)[key] += v
+			case "luck", "spiritBonus":
+				(*specialAttrs)[key] += v
+			}
+		}
+	}
+}
+
+// applyPetStats 应用灵宠属性加成
+func (s *CultivationService) applyPetStats(baseAttrs *map[string]interface{}, combatAttrs, combatRes, specialAttrs *map[string]float64, pet *models.Pet) {
+	var petCombat map[string]interface{}
+	if pet.CombatAttributes != nil {
+		json.Unmarshal(pet.CombatAttributes, &petCombat)
+	}
+
+	for key, value := range petCombat {
+		if v, ok := value.(float64); ok {
+			switch key {
+			case "speed", "attack", "health", "defense":
+				if current, ok := (*baseAttrs)[key].(float64); ok {
+					(*baseAttrs)[key] = current + v
+				}
+			case "critRate", "critDamage", "comboRate", "stunRate", "lifesteal", "attackBonus", "defenseBonus":
+				(*combatAttrs)[key] += v
+			case "critResist", "comboResist", "stunResist":
+				(*combatRes)[key] += v
+			case "luck", "spiritBonus":
+				(*specialAttrs)[key] += v
+			}
+		}
 	}
 }
 
@@ -282,6 +426,9 @@ func getCurrentFormationGain(level int) float64 {
 }
 
 // UseFormation 使用聚灵阵
+// ✅ 新增逻辑：
+// 1. 前10次消耗灵石数量降低10倍
+// 2. 等级>27时，固定消耗10000灵石，概率增加MaxCultivation百分比
 func (s *CultivationService) UseFormation() (*FormationResponse, error) {
 	var user models.User
 	if err := db.DB.First(&user, s.userID).Error; err != nil {
@@ -310,8 +457,24 @@ func (s *CultivationService) UseFormation() (*FormationResponse, error) {
 	attrs := s.getPlayerAttributes(&user)
 	cultivationRate := attrs["cultivationRate"].(float64)
 
+	// ✅ 高等级特殊逻辑：等级>27时使用完全不同的机制
+	if user.Level > 27 {
+		return s.useFormationHighLevel(&user, &attrs)
+	}
+
+	// ========== 普通等级逻辑（等级<=27）==========
+
 	// 计算当前等级的聚灵阵消耗
 	formationCost := getCurrentFormationCost(user.Level)
+
+	// ✅ 前10次使用聚灵阵时降低消耗10倍
+	formationCountKey := fmt.Sprintf("formation:totalcount:%d", s.userID)
+	totalFormationCount, _ := redis.Client.Incr(redis.Ctx, formationCountKey).Val()
+	redis.Client.Expire(redis.Ctx, formationCountKey, 30*24*time.Hour)
+
+	if totalFormationCount <= 10 {
+		formationCost = (formationCost + 9) / 10 // 向上取整后除以10
+	}
 
 	// 检查灵石是否足够
 	if user.SpiritStones < formationCost {
@@ -358,12 +521,15 @@ func (s *CultivationService) UseFormation() (*FormationResponse, error) {
 
 	// 保存数据
 	if err := db.DB.Model(&user).Updates(map[string]interface{}{
-		"spirit_stones":   user.SpiritStones,
-		"cultivation":     user.Cultivation,
-		"level":           user.Level,
-		"realm":           user.Realm,
-		"max_cultivation": user.MaxCultivation,
-		"base_attributes": user.BaseAttributes,
+		"spirit_stones":      user.SpiritStones,
+		"cultivation":        user.Cultivation,
+		"level":              user.Level,
+		"realm":              user.Realm,
+		"max_cultivation":    user.MaxCultivation,
+		"base_attributes":    user.BaseAttributes,
+		"combat_attributes":  user.CombatAttributes,
+		"combat_resistance":  user.CombatResistance,
+		"special_attributes": user.SpecialAttributes,
 	}).Error; err != nil {
 		return nil, fmt.Errorf("failed to update user: %w", err)
 	}
@@ -388,6 +554,68 @@ func (s *CultivationService) UseFormation() (*FormationResponse, error) {
 	}
 
 	return resp, nil
+}
+
+// useFormationHighLevel 高等级聚灵阵逻辑（等级>27）
+// 固定消耗10000灵石，概率增加MaxCultivation百分比
+// 55%概率增加1%, 30%概率增加2%, 10%概率增加2.5%, 5%概率增加3%
+func (s *CultivationService) useFormationHighLevel(user *models.User, attrs *map[string]interface{}) (*FormationResponse, error) {
+	const highLevelFormationCost = 10000 // 固定消耗10000灵石
+
+	// 检查灵石是否足够
+	if user.SpiritStones < highLevelFormationCost {
+		return &FormationResponse{
+			Success: false,
+			Error:   fmt.Sprintf("灵石不足，需要%d，当前%d", highLevelFormationCost, user.SpiritStones),
+		}, nil
+	}
+
+	// 消耗灵石
+	user.SpiritStones -= highLevelFormationCost
+
+	// 概率增加MaxCultivation百分比
+	// 55% -> 1%, 30% -> 2%, 10% -> 2.5%, 5% -> 3%
+	r := rand.Float64() // [0,1)
+	var maxCultivationRate float64
+
+	switch {
+	case r < 0.55: // 55%
+		maxCultivationRate = 0.01 // 1%
+	case r < 0.85: // 30% (0.55 + 0.30)
+		maxCultivationRate = 0.02 // 2%
+	case r < 0.95: // 10% (0.85 + 0.10)
+		maxCultivationRate = 0.025 // 2.5%
+	default: // 5%
+		maxCultivationRate = 0.03 // 3%
+	}
+
+	// 计算增加的MaxCultivation
+	maxCultivationGain := user.MaxCultivation * maxCultivationRate
+	maxCultivationGain = math.Round(maxCultivationGain*10) / 10
+	user.MaxCultivation = math.Round((user.MaxCultivation+maxCultivationGain)*10) / 10
+
+	// 保存属性
+	s.setPlayerAttributes(user, *attrs)
+
+	// 保存数据
+	if err := db.DB.Model(user).Updates(map[string]interface{}{
+		"spirit_stones":   user.SpiritStones,
+		"max_cultivation": user.MaxCultivation,
+		"base_attributes": user.BaseAttributes,
+	}).Error; err != nil {
+		return nil, fmt.Errorf("failed to update user: %w", err)
+	}
+
+	return &FormationResponse{
+		Success:            true,
+		CultivationGain:    0, // 高等级不增加修为，只增加上限
+		StoneCost:          highLevelFormationCost,
+		CurrentCultivation: user.Cultivation,
+		MaxCultivationGain: maxCultivationGain,
+		NewMaxCultivation:  user.MaxCultivation,
+		MaxCultivationRate: maxCultivationRate * 100, // 转换为百分比显示
+		Message:            fmt.Sprintf("聚灵阵威能增幅！修为上限+%.1f (%.1f%%)", maxCultivationGain, maxCultivationRate*100),
+	}, nil
 }
 
 // GetCultivationData 获取修炼数据
@@ -555,16 +783,22 @@ func (s *CultivationService) BreakthroughJieYing() (map[string]interface{}, erro
 		// 重置 jieYingRate 为 5%
 		attrs["jieYingRate"] = 0.05
 
+		// ✅ 升级时重新计算玩家属性
+		s.reinitializePlayerAttributes(&user, &attrs)
+
 		// 保存属性
 		s.setPlayerAttributes(&user, attrs)
 
 		// 保存数据
 		if err := db.DB.Model(&user).Updates(map[string]interface{}{
-			"level":           user.Level,
-			"realm":           user.Realm,
-			"cultivation":     user.Cultivation,
-			"max_cultivation": user.MaxCultivation,
-			"base_attributes": user.BaseAttributes,
+			"level":              user.Level,
+			"realm":              user.Realm,
+			"cultivation":        user.Cultivation,
+			"max_cultivation":    user.MaxCultivation,
+			"base_attributes":    user.BaseAttributes,
+			"combat_attributes":  user.CombatAttributes,
+			"combat_resistance":  user.CombatResistance,
+			"special_attributes": user.SpecialAttributes,
 		}).Error; err != nil {
 			return nil, fmt.Errorf("failed to update user: %w", err)
 		}

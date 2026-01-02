@@ -317,15 +317,30 @@ func GetOnlinePlayers(c *gin.Context) {
 		}
 		loginTime, _ := strconv.ParseInt(data["loginTime"], 10, 64)
 		lastHeartbeat, _ := strconv.ParseInt(data["lastHeartbeat"], 10, 64)
+
+		// 查询玩家道号
+		playerName := "无名修士"
+		playerIDUint, parseErr := strconv.ParseUint(id, 10, 32)
+		if parseErr == nil {
+			var user models.User
+			if dbErr := db.DB.Select("name").First(&user, uint(playerIDUint)).Error; dbErr == nil {
+				playerName = user.Name
+			}
+		}
+
 		players = append(players, gin.H{
 			"playerId":      data["playerId"],
+			"name":          playerName,
 			"loginTime":     loginTime,
 			"lastHeartbeat": lastHeartbeat,
 			"ip":            data["ip"],
 		})
 	}
 
-	c.JSON(http.StatusOK, gin.H{"players": players})
+	c.JSON(http.StatusOK, gin.H{
+		"players": players,
+		"count":   len(players),
+	})
 }
 
 // GetPlayerOnlineStatus 获取指定玩家在线状态，对应 GET /api/online/player/:playerId

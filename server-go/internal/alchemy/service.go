@@ -438,23 +438,13 @@ func (s *AlchemyService) CraftPill(recipeID string, playerLevel int, unlockedRec
 
 	successRate := grade.SuccessRate * luck * alchemyRate
 
-	// 尝试炼制
-	if rand.Float64() > successRate {
-		return &CraftResult{
-			Success:     false,
-			Message:     "炼制失败",
-			SuccessRate: successRate,
-		}, nil
-	}
-
 	// 计算消耗的材料
 	consumedHerbs := make(map[string]int)
 	for _, material := range recipe.Materials {
 		consumedHerbs[material.HerbID] = material.Count
 	}
 
-	// 从数据库扣除灵草材料
-	// ✅ 改进逻辑：先聚合相同herbId的记录，然后再扣除
+	// ✅ 先扣除灵草材料（无论成功还是失败都要消耗）
 	for herbID, count := range consumedHerbs {
 		// 查询该herbId的所有记录
 		var herbs []models.Herb
@@ -494,6 +484,16 @@ func (s *AlchemyService) CraftPill(recipeID string, playerLevel int, unlockedRec
 				}
 			}
 		}
+	}
+
+	// 尝试炼制（灵草已消耗，现在判断成功与否）
+	if rand.Float64() > successRate {
+		return &CraftResult{
+			Success:       false,
+			Message:       "炼制失败，材料已消耗",
+			SuccessRate:   successRate,
+			ConsumedHerbs: consumedHerbs, // ✅ 返回消耗的灵草信息
+		}, nil
 	}
 
 	// 创建丹药记录 (保存到数据库)
