@@ -457,28 +457,57 @@ func (s *PvEBattleService) ExecutePvERound() (*PvPRoundData, error) {
 				roundLogs = append(roundLogs, fmt.Sprintf("%s已被击败！%s获得胜利！", status.MonsterName, status.PlayerName))
 				status.BattleLog = append(status.BattleLog, roundLogs[len(roundLogs)-1])
 
-				// 计算并发放奖励
-				awardRewards := s.rewardService.CalculateRewardsForPvE(status, 0, s.difficulty) // playerLevel 不用于灵草奖励
-
-				if awardRewards != nil {
-					if err := s.rewardService.GrantPvERewardsToPlayer(s.playerID, awardRewards); err != nil {
-						log.Printf("[PvE] 发放奖励失败: %v", err)
+				// 检查是普通妖兽还是除魔卫道（通过ID区分：101+为除魔卫道）
+				var rewardItems []interface{}
+				if s.monsterID >= 101 {
+					// 除魔卫道奖励：灵石、修为、丹方残页
+					var user models.User
+					if err := db.DB.First(&user, s.playerID).Error; err == nil {
+						demonRewards := s.rewardService.CalculateRewardsForDemonSlaying(status, user.Level, s.difficulty)
+						if demonRewards != nil {
+							if err := s.rewardService.GrantDemonSlayingRewardsToPlayer(s.playerID, demonRewards); err != nil {
+								log.Printf("[PvE] 发放除魔卫道奖励失败: %v", err)
+							}
+							// 拆分为多个奖励项，以便前端正确显示
+							// 灵石奖励
+							rewardItems = append(rewardItems, map[string]interface{}{
+								"type":   "spirit_stone",
+								"amount": demonRewards.SpiritStones,
+							})
+							// 修为奖励
+							rewardItems = append(rewardItems, map[string]interface{}{
+								"type":   "cultivation",
+								"amount": demonRewards.Cultivation,
+							})
+							// 丹方残页奖励（如果有）
+							if demonRewards.PillFragmentName != "" {
+								rewardItems = append(rewardItems, map[string]interface{}{
+									"type":  "pill_fragment",
+									"name":  demonRewards.PillFragmentName,
+									"count": 1,
+								})
+							}
+						}
+					}
+				} else {
+					// 普通妖兽奖励：仅灵草
+					awardRewards := s.rewardService.CalculateRewardsForPvE(status, 0, s.difficulty)
+					if awardRewards != nil {
+						if err := s.rewardService.GrantPvERewardsToPlayer(s.playerID, awardRewards); err != nil {
+							log.Printf("[PvE] 发放奖励失败: %v", err)
+						}
+						rewardItems = append(rewardItems, map[string]interface{}{
+							"type":    "herb",
+							"herbId":  awardRewards.HerbID,
+							"name":    awardRewards.Name,
+							"count":   awardRewards.Count,
+							"quality": awardRewards.Quality,
+						})
 					}
 				}
 
 				// 清除回合时间标记
 				redis.Client.Del(redis.Ctx, lastRoundKey)
-
-				var rewardItems []interface{}
-				if awardRewards != nil {
-					rewardItems = append(rewardItems, map[string]interface{}{
-						"type":    "herb",
-						"herbId":  awardRewards.HerbID,
-						"name":    awardRewards.Name,
-						"count":   awardRewards.Count,
-						"quality": awardRewards.Quality,
-					})
-				}
 
 				return &PvPRoundData{
 					Round:          status.Round,

@@ -16,6 +16,29 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// 中国时区 (UTC+8)
+var chinaTimezone *time.Location
+
+func init() {
+	var err error
+	chinaTimezone, err = time.LoadLocation("Asia/Shanghai")
+	if err != nil {
+		// 如果加载失败，使用固定偏移量
+		chinaTimezone = time.FixedZone("CST", 8*60*60)
+		log.Printf("[Duel] 使用固定时区 CST (UTC+8)")
+	}
+}
+
+// getNowInChina 获取中国时区的当前时间
+func getNowInChina() time.Time {
+	return time.Now().In(chinaTimezone)
+}
+
+// getTodayInChina 获取中国时区的今天日期字符串
+func getTodayInChina() string {
+	return getNowInChina().Format("2006-01-02")
+}
+
 // GetDuelSpiritCost 获取当前等级的斗法灵力消耗信息
 // 对应 GET /api/duel/spirit-cost
 func GetDuelSpiritCost(c *gin.Context) {
@@ -598,8 +621,8 @@ func EndPvPBattle(c *gin.Context) {
 func checkDailyDuelLimit(userID int64) (error, int) {
 	const maxDailyDuels = 20
 
-	// 获取今天的日期字符串（格式: 2025-12-29）
-	today := time.Now().Format("2006-01-02")
+	// 获取今天的日期字符串（格式: 2025-12-29，使用中国时区）
+	today := getTodayInChina()
 	duelCountKey := "duel:daily:" + today + ":" + strconv.FormatInt(userID, 10)
 
 	// 从Redis获取今天已经斗法的次数
@@ -632,17 +655,17 @@ func checkDailyDuelLimit(userID int64) (error, int) {
 	return nil, remaining
 }
 
-// getTimeUntilMidnight 获取距离今天00:00:00的时间差
+// getTimeUntilMidnight 获取距离中国时区明天00:00:00的时间差
 func getTimeUntilMidnight() time.Duration {
-	now := time.Now()
+	now := getNowInChina()
 	tomorrow := now.AddDate(0, 0, 1)
-	midnight := time.Date(tomorrow.Year(), tomorrow.Month(), tomorrow.Day(), 0, 0, 0, 0, tomorrow.Location())
+	midnight := time.Date(tomorrow.Year(), tomorrow.Month(), tomorrow.Day(), 0, 0, 0, 0, chinaTimezone)
 	return midnight.Sub(now)
 }
 
-// getDailyDuelCount 获取玩家今日斗法次数
+// getDailyDuelCount 获取玩家今日斗法次数（使用中国时区）
 func getDailyDuelCount(userID int64) int {
-	today := time.Now().Format("2006-01-02")
+	today := getTodayInChina()
 	duelCountKey := "duel:daily:" + today + ":" + strconv.FormatInt(userID, 10)
 
 	countStr, err := redis.Client.Get(redis.Ctx, duelCountKey).Result()
@@ -673,8 +696,8 @@ func checkDailyPvELimit(userID int64, monsterID int) (error, int, int) {
 		maxDaily = 100
 	}
 
-	// 获取今天的日期字符串（格式: 2025-12-29）
-	today := time.Now().Format("2006-01-02")
+	// 获取今天的日期字符串（格式: 2025-12-29，使用中国时区）
+	today := getTodayInChina()
 	pveCountKey := keyPrefix + today + ":" + strconv.FormatInt(userID, 10)
 
 	// 从 Redis 获取今天已经挑战的次数
@@ -707,9 +730,9 @@ func checkDailyPvELimit(userID int64, monsterID int) (error, int, int) {
 	return nil, remaining, newCount
 }
 
-// getDailyPvECount 获取玩家今日PvE挑战次数（降服妖兽和除魔卫道分别统计）
+// getDailyPvECount 获取玩家今日PvE挑战次数（降服妖兽和除魔卫道分别统计，使用中国时区）
 func getDailyPvECount(userID int64) (int, int) {
-	today := time.Now().Format("2006-01-02")
+	today := getTodayInChina()
 
 	// 获取降服妖兽次数
 	pveCountKey := "pve:daily:" + today + ":" + strconv.FormatInt(userID, 10)
