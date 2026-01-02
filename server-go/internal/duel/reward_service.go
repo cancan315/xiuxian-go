@@ -109,8 +109,8 @@ func (rs *RewardService) CalculateRewardsForDemonSlaying(status *PvEBattleStatus
 		Cultivation:  int64(math.Round(float64(baseCultivation) * multiplier)),
 	}
 
-	// 30% 概率获得丹方残页
-	if rand.Float64() < 0.3 {
+	// 20% 概率获得丹方残页
+	if rand.Float64() < 0.2 {
 		// 从探索配置中随机选择一个丹方（按权重）
 		var activeRecipes []exploration.PillRecipe
 		for _, recipe := range exploration.PillRecipes {

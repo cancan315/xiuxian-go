@@ -101,7 +101,8 @@ func GetDuelStatus(c *gin.Context) {
 			"currentSpirit":  user.Spirit,
 			"pveCount":       pveCount,
 			"demonCount":     demonCount,
-			"maxDailyPvE":    100,
+			"maxDailyPvE":    100, // 降服妖兽每天100次
+			"maxDailyDemon":  20,  // 除魔卫道每天20次
 		},
 	})
 }
@@ -656,17 +657,20 @@ func getDailyDuelCount(userID int64) int {
 // checkDailyPvELimit 检查每日PvE挑战次数限制（降服妖兽和除魔卫道）
 // 返回 (error, remaining, currentCount) - 如果error为nil表示通过检查
 func checkDailyPvELimit(userID int64, monsterID int) (error, int, int) {
-	const maxDailyPvE = 100
-
 	// 根据怪物ID判断类型：101+为除魔卫道，其他为降服妖兽
 	var keyPrefix string
 	var errorMsg string
+	var maxDaily int
 	if monsterID >= 101 {
+		// 除魔卫道：每天20次
 		keyPrefix = "demon-slaying:daily:"
 		errorMsg = "魔道中人已被道友斩尽杀绝，请明天再接悬赏榜"
+		maxDaily = 20
 	} else {
+		// 降服妖兽：每天100次
 		keyPrefix = "pve:daily:"
 		errorMsg = "妖兽已被道友的煞气吓得闻风丧胆，请明天再入万兽山脉"
+		maxDaily = 100
 	}
 
 	// 获取今天的日期字符串（格式: 2025-12-29）
@@ -685,20 +689,20 @@ func checkDailyPvELimit(userID int64, monsterID int) (error, int, int) {
 	}
 
 	// 检查是否超过限制
-	if pveCount >= maxDailyPvE {
-		log.Printf("[PvE] 玩家 %d 今日PvE挑战次数已满(%d/%d), 怪物ID: %d", userID, pveCount, maxDailyPvE, monsterID)
+	if pveCount >= maxDaily {
+		log.Printf("[PvE] 玩家 %d 今日PvE挑战次数已满(%d/%d), 怪物ID: %d", userID, pveCount, maxDaily, monsterID)
 		return fmt.Errorf(errorMsg), 0, pveCount
 	}
 
 	// 增加计数
 	newCount := pveCount + 1
-	remaining := maxDailyPvE - newCount
+	remaining := maxDaily - newCount
 
 	// 设置Redis键值，过期时间为今天剩余的秒数
 	timeUntilMidnight := getTimeUntilMidnight()
 	redis.Client.Set(redis.Ctx, pveCountKey, newCount, timeUntilMidnight)
 
-	log.Printf("[PvE] 玩家 %d PvE挑战次数: %d/%d, 剩余: %d, 怪物ID: %d", userID, newCount, maxDailyPvE, remaining, monsterID)
+	log.Printf("[PvE] 玩家 %d PvE挑战次数: %d/%d, 剩余: %d, 怪物ID: %d", userID, newCount, maxDaily, remaining, monsterID)
 
 	return nil, remaining, newCount
 }

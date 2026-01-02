@@ -268,12 +268,25 @@ func (s *PvEBattleService) ExecutePvERound() (*PvPRoundData, error) {
 						if err := s.rewardService.GrantDemonSlayingRewardsToPlayer(s.playerID, demonRewards); err != nil {
 							log.Printf("[PvE] 发放除魔卫道奖励失败: %v", err)
 						}
+						// 拆分为多个奖励项，以便前端正确显示
+						// 灵石奖励
 						rewardItems = append(rewardItems, map[string]interface{}{
-							"type":         "demon_slaying",
-							"spiritStones": demonRewards.SpiritStones,
-							"cultivation":  demonRewards.Cultivation,
-							"pillFragment": demonRewards.PillFragmentName,
+							"type":   "spirit_stone",
+							"amount": demonRewards.SpiritStones,
 						})
+						// 修为奖励
+						rewardItems = append(rewardItems, map[string]interface{}{
+							"type":   "cultivation",
+							"amount": demonRewards.Cultivation,
+						})
+						// 丹方残页奖励（如果有）
+						if demonRewards.PillFragmentName != "" {
+							rewardItems = append(rewardItems, map[string]interface{}{
+								"type":  "pill_fragment",
+								"name":  demonRewards.PillFragmentName,
+								"count": 1,
+							})
+						}
 					}
 				}
 			} else {
