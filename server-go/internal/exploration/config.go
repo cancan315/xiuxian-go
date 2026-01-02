@@ -186,7 +186,7 @@ var PillRecipes = []PillRecipe{
 		Weight:          5, // 较少
 	},
 	{
-		ID:              "jie_ying_pill",
+		ID:              "du_jie_pill",
 		Name:            "渡劫丹",
 		Description:     "万年灵草炼制，服用后增加少许渡劫成功率",
 		Grade:           "grade3",

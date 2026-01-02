@@ -493,8 +493,8 @@ func effectTypeToName(effectType string) string {
 		return "修为"
 	case "attributeAttack":
 		return "攻击"
-	case "jieYingRate":
-		return "结婴成功率"
+	case "duJieRate":
+		return "渡劫成功率"
 	default:
 		return "未知效果"
 	}
@@ -511,14 +511,14 @@ func updateBaseAttributeAttack(user *models.User, addValue float64) error {
 	return nil
 }
 
-// updateBaseAttributeJieYingRate 更新结婴成功率 (jieYingRate 存储于 BaseAttributes JSON 中)
-func updateBaseAttributeJieYingRate(user *models.User, addValue float64) error {
+// updateBaseAttributeDuJieRate 更新渡劫成功率 (duJieRate 存储于 BaseAttributes JSON 中)
+func updateBaseAttributeDuJieRate(user *models.User, addValue float64) error {
 	baseAttrs := jsonToFloatMap(user.BaseAttributes)
 	if baseAttrs == nil {
 		baseAttrs = make(map[string]float64)
 	}
-	// 获取当前的 jieYingRate，大与等于 1.0 时无法再增加
-	currentRate := baseAttrs["jieYingRate"]
+	// 获取当前的 duJieRate，大与等于 1.0 时无法再增加
+	currentRate := baseAttrs["duJieRate"]
 	if currentRate >= 1.0 {
 		return nil
 	}
@@ -527,7 +527,7 @@ func updateBaseAttributeJieYingRate(user *models.User, addValue float64) error {
 	if newRate > 1.0 {
 		newRate = 1.0
 	}
-	baseAttrs["jieYingRate"] = newRate
+	baseAttrs["duJieRate"] = newRate
 	user.BaseAttributes = toJSON(baseAttrs)
 	return nil
 }

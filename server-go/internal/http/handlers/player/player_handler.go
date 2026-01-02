@@ -1201,9 +1201,9 @@ func ConsumePill(c *gin.Context) {
 	case "attributeAttack":
 		// 更新基础属性中的攻击
 		updateBaseAttributeAttack(&user, actualValue)
-	case "jieYingRate":
-		// 更新结婴成功率 (jieYingRate 存储于 BaseAttributes JSON 中)
-		updateBaseAttributeJieYingRate(&user, actualValue)
+	case "duJieRate":
+		// 更新渡劫成功率 (duJieRate 存储于 BaseAttributes JSON 中)
+		updateBaseAttributeDuJieRate(&user, actualValue)
 	}
 
 	// 保存玩家更新

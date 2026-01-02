@@ -323,8 +323,8 @@ func GetOnlinePlayers(c *gin.Context) {
 		playerIDUint, parseErr := strconv.ParseUint(id, 10, 32)
 		if parseErr == nil {
 			var user models.User
-			if dbErr := db.DB.Select("name").First(&user, uint(playerIDUint)).Error; dbErr == nil {
-				playerName = user.Name
+			if dbErr := db.DB.Select("player_name").First(&user, uint(playerIDUint)).Error; dbErr == nil {
+				playerName = user.PlayerName
 			}
 		}
 

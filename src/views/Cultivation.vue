@@ -70,7 +70,7 @@
                 <Sparkles />
               </n-icon>
             </template>
-            道友困于瓶颈百年，已将境界打磨圆满，理应借助雷劫，打碎桎梏
+            道友困于瓶颈百年，已将境界打磨圆满，理应借助雷劫，打碎桎梏。服用渡劫丹可增加渡劫成功率。
           </n-alert>
           <n-alert v-else type="info" show-icon>
             <template #icon>
@@ -82,7 +82,7 @@
           </n-alert>
           <n-descriptions v-if="playerInfoStore.level === 27" bordered>
             <n-descriptions-item label="当前修为">{{ playerInfoStore.cultivation.toFixed(1) }} / {{ playerInfoStore.maxCultivation }}</n-descriptions-item>
-            <n-descriptions-item label="渡劫成功率">{{ (playerInfoStore.jieYingRate * 100).toFixed(1) }}%</n-descriptions-item>
+            <n-descriptions-item label="渡劫成功率">{{ (playerInfoStore.duJieRate * 100).toFixed(1) }}%</n-descriptions-item>
           </n-descriptions>
           <n-button 
             v-if="playerInfoStore.level === 27 && playerInfoStore.cultivation >= playerInfoStore.maxCultivation"
@@ -92,7 +92,7 @@
             @click="breakthroughJieYing"
             :loading="isBreakthroughLoading"
           >
-            渡劫 (成功率: {{ (playerInfoStore.jieYingRate * 100).toFixed(1) }}%)
+            渡劫 (成功率: {{ (playerInfoStore.duJieRate * 100).toFixed(1) }}%)
           </n-button>
           <n-button 
             v-else
@@ -274,7 +274,7 @@
         playerInfoStore.realm = response.newRealm
         playerInfoStore.maxCultivation = response.newMaxCultivation || 10000
         playerInfoStore.cultivation = 0.0
-        playerInfoStore.jieYingRate = 0.05
+        playerInfoStore.duJieRate = 0.05
         
         message.success(response.message)
         if (breakthroughLogRef.value) {
@@ -284,7 +284,7 @@
       } else {
         // 结婴失败
         playerInfoStore.cultivation = 0.0
-        playerInfoStore.jieYingRate = 0.0
+        playerInfoStore.duJieRate = 0.0
         
         message.error(response.message)
         if (breakthroughLogRef.value) {
@@ -415,9 +415,9 @@
         playerInfoStore.formationLevel = response.data.baseAttributes?.formationLevel ?? 1
         playerInfoStore.formationGain = response.data.baseAttributes?.formationGain ?? 5
         playerInfoStore.formationCost = response.data.baseAttributes?.formationCost ?? 10
-        // ✅ 新增：结婴成功率（从 baseAttributes 中读取）
-        const jieYingRate = response.data.baseAttributes?.jieYingRate || 0.05
-        playerInfoStore.jieYingRate = jieYingRate
+        // ✅ 新增：渡劫成功率（从 baseAttributes 中读取）
+        const duJieRate = response.data.baseAttributes?.duJieRate || 0.05
+        playerInfoStore.duJieRate = duJieRate
         
       }
     } catch (error) {

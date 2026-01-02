@@ -16,7 +16,7 @@ export const usePlayerInfoStore = defineStore('playerInfo', {
     realm: '练气期一层', // 当前境界名称
     cultivation: 0, // 当前修为值
     maxCultivation: 100, // 当前境界最大修为值
-    jieYingRate: 0.05, // 结婴成功率（默5%）
+    duJieRate: 0.05, // 渡劫成功率（默5%）
     spirit: 0, // 灵力值
     spiritRate: 1, // 灵力获取倍率
     spiritGainRate: 1, // 灵力获取速率

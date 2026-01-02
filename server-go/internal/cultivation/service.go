@@ -467,12 +467,13 @@ func (s *CultivationService) UseFormation() (*FormationResponse, error) {
 	// 计算当前等级的聚灵阵消耗
 	formationCost := getCurrentFormationCost(user.Level)
 
-	// ✅ 前10次使用聚灵阵时降低消耗10倍
-	formationCountKey := fmt.Sprintf("formation:totalcount:%d", s.userID)
-	totalFormationCount, _ := redis.Client.Incr(redis.Ctx, formationCountKey).Val()
-	redis.Client.Expire(redis.Ctx, formationCountKey, 30*24*time.Hour)
+	// ✅ 每日前10次使用聚灵阵时降低消耗10倍
+	todayStr := time.Now().Format("2006-01-02")
+	formationCountKey := fmt.Sprintf("formation:dailycount:%d:%s", s.userID, todayStr)
+	dailyFormationCount := redis.Client.Incr(redis.Ctx, formationCountKey).Val()
+	redis.Client.Expire(redis.Ctx, formationCountKey, 48*time.Hour) // 48小时后过期，确保跨日清理
 
-	if totalFormationCount <= 10 {
+	if dailyFormationCount <= 10 {
 		formationCost = (formationCost + 9) / 10 // 向上取整后除以10
 	}
 
@@ -755,16 +756,16 @@ func (s *CultivationService) BreakthroughJieYing() (map[string]interface{}, erro
 		}, nil
 	}
 
-	// 从 BaseAttributes 中读取 jieYingRate
+	// 从 BaseAttributes 中读取 duJieRate
 	attrs := s.getPlayerAttributes(&user)
-	jieYingRate := 0.05 // 默认值
-	if rate, ok := attrs["jieYingRate"].(float64); ok {
-		jieYingRate = rate
+	duJieRate := 0.05 // 默认值
+	if rate, ok := attrs["duJieRate"].(float64); ok {
+		duJieRate = rate
 	}
 
-	// 判断结婴是否成功
+	// 判断渡劫是否成功
 	randomVal := rand.Float64()
-	success := randomVal < jieYingRate
+	success := randomVal < duJieRate
 
 	if success {
 		// 结婴成功，晋升为元婴期
@@ -780,8 +781,8 @@ func (s *CultivationService) BreakthroughJieYing() (map[string]interface{}, erro
 		user.Realm = nextRealm.Name
 		user.MaxCultivation = nextRealm.MaxCultivation
 		user.Cultivation = 0.0
-		// 重置 jieYingRate 为 5%
-		attrs["jieYingRate"] = 0.05
+		// 重置 duJieRate 为 5%
+		attrs["duJieRate"] = 0.05
 
 		// ✅ 升级时重新计算玩家属性
 		s.reinitializePlayerAttributes(&user, &attrs)
@@ -804,18 +805,18 @@ func (s *CultivationService) BreakthroughJieYing() (map[string]interface{}, erro
 		}
 
 		return map[string]interface{}{
-			"success":     true,
-			"message":     "突破成功，恭喜道友修炼千年，成为元婴道君",
-			"newRealm":    user.Realm,
-			"newLevel":    user.Level,
-			"jieYingRate": 0.05,
+			"success":   true,
+			"message":   "突破成功，恭喜道友修炼千年，成为元婴道君",
+			"newRealm":  user.Realm,
+			"newLevel":  user.Level,
+			"duJieRate": 0.05,
 		}, nil
 	}
 
 	// 结婴失败，金丹破碎
 	user.Cultivation = 0.0
-	// 重置 jieYingRate 为 0
-	attrs["jieYingRate"] = 0.0
+	// 重置 duJieRate 为 0
+	attrs["duJieRate"] = 0.0
 
 	// 保存属性
 	s.setPlayerAttributes(&user, attrs)
