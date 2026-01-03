@@ -345,50 +345,6 @@ func (s *PvPBattleService) ExecutePvPRound() (*PvPRoundData, error) {
 			}, nil
 		}
 
-		// ... existing code ...
-
-		// 检查对手是否死亡
-		if opponentTakeDmgResult.IsDead {
-			roundLogs = append(roundLogs, fmt.Sprintf("%s已被击败！%s获得胜利！", status.OpponentName, status.PlayerName))
-			status.BattleLog = append(status.BattleLog, roundLogs[len(roundLogs)-1])
-
-			// 获取玩家信息以获取等级
-			var player models.User
-			if err := db.DB.First(&player, s.playerID).Error; err != nil {
-				log.Printf("[Duel] 获取玩家等级失败: %v", err)
-			}
-
-			// 计算并发放奖励
-			baseRewards := s.rewardService.CalculateRewards(status, player.Level)
-			finalRewards := s.rewardService.ApplyRewardMultiplier(baseRewards)
-
-			if err := s.rewardService.GrantRewardsToPlayer(s.playerID, finalRewards); err != nil {
-				log.Printf("[Duel] 发放奖励失败: %v", err)
-			}
-
-			// 清除回合时间标记
-			redis.Client.Del(redis.Ctx, lastRoundKey)
-
-			return &PvPRoundData{
-				Round:          status.Round,
-				PlayerHealth:   status.PlayerHealth,
-				OpponentHealth: math.Max(0, status.OpponentHealth),
-				Logs:           roundLogs,
-				BattleEnded:    true,
-				Victory:        true,
-				Rewards: []interface{}{
-					map[string]interface{}{
-						"type":   "spirit_stone",
-						"amount": finalRewards.SpiritStones,
-					},
-					map[string]interface{}{
-						"type":   "cultivation",
-						"amount": finalRewards.Cultivation,
-					},
-				},
-			}, nil
-		}
-
 		// 对手回合（如果没被眩晕）
 		if !playerDmgResult.IsStun {
 			opponentDmgResult := formula.CalculateDamage(convertDuelStatsToBattleStats(status.OpponentStats), convertDuelStatsToBattleStats(status.PlayerStats))

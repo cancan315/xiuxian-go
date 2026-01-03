@@ -139,15 +139,7 @@ func (w *lokiHTTPWriter) flush() error {
 func main() {
 	_ = godotenv.Load()
 
-	if err := db.Init(); err != nil {
-		log.Fatalf("failed to init database: %v", err)
-	}
-
-	if err := redis.Init(); err != nil {
-		log.Fatalf("failed to init redis: %v", err)
-	}
-
-	// 初始化 zap 日志记录器，配置日志级别
+	// ✅ 先初始化 zap 日志记录器，配置日志级别
 	config := zap.NewProductionConfig()
 	// 可以根据环境变量调整日志级别，如果没有设置则默认为 debug 级别
 	logLevel := os.Getenv("LOG_LEVEL")
@@ -177,6 +169,15 @@ func main() {
 		logger, _ = config.Build()
 	}
 	defer logger.Sync()
+
+	// ✅ 使用 logger 初始化数据库（启用详细 SQL 日志）
+	if err := db.InitWithLogger(logger); err != nil {
+		log.Fatalf("failed to init database: %v", err)
+	}
+
+	if err := redis.Init(); err != nil {
+		log.Fatalf("failed to init redis: %v", err)
+	}
 
 	r := gin.New()
 	// 使用 gzip 中间件压缩响应数据
