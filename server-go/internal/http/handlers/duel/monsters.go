@@ -295,6 +295,22 @@ var demonSlayingConfigs = []Monster{
 			"{\"dropItems\":\"灵石,修为,丹方残页\"}",
 		)),
 	},
+	{
+		ID:          106,
+		Name:        "药王宗长老",
+		Difficulty:  "jindan",
+		Level:       3,
+		Description: "精通丹道的药王宗叛徒，善用毒药与丹砖，熟练掌握渡劫丹炼制之法",
+		BaseAttributes: datatypes.JSON([]byte(
+			"{\"attack\":3000,\"health\":30000,\"defense\":2000,\"speed\":3000}",
+		)),
+		CombatAttributes: datatypes.JSON([]byte(
+			"{\"critRate\":0.2,\"comboRate\":0.1,\"counterRate\":0,\"stunRate\":0,\"dodgeRate\":0.15,\"vampireRate\":0}",
+		)),
+		Rewards: datatypes.JSON([]byte(
+			"{\"dropItems\":\"灵石,修为,渡劫丹丹方残页\"}",
+		)),
+	},
 }
 
 // GetMonsterByIDAPI 根据ID获取单个妖兽详细信息

@@ -63,7 +63,7 @@ func (rs *RewardService) CalculateRewards(status *PvPBattleStatus, playerLevel i
 }
 
 // CalculateRewardsForPvE 计算降伏妖兽战斗奖励（仅灵草）
-// difficulty: normal(普通), hard(困难), boss(噩梦)
+// 根据妖兽境界固定灵草数量：练气=1个，筑基=3个，金丹=6个
 func (rs *RewardService) CalculateRewardsForPvE(status *PvEBattleStatus, playerLevel int, difficulty string) *PvERewards {
 
 	// 从配置中随机选择一种灵草
@@ -83,6 +83,21 @@ func (rs *RewardService) CalculateRewardsForPvE(status *PvEBattleStatus, playerL
 		"寒晶毒蝎": "frost_lotus",        // 寒霜莲
 		"金翅大鹏": "nine_leaf_lingzhi",  // 九叶灵芝
 		"八荒幻蝶": "purple_ginseng",     // 紫金参
+	}
+
+	// ✅ 根据妖兽名称确定境界，固定灵草数量
+	monsterRealmMap := map[string]int{
+		// 练气妖兽 - 1个灵草
+		"赤焰虎": 1,
+		"青木狼": 1,
+		"苍石熊": 1,
+		// 筑基妖兽 - 3个灵草
+		"黑水玄蛇": 3,
+		"裂风螳螂": 3,
+		"寒晶毒蝎": 3,
+		// 金丹妖兽 - 6个灵草
+		"金翅大鹏": 6,
+		"八荒幻蝶": 6,
 	}
 
 	var herbConfig *exploration.HerbConfig
@@ -138,14 +153,15 @@ func (rs *RewardService) CalculateRewardsForPvE(status *PvEBattleStatus, playerL
 	// 随机生成灵草品质
 	quality := exploration.GetRandomQuality(rand.Float64())
 
-	// 使用降伏妖兽专用的难度倍数计算
-	multiplier := rs.getMonsterDifficultyMultiplier(difficulty)
-	herbCount := int(math.Round(multiplier))
+	// ✅ 根据妖兽境界固定灵草数量
+	herbCount := 1 // 默认1个
+	if count, ok := monsterRealmMap[status.MonsterName]; ok {
+		herbCount = count
+	}
 
-	log.Printf("[Reward] 计算降伏妖兽奖励 - 难度: %s, 倍数: %.2f, 灵草: %s, 数量: %d, 品质: %s",
-		difficulty, multiplier, herbConfig.Name, herbCount, quality)
+	log.Printf("[Reward] 计算降伏妖兽奖励 - 妖兽: %s, 灵草: %s, 数量: %d, 品质: %s",
+		status.MonsterName, herbConfig.Name, herbCount, quality)
 
-	// 每次战斗奖励的灵草数量根据难度倍增（四舍五入取整）
 	return &PvERewards{
 		HerbID:  herbConfig.ID,
 		Name:    herbConfig.Name,
@@ -186,6 +202,18 @@ func (rs *RewardService) CalculateRewardsForDemonSlaying(status *PvEBattleStatus
 		// 100% 概率获得灵宠
 		rewards.ShouldGeneratePet = true
 		log.Printf("[Reward] 兽王宗叛徒掉落灵宠奖励")
+		return rewards
+	}
+
+	// ✅ 药王宗长老特殊处理：60%概率掉落渡劫丹丹方残页
+	if status.MonsterName == "药王宗长老" {
+		if rand.Float64() < 0.6 {
+			rewards.PillFragmentID = "du_jie_pill"
+			rewards.PillFragmentName = "渡劫丹"
+			log.Printf("[Reward] 药王宗长老掉落渡劫丹丹方残页")
+		} else {
+			log.Printf("[Reward] 药王宗长老未掉落丹方残页")
+		}
 		return rewards
 	}
 
