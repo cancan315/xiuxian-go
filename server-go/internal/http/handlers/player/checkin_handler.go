@@ -2,11 +2,13 @@ package player
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
 	"xiuxian/server-go/internal/db"
 	"xiuxian/server-go/internal/models"
+	"xiuxian/server-go/internal/redis"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/datatypes"
@@ -30,6 +32,19 @@ func init() {
 // getNowInChina 获取中国时区的当前时间
 func getNowInChina() time.Time {
 	return time.Now().In(chinaTimezone)
+}
+
+// getCheckInRedisKey 获取签到 Redis key
+func getCheckInRedisKey(userID uint, date string) string {
+	return fmt.Sprintf("checkin:%d:%s", userID, date)
+}
+
+// getTodayEndDuration 获取距离今天结束的时间
+func getTodayEndDuration() time.Duration {
+	now := getNowInChina()
+	// 今天结束时间（23:59:59）
+	endOfDay := time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, chinaTimezone)
+	return endOfDay.Sub(now) + time.Second // 加一秒确保过期
 }
 
 // 从 BaseAttributes 获取签到数据
@@ -83,10 +98,19 @@ func GetCheckInStatus(c *gin.Context) {
 	// 从 BaseAttributes 获取签到数据
 	checkInDay, lastCheckInDateStr := getCheckInData(user.BaseAttributes)
 
-	// 检查今天是否已签到（使用中国时区）
+	// 使用中国时区
 	now := getNowInChina()
 	today := now.Format("2006-01-02")
-	hasCheckedInToday := today == lastCheckInDateStr
+
+	// 优先检查 Redis 中是否已签到
+	redisKey := getCheckInRedisKey(userID, today)
+	hasCheckedInToday := false
+	if exists, _ := redis.Client.Exists(redis.Ctx, redisKey).Result(); exists > 0 {
+		hasCheckedInToday = true
+	} else {
+		// Redis 中没有，检查数据库记录
+		hasCheckedInToday = today == lastCheckInDateStr
+	}
 
 	// 检查是否断签（最后签到日期不是昨天或今天）
 	yesterday := now.AddDate(0, 0, -1).Format("2006-01-02")
@@ -125,22 +149,36 @@ func DoCheckIn(c *gin.Context) {
 		return
 	}
 
+	// 使用中国时区
+	now := getNowInChina()
+	today := now.Format("2006-01-02")
+	redisKey := getCheckInRedisKey(userID, today)
+
+	// 使用 Redis SetNX 原子操作防止重复签到
+	// 如果 key 已存在，说明今日已签到
+	ttl := getTodayEndDuration()
+	success, err := redis.Client.SetNX(redis.Ctx, redisKey, "1", ttl).Result()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "签到失败，请稍后重试"})
+		return
+	}
+	if !success {
+		// key 已存在，今日已签到
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "今日已签到"})
+		return
+	}
+
+	// Redis 设置成功，继续执行签到逻辑
 	var user models.User
 	if err := db.DB.First(&user, userID).Error; err != nil {
+		// 回滚 Redis
+		redis.Client.Del(redis.Ctx, redisKey)
 		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "用户不存在"})
 		return
 	}
 
 	// 从 BaseAttributes 获取签到数据
 	checkInDay, lastCheckInDateStr := getCheckInData(user.BaseAttributes)
-
-	// 检查今天是否已签到（使用中国时区）
-	now := getNowInChina()
-	today := now.Format("2006-01-02")
-	if today == lastCheckInDateStr {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "今日已签到"})
-		return
-	}
 
 	// 检查是否断签
 	yesterday := now.AddDate(0, 0, -1).Format("2006-01-02")
@@ -165,6 +203,8 @@ func DoCheckIn(c *gin.Context) {
 		"base_attributes": newBaseAttrs,
 		"spirit_stones":   user.SpiritStones + reward,
 	}).Error; err != nil {
+		// 数据库更新失败，回滚 Redis
+		redis.Client.Del(redis.Ctx, redisKey)
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "签到失败"})
 		return
 	}
