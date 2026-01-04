@@ -15,6 +15,23 @@ import (
 // 签到奖励配置（第1-7天）
 var checkInRewards = []int{1000, 2000, 3000, 4000, 5000, 6000, 10000}
 
+// 中国时区
+var chinaTimezone *time.Location
+
+func init() {
+	var err error
+	chinaTimezone, err = time.LoadLocation("Asia/Shanghai")
+	if err != nil {
+		// 如果加载失败，使用 UTC+8 偏移
+		chinaTimezone = time.FixedZone("CST", 8*60*60)
+	}
+}
+
+// getNowInChina 获取中国时区的当前时间
+func getNowInChina() time.Time {
+	return time.Now().In(chinaTimezone)
+}
+
 // 从 BaseAttributes 获取签到数据
 func getCheckInData(baseAttrs datatypes.JSON) (checkInDay int, lastCheckInDate string) {
 	if len(baseAttrs) == 0 {
@@ -66,12 +83,13 @@ func GetCheckInStatus(c *gin.Context) {
 	// 从 BaseAttributes 获取签到数据
 	checkInDay, lastCheckInDateStr := getCheckInData(user.BaseAttributes)
 
-	// 检查今天是否已签到
-	today := time.Now().Format("2006-01-02")
+	// 检查今天是否已签到（使用中国时区）
+	now := getNowInChina()
+	today := now.Format("2006-01-02")
 	hasCheckedInToday := today == lastCheckInDateStr
 
 	// 检查是否断签（最后签到日期不是昨天或今天）
-	yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
+	yesterday := now.AddDate(0, 0, -1).Format("2006-01-02")
 	currentDay := checkInDay
 	if !hasCheckedInToday && lastCheckInDateStr != yesterday && currentDay > 0 {
 		// 断签，重置为0
@@ -116,15 +134,16 @@ func DoCheckIn(c *gin.Context) {
 	// 从 BaseAttributes 获取签到数据
 	checkInDay, lastCheckInDateStr := getCheckInData(user.BaseAttributes)
 
-	// 检查今天是否已签到
-	today := time.Now().Format("2006-01-02")
+	// 检查今天是否已签到（使用中国时区）
+	now := getNowInChina()
+	today := now.Format("2006-01-02")
 	if today == lastCheckInDateStr {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "今日已签到"})
 		return
 	}
 
 	// 检查是否断签
-	yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
+	yesterday := now.AddDate(0, 0, -1).Format("2006-01-02")
 	newDay := checkInDay + 1
 	if lastCheckInDateStr != yesterday && checkInDay > 0 {
 		// 断签，重置为第1天
