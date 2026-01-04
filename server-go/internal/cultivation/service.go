@@ -768,6 +768,12 @@ func (s *CultivationService) BreakthroughJieYing() (map[string]interface{}, erro
 	randomVal := rand.Float64()
 	success := randomVal < duJieRate
 
+	// ✅ 渡劫消耗：无论成功或失败都消耗品质最高的装备和灵宠
+	consumedEquipment, consumedPet, consumeErr := s.consumeHighestQualityItems(&user)
+	if consumeErr != nil {
+		return nil, fmt.Errorf("failed to consume items: %w", consumeErr)
+	}
+
 	if success {
 		// 结婴成功，晋升为元婴期
 		nextRealm := GetNextRealm(user.Level)
@@ -805,12 +811,18 @@ func (s *CultivationService) BreakthroughJieYing() (map[string]interface{}, erro
 			return nil, fmt.Errorf("failed to update user: %w", err)
 		}
 
+		// 构建消耗提示消息
+		consumeMessage := buildConsumeMessage(consumedEquipment, consumedPet)
+
 		return map[string]interface{}{
-			"success":   true,
-			"message":   "突破成功，恭喜道友修炼千年，成为元婴道君",
-			"newRealm":  user.Realm,
-			"newLevel":  user.Level,
-			"duJieRate": 0.05,
+			"success":           true,
+			"message":           "突破成功，恭喜道友修炼千年，成为元婴道君",
+			"newRealm":          user.Realm,
+			"newLevel":          user.Level,
+			"duJieRate":         0.05,
+			"consumedEquipment": consumedEquipment,
+			"consumedPet":       consumedPet,
+			"consumeMessage":    consumeMessage,
 		}, nil
 	}
 
@@ -819,18 +831,105 @@ func (s *CultivationService) BreakthroughJieYing() (map[string]interface{}, erro
 	// 重置 duJieRate 为 0
 	attrs["duJieRate"] = 0.0
 
+	// ✅ 失败时也要重新计算玩家属性（因为消耗了装备和灵宠）
+	s.reinitializePlayerAttributes(&user, &attrs)
+
 	// 保存属性
 	s.setPlayerAttributes(&user, attrs)
 
 	if err := db.DB.Model(&user).Updates(map[string]interface{}{
-		"cultivation":     user.Cultivation,
-		"base_attributes": user.BaseAttributes,
+		"cultivation":        user.Cultivation,
+		"base_attributes":    user.BaseAttributes,
+		"combat_attributes":  user.CombatAttributes,
+		"combat_resistance":  user.CombatResistance,
+		"special_attributes": user.SpecialAttributes,
 	}).Error; err != nil {
 		return nil, fmt.Errorf("failed to update user: %w", err)
 	}
 
+	// 构建消耗提示消息
+	consumeMessage := buildConsumeMessage(consumedEquipment, consumedPet)
+
 	return map[string]interface{}{
-		"success": false,
-		"message": "突破失败，金丹破碎，请道友夯实修为，磨炼道心后再行突破",
+		"success":           false,
+		"message":           "突破失败，金丹破碎，修为骤降，请道友夯实修为，磨炼道心后再行突破",
+		"consumedEquipment": consumedEquipment,
+		"consumedPet":       consumedPet,
+		"consumeMessage":    consumeMessage,
 	}, nil
+}
+
+// buildConsumeMessage 构建消耗提示消息
+func buildConsumeMessage(equipmentName, petName string) string {
+	if equipmentName != "" && petName != "" {
+		return fmt.Sprintf("为抵挡天劫，%s装备和%s灵宠，已消散。", equipmentName, petName)
+	} else if equipmentName != "" {
+		return fmt.Sprintf("为抵挡天劫，%s装备，已消散。", equipmentName)
+	} else if petName != "" {
+		return fmt.Sprintf("为抵挡天劫，%s灵宠，已消散。", petName)
+	}
+	return "无装备和灵宠可以抵挡天劫，道友独自承受了天劫之威。"
+}
+
+// consumeHighestQualityItems 消耗品质最高的装备和灵宠
+// 返回被消耗的装备名称、灵宠名称和错误
+func (s *CultivationService) consumeHighestQualityItems(user *models.User) (string, string, error) {
+	// 品质优先级：mythic > legendary > epic > rare > uncommon > common
+	qualityOrder := []string{"mythic", "legendary", "epic", "rare", "uncommon", "common"}
+
+	var consumedEquipmentName string
+	var consumedPetName string
+
+	// 查找品质最高的装备（不区分是否已装备）
+	var equipment models.Equipment
+	for _, quality := range qualityOrder {
+		err := db.DB.Where("user_id = ? AND quality = ?", user.ID, quality).
+			First(&equipment).Error
+		if err == nil {
+			// 找到品质最高的装备
+			consumedEquipmentName = equipment.Name
+
+			// 如果装备已穿戴，先卸下
+			if equipment.Equipped {
+				if err := db.DB.Model(&equipment).Updates(map[string]interface{}{
+					"equipped": false,
+					"slot":     nil,
+				}).Error; err != nil {
+					return "", "", fmt.Errorf("failed to unequip equipment: %w", err)
+				}
+			}
+
+			// 删除装备
+			if err := db.DB.Delete(&equipment).Error; err != nil {
+				return "", "", fmt.Errorf("failed to delete equipment: %w", err)
+			}
+			break
+		}
+	}
+
+	// 查找稀有度最高的灵宠（不区分是否已出战）
+	var pet models.Pet
+	for _, rarity := range qualityOrder {
+		err := db.DB.Where("user_id = ? AND rarity = ?", user.ID, rarity).
+			First(&pet).Error
+		if err == nil {
+			// 找到稀有度最高的灵宠
+			consumedPetName = pet.Name
+
+			// 如果灵宠已出战，先召回
+			if pet.IsActive {
+				if err := db.DB.Model(&pet).Update("is_active", false).Error; err != nil {
+					return consumedEquipmentName, "", fmt.Errorf("failed to recall pet: %w", err)
+				}
+			}
+
+			// 删除灵宠
+			if err := db.DB.Delete(&pet).Error; err != nil {
+				return consumedEquipmentName, "", fmt.Errorf("failed to delete pet: %w", err)
+			}
+			break
+		}
+	}
+
+	return consumedEquipmentName, consumedPetName, nil
 }

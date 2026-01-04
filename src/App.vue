@@ -29,6 +29,9 @@
                             </n-list>
                           </div>
                         </n-popover>
+                        <n-button type="warning" @click="openCheckInModal">
+                          🎁 签到
+                        </n-button>
                         <n-button @click="logout">退出游戏</n-button>
                       </n-space>
                     </template>
@@ -176,6 +179,60 @@
             </div>
           </div>
         </n-spin>
+
+        <!-- 签到弹窗 -->
+        <n-modal v-model:show="showCheckInModal" preset="card" title="🎁 每日签到" style="width: 600px;">
+          <n-space vertical>
+            <n-alert type="info" :bordered="false">
+              连续签到7天可获得丰厚奖励，中断需从第1天重新开始
+            </n-alert>
+            
+            <div style="display: flex; gap: 8px; justify-content: space-between;">
+              <div 
+                v-for="(reward, index) in checkInStatus.rewards" 
+                :key="index"
+                :style="{
+                  flex: '1',
+                  textAlign: 'center',
+                  padding: '12px 8px',
+                  borderRadius: '8px',
+                  border: '1px solid',
+                  backgroundColor: index < checkInStatus.checkInDay ? '#18a05822' : (index === checkInStatus.checkInDay && !checkInStatus.hasCheckedInToday ? '#f0a02022' : 'transparent'),
+                  borderColor: index < checkInStatus.checkInDay ? '#18a058' : (index === checkInStatus.checkInDay && !checkInStatus.hasCheckedInToday ? '#f0a020' : '#555')
+                }"
+              >
+                <div style="font-size: 12px; color: #999;">第{{ index + 1 }}天</div>
+                <div style="font-size: 16px; font-weight: bold; color: #f0a020; margin: 4px 0;">{{ reward }}</div>
+                <div style="font-size: 10px; color: #888;">灵石</div>
+                <div style="height: 20px; margin-top: 4px;">
+                  <n-tag v-if="index < checkInStatus.checkInDay" type="success" size="tiny">✓</n-tag>
+                  <n-tag v-else-if="index === checkInStatus.checkInDay && checkInStatus.hasCheckedInToday" type="success" size="tiny">今日</n-tag>
+                </div>
+              </div>
+            </div>
+            
+            <n-divider style="margin: 12px 0;" />
+            
+            <div style="text-align: center;">
+              <div v-if="checkInStatus.hasCheckedInToday" style="color: #18a058; margin-bottom: 12px;">
+                ✅ 今日已签到（连续第 {{ checkInStatus.checkInDay }} 天）
+              </div>
+              <div v-else style="color: #666; margin-bottom: 12px;">
+                今日签到可获得 <span style="color: #f0a020; font-weight: bold;">{{ checkInStatus.nextReward }}</span> 灵石
+              </div>
+              <n-button 
+                type="warning" 
+                size="large" 
+                block
+                :disabled="checkInStatus.hasCheckedInToday"
+                :loading="isCheckingIn"
+                @click="doCheckIn"
+              >
+                {{ checkInStatus.hasCheckedInToday ? '明日再来' : '立即签到' }}
+              </n-button>
+            </div>
+          </n-space>
+        </n-modal>
       </n-dialog-provider>
     </n-message-provider>
   </n-config-provider>
@@ -270,6 +327,16 @@ const currentView = ref('cultivation') // 默认显示修炼页面
 const onlinePlayers = ref([])
 const onlineCount = ref(0)
 let onlinePlayersTimer = null
+
+// 签到系统状态
+const showCheckInModal = ref(false)
+const checkInStatus = ref({
+  checkInDay: 0,
+  hasCheckedInToday: false,
+  nextReward: 1000,
+  rewards: [1000, 2000, 3000, 4000, 5000, 6000, 10000]
+})
+const isCheckingIn = ref(false)
 
 // Check if user is authenticated
 const isAuthenticated = computed(() => {
@@ -441,6 +508,46 @@ const getPlayerData = async () => {
   } else {
     isLoading.value = false
     getMenuOptions()
+  }
+}
+
+// ==================== 签到系统 ====================
+
+// 打开签到弹窗
+const openCheckInModal = async () => {
+  const token = getAuthToken()
+  if (!token) return
+  
+  const result = await APIService.getCheckInStatus(token)
+  if (result.success) {
+    checkInStatus.value = {
+      checkInDay: result.checkInDay,
+      hasCheckedInToday: result.hasCheckedInToday,
+      nextReward: result.nextReward,
+      rewards: result.rewards
+    }
+  }
+  showCheckInModal.value = true
+}
+
+// 执行签到
+const doCheckIn = async () => {
+  if (isCheckingIn.value || checkInStatus.value.hasCheckedInToday) return
+  
+  const token = getAuthToken()
+  if (!token) return
+  
+  isCheckingIn.value = true
+  const result = await APIService.doCheckIn(token)
+  isCheckingIn.value = false
+  
+  if (result.success) {
+    message.success(`签到成功！获得 ${result.reward} 灵石`)
+    checkInStatus.value.hasCheckedInToday = true
+    checkInStatus.value.checkInDay = result.checkInDay
+    playerInfoStore.spiritStones = result.spiritStones
+  } else {
+    message.error(result.message || '签到失败')
   }
 }
 

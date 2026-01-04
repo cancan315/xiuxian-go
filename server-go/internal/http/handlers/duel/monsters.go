@@ -70,11 +70,11 @@ var monsterConfigs = []Monster{
 	{
 		ID:          1,
 		Name:        "赤焰虎",
-		Difficulty:  "normal",
+		Difficulty:  "lianqi",
 		Level:       1,
-		Description: "生活在火焰山脉的猛虎，浑身赤红如火",
+		Description: "生活在火焰山脉的猛虎，浑身赤红如火，喜好吞吃灵精草",
 		BaseAttributes: datatypes.JSON([]byte(
-			"{\"attack\":500,\"health\":7000,\"defense\":300,\"speed\":500}",
+			"{\"attack\":15,\"health\":300,\"defense\":5,\"speed\":20}",
 		)),
 		CombatAttributes: datatypes.JSON([]byte(
 			"{\"critRate\":0.1,\"comboRate\":0,\"counterRate\":0,\"stunRate\":0,\"dodgeRate\":0.05,\"vampireRate\":0}",
@@ -85,10 +85,42 @@ var monsterConfigs = []Monster{
 	},
 	{
 		ID:          2,
+		Name:        "青木狼",
+		Difficulty:  "lianqi",
+		Level:       1,
+		Description: "奔跑于青木林海的狼王，速度敏捷，守护着云雾花",
+		BaseAttributes: datatypes.JSON([]byte(
+			"{\"attack\":15,\"health\":300,\"defense\":5,\"speed\":20}",
+		)),
+		CombatAttributes: datatypes.JSON([]byte(
+			"{\"critRate\":0.1,\"comboRate\":0,\"counterRate\":0,\"stunRate\":0,\"dodgeRate\":0.05,\"vampireRate\":0}",
+		)),
+		Rewards: datatypes.JSON([]byte(
+			"{\"dropItems\":\"灵草\"}",
+		)),
+	},
+	{
+		ID:          3,
+		Name:        "雷击树妖",
+		Difficulty:  "lianqi",
+		Level:       1,
+		Description: "经历雷击而不死，复而成妖。守护着雷击根",
+		BaseAttributes: datatypes.JSON([]byte(
+			"{\"attack\":15,\"health\":300,\"defense\":5,\"speed\":20}",
+		)),
+		CombatAttributes: datatypes.JSON([]byte(
+			"{\"critRate\":0.1,\"comboRate\":0,\"counterRate\":0,\"stunRate\":0,\"dodgeRate\":0.05,\"vampireRate\":0}",
+		)),
+		Rewards: datatypes.JSON([]byte(
+			"{\"dropItems\":\"灵草\"}",
+		)),
+	},
+	{
+		ID:          4,
 		Name:        "黑水玄蛇",
-		Difficulty:  "hard",
+		Difficulty:  "zhuji",
 		Level:       2,
-		Description: "潜伏在深潭中的巨蛇，毒性猛烈",
+		Description: "潜伏在深潭中的巨蛇，毒性猛烈，洞穴常伴有龙息草",
 		BaseAttributes: datatypes.JSON([]byte(
 			"{\"attack\":1500,\"health\":15000,\"defense\":1000,\"speed\":1500}",
 		)),
@@ -100,11 +132,75 @@ var monsterConfigs = []Monster{
 		)),
 	},
 	{
-		ID:          3,
+		ID:          5,
+		Name:        "裂风螳螂",
+		Difficulty:  "zhuji",
+		Level:       2,
+		Description: "双臂如镰，快若疾风，刀气能撕裂护体灵光，是筑基修士极难应付的对手。守护着玄阴草",
+		BaseAttributes: datatypes.JSON([]byte(
+			"{\"attack\":1500,\"health\":15000,\"defense\":1000,\"speed\":1500}",
+		)),
+		CombatAttributes: datatypes.JSON([]byte(
+			"{\"critRate\":0.15,\"comboRate\":0,\"counterRate\":0,\"stunRate\":0.1,\"dodgeRate\":0,\"vampireRate\":0}",
+		)),
+		Rewards: datatypes.JSON([]byte(
+			"{\"dropItems\":\"灵草\"}",
+		)),
+	},
+	{
+		ID:          6,
+		Name:        "寒晶毒蝎",
+		Difficulty:  "zhuji",
+		Level:       2,
+		Description: "栖息于极寒毒沼，尾钩蕴含奇寒剧毒，甲壳如冰晶般坚固。守护着寒霜莲",
+		BaseAttributes: datatypes.JSON([]byte(
+			"{\"attack\":1500,\"health\":15000,\"defense\":1000,\"speed\":1500}",
+		)),
+		CombatAttributes: datatypes.JSON([]byte(
+			"{\"critRate\":0.15,\"comboRate\":0,\"counterRate\":0,\"stunRate\":0.1,\"dodgeRate\":0,\"vampireRate\":0}",
+		)),
+		Rewards: datatypes.JSON([]byte(
+			"{\"dropItems\":\"灵草\"}",
+		)),
+	},
+	{
+		ID:          7,
 		Name:        "金翅大鹏",
-		Difficulty:  "boss",
+		Difficulty:  "jindan",
 		Level:       3,
-		Description: "翱翔天际的神鸟，速度极快",
+		Description: "翔翔天际的神鸟，速度极快，族地常有九叶灵芝",
+		BaseAttributes: datatypes.JSON([]byte(
+			"{\"attack\":3000,\"health\":30000,\"defense\":2000,\"speed\":3000}",
+		)),
+		CombatAttributes: datatypes.JSON([]byte(
+			"{\"critRate\":0.2,\"comboRate\":0.1,\"counterRate\":0,\"stunRate\":0,\"dodgeRate\":0.15,\"vampireRate\":0}",
+		)),
+		Rewards: datatypes.JSON([]byte(
+			"{\"dropItems\":\"灵草\"}",
+		)),
+	},
+	{
+		ID:          8,
+		Name:        "八荒幻蝶",
+		Difficulty:  "jindan",
+		Level:       3,
+		Description: "鳞粉能构造覆盖山林的庞大幻境，其本体脆弱但极难寻觅，考验修士的心性与洞察力。守护着紫金参",
+		BaseAttributes: datatypes.JSON([]byte(
+			"{\"attack\":3000,\"health\":30000,\"defense\":2000,\"speed\":3000}",
+		)),
+		CombatAttributes: datatypes.JSON([]byte(
+			"{\"critRate\":0.2,\"comboRate\":0.1,\"counterRate\":0,\"stunRate\":0,\"dodgeRate\":0.15,\"vampireRate\":0}",
+		)),
+		Rewards: datatypes.JSON([]byte(
+			"{\"dropItems\":\"灵草\"}",
+		)),
+	},
+	{
+		ID:          9,
+		Name:        "太阴玉蟾",
+		Difficulty:  "jindan",
+		Level:       3,
+		Description: "栖息于至阴月华汇聚的寒潭，其鸣叫能引动心魔。腹中养殖着各种灵草",
 		BaseAttributes: datatypes.JSON([]byte(
 			"{\"attack\":3000,\"health\":30000,\"defense\":2000,\"speed\":3000}",
 		)),
@@ -122,11 +218,11 @@ var demonSlayingConfigs = []Monster{
 	{
 		ID:          101,
 		Name:        "合欢宗弟子",
-		Difficulty:  "normal",
+		Difficulty:  "lianqi",
 		Level:       1,
 		Description: "修炼合欢魔功的邪道弟子，擅长魅惑之术",
 		BaseAttributes: datatypes.JSON([]byte(
-			"{\"attack\":200,\"health\":3000,\"defense\":100,\"speed\":200}",
+			"{\"attack\":15,\"health\":300,\"defense\":5,\"speed\":20}",
 		)),
 		CombatAttributes: datatypes.JSON([]byte(
 			"{\"critRate\":0.1,\"comboRate\":0,\"counterRate\":0,\"stunRate\":0,\"dodgeRate\":0.05,\"vampireRate\":0}",
@@ -137,8 +233,40 @@ var demonSlayingConfigs = []Monster{
 	},
 	{
 		ID:          102,
-		Name:        "魔炎门弟子",
-		Difficulty:  "hard",
+		Name:        "百炼宗叛徒",
+		Difficulty:  "lianqi",
+		Level:       1,
+		Description: "背叛百炼宗的叛徒，擅长练器之术，传闻因偷盗传宗仙器而背叛宗门",
+		BaseAttributes: datatypes.JSON([]byte(
+			"{\"attack\":15,\"health\":300,\"defense\":5,\"speed\":20}",
+		)),
+		CombatAttributes: datatypes.JSON([]byte(
+			"{\"critRate\":0.1,\"comboRate\":0,\"counterRate\":0,\"stunRate\":0,\"dodgeRate\":0.05,\"vampireRate\":0}",
+		)),
+		Rewards: datatypes.JSON([]byte(
+			"{\"dropItems\":\"灵石,修为,装备\"}",
+		)),
+	},
+	{
+		ID:          103,
+		Name:        "兽王宗叛徒",
+		Difficulty:  "lianqi",
+		Level:       1,
+		Description: "背叛兽王宗的叛徒，擅长御兽之术，传闻因偷盗传宗灵宠袋而背叛宗门",
+		BaseAttributes: datatypes.JSON([]byte(
+			"{\"attack\":15,\"health\":300,\"defense\":5,\"speed\":20}",
+		)),
+		CombatAttributes: datatypes.JSON([]byte(
+			"{\"critRate\":0.1,\"comboRate\":0,\"counterRate\":0,\"stunRate\":0,\"dodgeRate\":0.05,\"vampireRate\":0}",
+		)),
+		Rewards: datatypes.JSON([]byte(
+			"{\"dropItems\":\"灵石,修为,灵宠\"}",
+		)),
+	},
+	{
+		ID:          104,
+		Name:        "魔焰门弟子",
+		Difficulty:  "zhuji",
 		Level:       2,
 		Description: "修炼魔焰之力的邪道弟子，攻击凶猛",
 		BaseAttributes: datatypes.JSON([]byte(
@@ -152,9 +280,9 @@ var demonSlayingConfigs = []Monster{
 		)),
 	},
 	{
-		ID:          103,
+		ID:          105,
 		Name:        "鬼灵门弟子",
-		Difficulty:  "boss",
+		Difficulty:  "jindan",
 		Level:       3,
 		Description: "修炼鬼道之法的邪道高手，诡异莫测",
 		BaseAttributes: datatypes.JSON([]byte(

@@ -136,11 +136,37 @@ import { getDifficultyTagType, getDifficultyName } from '../utils/duelHelper'
 import MonsterInfoModal from './MonsterInfoModal.vue'
 import BattleResultModal from './BattleResultModal.vue'
 
+// 装备品质中文映射
+const qualityNames = {
+  mythic: '仙器',
+  legendary: '伪仙器',
+  epic: '灵器',
+  rare: '魔器',
+  uncommon: '法器',
+  common: '凡器'
+}
+
+// 灵宠稀有度中文映射
+const rarityNames = {
+  mythic: '仙兽',
+  legendary: '瑞兽',
+  epic: '上古异兽',
+  rare: '灵兽',
+  uncommon: '妖兽',
+  common: '凡兽'
+}
+
+// 获取品质中文名
+const getQualityName = (quality) => qualityNames[quality] || quality
+
+// 获取稀有度中文名
+const getRarityName = (rarity) => rarityNames[rarity] || rarity
+
 const message = useMessage()
 const playerInfoStore = usePlayerInfoStore()
 
 // 状态管理
-const selectedDifficulty = ref('normal')
+const selectedDifficulty = ref('lianqi')
 const demons = ref([])
 const currentPage = ref(1)
 const pageSize = ref(10)
@@ -173,9 +199,9 @@ const autoFightLogRef = ref(null)
 
 // 难度选项
 const difficulties = [
-  { label: '普通', value: 'normal' },
-  { label: '困难', value: 'hard' },
-  { label: '噩梦', value: 'boss' }
+  { label: '练气', value: 'lianqi' },
+  { label: '筑基', value: 'zhuji' },
+  { label: '金丹', value: 'jindan' }
 ]
 
 // 开始下一场自动战斗
@@ -265,6 +291,10 @@ const autoFightLoop = async () => {
                 autoFightLogRef.value?.addLog(`- ${reward.name}残页 +${reward.count}`)
               } else if (reward.type === 'herb') {
                 autoFightLogRef.value?.addLog(`- ${reward.name} +${reward.count}`)
+              } else if (reward.type === 'equipment') {
+                autoFightLogRef.value?.addLog(`- 装备: ${reward.name} (品质: ${getQualityName(reward.quality)})`)
+              } else if (reward.type === 'pet') {
+                autoFightLogRef.value?.addLog(`- 灵宠: ${reward.name} (稀有度: ${getRarityName(reward.rarity)})`)
               }
             })
           }

@@ -23,9 +23,9 @@ func NewAlchemyService(userID uint) *AlchemyService {
 
 // 品阶配置
 var pillGrades = map[string]PillGrade{
-	"grade1": {ID: "grade1", Name: "一品", Difficulty: 1, SuccessRate: 0.6, FragmentsNeeded: 10},
-	"grade2": {ID: "grade2", Name: "二品", Difficulty: 1.2, SuccessRate: 0.5, FragmentsNeeded: 15},
-	"grade3": {ID: "grade3", Name: "三品", Difficulty: 1.5, SuccessRate: 0.3, FragmentsNeeded: 20},
+	"grade1": {ID: "grade1", Name: "一品", Difficulty: 1, SuccessRate: 0.8, FragmentsNeeded: 10},
+	"grade2": {ID: "grade2", Name: "二品", Difficulty: 1.2, SuccessRate: 0.6, FragmentsNeeded: 15},
+	"grade3": {ID: "grade3", Name: "三品", Difficulty: 1.5, SuccessRate: 0.5, FragmentsNeeded: 20},
 	"grade4": {ID: "grade4", Name: "四品", Difficulty: 2, SuccessRate: 0.1, FragmentsNeeded: 25},
 	"grade5": {ID: "grade5", Name: "五品", Difficulty: 2.5, SuccessRate: 0.1, FragmentsNeeded: 30},
 	"grade6": {ID: "grade6", Name: "六品", Difficulty: 3, SuccessRate: 0.1, FragmentsNeeded: 35},
@@ -381,9 +381,16 @@ func (s *AlchemyService) calculatePillEffect(recipe *RecipeConfig, playerLevel i
 	grade := pillGrades[recipe.Grade]
 	recipeType := pillTypes[recipe.Type]
 
-	// 基础效果随境界提升
-	levelMultiplier := 1.0 + float64(playerLevel-1)*0.1
-	effectValue := recipe.BaseEffect.Value * recipeType.EffectMultiplier * levelMultiplier
+	var effectValue float64
+
+	// ✅ 特殊处理：渡劫丹效果固定为 5%，不受等级和类型倍数影响
+	if recipe.BaseEffect.Type == "duJieRate" {
+		effectValue = recipe.BaseEffect.Value // 固定 0.05 (5%)
+	} else {
+		// 基础效果随境界提升
+		levelMultiplier := 1.0 + float64(playerLevel-1)*0.1
+		effectValue = recipe.BaseEffect.Value * recipeType.EffectMultiplier * levelMultiplier
+	}
 
 	return PillEffectResult{
 		Type:        recipe.BaseEffect.Type,

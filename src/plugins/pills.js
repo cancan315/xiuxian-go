@@ -237,11 +237,21 @@ export const pillRecipes = [
 export const calculatePillEffect = (recipe, playerLevel) => {
   const grade = pillGrades[recipe.grade]
   const type = pillTypes[recipe.type]
-  // 基础效果随境界提升
-  const levelMultiplier = 1 + (playerLevel - 1) * 0.1
+  
+  let effectValue
+  
+  // ✅ 特殊处理：渡劫丹效果固定为 5%，不受等级和类型倍数影响
+  if (recipe.baseEffect.type === 'duJieRate') {
+    effectValue = recipe.baseEffect.value // 固定 0.05 (5%)
+  } else {
+    // 基础效果随境界提升
+    const levelMultiplier = 1 + (playerLevel - 1) * 0.1
+    effectValue = recipe.baseEffect.value * type.effectMultiplier * levelMultiplier
+  }
+  
   return {
     type: recipe.baseEffect.type,
-    value: recipe.baseEffect.value * type.effectMultiplier * levelMultiplier,
+    value: effectValue,
     duration: recipe.baseEffect.duration,
     successRate: grade.successRate
   }

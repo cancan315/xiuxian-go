@@ -2087,5 +2087,47 @@ class APIService {
       return { success: false, message: '获取除魔卫道列表失败: ' + error.message }
     }
   }
+
+  // ==================== 签到系统 ====================
+
+  /**
+   * 获取签到状态
+   * @param {string} token - 用户认证token
+   * @returns {Promise<Object>} 签到状态信息
+   */
+  static async getCheckInStatus(token) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/player/checkin/status`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      return response.json()
+    } catch (error) {
+      return { success: false, message: '获取签到状态失败: ' + error.message }
+    }
+  }
+
+  /**
+   * 执行签到
+   * @param {string} token - 用户认证token
+   * @returns {Promise<Object>} 签到结果
+   */
+  static async doCheckIn(token) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/player/checkin`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      return response.json()
+    } catch (error) {
+      return { success: false, message: '签到失败: ' + error.message }
+    }
+  }
 }
 export default APIService;

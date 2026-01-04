@@ -462,18 +462,53 @@ func (s *ExplorationService) eventPetEssence(user *models.User, r *rand.Rand) *E
 }
 
 // eventHerbDiscovery 灵草发现：获得灵草
+// ✅ 修复：使用 Chance 作为权重进行加权随机，Chance=0 的灵草不会通过探索获得
 func (s *ExplorationService) eventHerbDiscovery(user *models.User, r *rand.Rand) *ExplorationEvent {
 	if len(HerbConfigs) == 0 {
 		return nil
 	}
-	herbIndex := r.Intn(len(HerbConfigs))
-	herbConfig := HerbConfigs[herbIndex]
+
+	// ✅ 筛选 Chance > 0 的灵草
+	var activeHerbs []HerbConfig
+	for _, herb := range HerbConfigs {
+		if herb.Chance > 0 {
+			activeHerbs = append(activeHerbs, herb)
+		}
+	}
+
+	if len(activeHerbs) == 0 {
+		return nil
+	}
+
+	// ✅ 计算权重总和
+	totalWeight := 0.0
+	for _, herb := range activeHerbs {
+		totalWeight += herb.Chance
+	}
+
+	// ✅ 在 [0, totalWeight) 区间内取随机数
+	rnd := r.Float64() * totalWeight
+
+	// ✅ 命中区间判断
+	acc := 0.0
+	var selectedHerb *HerbConfig
+	for i := range activeHerbs {
+		acc += activeHerbs[i].Chance
+		if rnd <= acc {
+			selectedHerb = &activeHerbs[i]
+			break
+		}
+	}
+
+	if selectedHerb == nil {
+		return nil
+	}
 
 	// 创建灵草记录
 	herb := models.Herb{
 		UserID: s.userID,
-		HerbID: herbConfig.ID,
-		Name:   herbConfig.Name,
+		HerbID: selectedHerb.ID,
+		Name:   selectedHerb.Name,
 		Count:  1,
 	}
 	if err := db.DB.Create(&herb).Error; err != nil {
@@ -482,8 +517,8 @@ func (s *ExplorationService) eventHerbDiscovery(user *models.User, r *rand.Rand)
 
 	return &ExplorationEvent{
 		Type:        EventTypeHerbFound,
-		Description: fmt.Sprintf("获得%s", herbConfig.Name),
-		Amount:      int(herbConfig.BaseValue),
+		Description: fmt.Sprintf("获得%s", selectedHerb.Name),
+		Amount:      int(selectedHerb.BaseValue),
 	}
 }
 

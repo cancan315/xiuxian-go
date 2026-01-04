@@ -27,12 +27,14 @@ type PvERewards struct {
 	Quality string `json:"quality"` // 灵草品质
 }
 
-// DemonSlayingRewards 除魔卫道战斗奖励结果（灵石、修为、丹方残页）
+// DemonSlayingRewards 除魔卫道战斗奖励结果（灵石、修为、丹方残页/装备/灵宠）
 type DemonSlayingRewards struct {
-	SpiritStones     int64  `json:"spirit_stones"`      // 灵石奖励
-	Cultivation      int64  `json:"cultivation"`        // 修为奖励
-	PillFragmentID   string `json:"pill_fragment_id"`   // 丹方残页ID（可为空）
-	PillFragmentName string `json:"pill_fragment_name"` // 丹方名称
+	SpiritStones            int64  `json:"spirit_stones"`             // 灵石奖励
+	Cultivation             int64  `json:"cultivation"`               // 修为奖励
+	PillFragmentID          string `json:"pill_fragment_id"`          // 丹方残页ID（可为空）
+	PillFragmentName        string `json:"pill_fragment_name"`        // 丹方名称
+	ShouldGenerateEquipment bool   `json:"should_generate_equipment"` // 是否应生成装备奖励
+	ShouldGeneratePet       bool   `json:"should_generate_pet"`       // 是否应生成灵宠奖励
 }
 
 // RewardService 奖励服务
@@ -63,10 +65,6 @@ func (rs *RewardService) CalculateRewards(status *PvPBattleStatus, playerLevel i
 // CalculateRewardsForPvE 计算降伏妖兽战斗奖励（仅灵草）
 // difficulty: normal(普通), hard(困难), boss(噩梦)
 func (rs *RewardService) CalculateRewardsForPvE(status *PvEBattleStatus, playerLevel int, difficulty string) *PvERewards {
-	// 70% 概率不奖励任何物品
-	if rand.Float64() < 0.7 {
-		return nil
-	}
 
 	// 从配置中随机选择一种灵草
 	if len(exploration.HerbConfigs) == 0 {
@@ -74,9 +72,68 @@ func (rs *RewardService) CalculateRewardsForPvE(status *PvEBattleStatus, playerL
 		return nil
 	}
 
-	// 随机选择一种灵草
-	randomIndex := rand.Intn(len(exploration.HerbConfigs))
-	herbConfig := exploration.HerbConfigs[randomIndex]
+	// ✅ 根据妖兽名称固定奖励灵草
+	monsterHerbMap := map[string]string{
+		"赤焰虎":  "spirit_grass",       // 灵精草
+		"青木狼":  "cloud_flower",       // 云雾花
+		"苍石熊":  "thunder_root",       // 雷击根
+		"雷击树妖": "thunder_root",       // 雷击根（兼容旧名称）
+		"黑水玄蛇": "dragon_breath_herb", // 龙息草
+		"裂风螳螂": "dark_yin_grass",     // 玄阴草
+		"寒晶毒蝎": "frost_lotus",        // 寒霜莲
+		"金翅大鹏": "nine_leaf_lingzhi",  // 九叶灵芝
+		"八荒幻蝶": "purple_ginseng",     // 紫金参
+	}
+
+	var herbConfig *exploration.HerbConfig
+
+	// 查找固定奖励的灵草
+	if herbID, ok := monsterHerbMap[status.MonsterName]; ok {
+		// 固定奖励
+		for i := range exploration.HerbConfigs {
+			if exploration.HerbConfigs[i].ID == herbID {
+				herbConfig = &exploration.HerbConfigs[i]
+				break
+			}
+		}
+	}
+
+	// 如果未找到固定奖励（如太阴玉蟾），使用加权随机
+	if herbConfig == nil {
+		// 筛选 Chance > 0 的灵草
+		var activeHerbs []exploration.HerbConfig
+		for _, herb := range exploration.HerbConfigs {
+			if herb.Chance > 0 {
+				activeHerbs = append(activeHerbs, herb)
+			}
+		}
+
+		if len(activeHerbs) == 0 {
+			log.Printf("[Reward] 没有可用的灵草（所有灵草 Chance 均为 0）")
+			return nil
+		}
+
+		// 使用 Chance 字段进行加权随机选择
+		totalWeight := 0.0
+		for _, herb := range activeHerbs {
+			totalWeight += herb.Chance
+		}
+
+		rnd := rand.Float64() * totalWeight
+		acc := 0.0
+		for i := range activeHerbs {
+			acc += activeHerbs[i].Chance
+			if rnd <= acc {
+				herbConfig = &activeHerbs[i]
+				break
+			}
+		}
+
+		// 容错处理：如果未选中，选择最后一个
+		if herbConfig == nil {
+			herbConfig = &activeHerbs[len(activeHerbs)-1]
+		}
+	}
 
 	// 随机生成灵草品质
 	quality := exploration.GetRandomQuality(rand.Float64())
@@ -97,7 +154,7 @@ func (rs *RewardService) CalculateRewardsForPvE(status *PvEBattleStatus, playerL
 	}
 }
 
-// CalculateRewardsForDemonSlaying 计算除魔卫道战斗奖励（灵石、修为、丹方残页）
+// CalculateRewardsForDemonSlaying 计算除魔卫道战斗奖励（灵石、修为、丹方残页/装备）
 // difficulty: normal(普通), hard(困难), boss(噩梦)
 func (rs *RewardService) CalculateRewardsForDemonSlaying(status *PvEBattleStatus, playerLevel int, difficulty string) *DemonSlayingRewards {
 	// 基础灵石奖励（比PvP少一些）
@@ -116,7 +173,23 @@ func (rs *RewardService) CalculateRewardsForDemonSlaying(status *PvEBattleStatus
 	log.Printf("[Reward] 计算除魔卫道奖励 - 玩家等级: %d, 难度: %s, 倍数: %.2f, 灵石: %d, 修为: %d",
 		playerLevel, difficulty, multiplier, rewards.SpiritStones, rewards.Cultivation)
 
-	// 20% 概率获得丹方残页
+	// ✅ 百炼宗叛徒特殊处理：奖励装备而不是丹方残页
+	if status.MonsterName == "百炼宗叛徒" {
+		// 100% 概率获得装备
+		rewards.ShouldGenerateEquipment = true
+		log.Printf("[Reward] 百炼宗叛徒掉落装备奖励")
+		return rewards
+	}
+
+	// ✅ 兽王宗叛徒特殊处理：奖励灵宠而不是丹方残页
+	if status.MonsterName == "兽王宗叛徒" {
+		// 100% 概率获得灵宠
+		rewards.ShouldGeneratePet = true
+		log.Printf("[Reward] 兽王宗叛徒掉落灵宠奖励")
+		return rewards
+	}
+
+	// 其他怪物：20% 概率获得丹方残页
 	if rand.Float64() < 0.2 {
 		// 从探索配置中随机选择一个丹方（按权重）
 		var activeRecipes []exploration.PillRecipe

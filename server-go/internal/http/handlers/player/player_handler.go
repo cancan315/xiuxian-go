@@ -1226,11 +1226,16 @@ func ConsumePill(c *gin.Context) {
 	}
 
 	// 更新用户统计数据（从 BaseAttributes JSON 中更新 pillsConsumed）
-	baseAttrs := jsonToFloatMap(user.BaseAttributes)
+	// ✅ 使用 jsonToMap 保留所有字段类型（包括 unlockedRealms 数组和 duJieRate 等）
+	baseAttrs := jsonToMap(user.BaseAttributes)
 	if baseAttrs == nil {
-		baseAttrs = make(map[string]float64)
+		baseAttrs = make(map[string]interface{})
 	}
-	baseAttrs["pillsConsumed"]++
+	if v, ok := baseAttrs["pillsConsumed"].(float64); ok {
+		baseAttrs["pillsConsumed"] = v + 1
+	} else {
+		baseAttrs["pillsConsumed"] = float64(1)
+	}
 	user.BaseAttributes = toJSON(baseAttrs)
 
 	if err := db.DB.Model(&user).Update("base_attributes", user.BaseAttributes).Error; err != nil {

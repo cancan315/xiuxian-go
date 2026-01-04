@@ -23,6 +23,18 @@ func jsonToFloatMap(j datatypes.JSON) map[string]float64 {
 	return m
 }
 
+// jsonToMap 将 JSON 转换为 map[string]interface{}，保留所有字段类型
+func jsonToMap(j datatypes.JSON) map[string]interface{} {
+	if len(j) == 0 {
+		return map[string]interface{}{}
+	}
+	var m map[string]interface{}
+	if err := json.Unmarshal(j, &m); err != nil {
+		return map[string]interface{}{}
+	}
+	return m
+}
+
 func toJSON(v interface{}) datatypes.JSON {
 	if v == nil {
 		return datatypes.JSON("null")
@@ -513,16 +525,20 @@ func updateBaseAttributeAttack(user *models.User, addValue float64) error {
 
 // updateBaseAttributeDuJieRate 更新渡劫成功率 (duJieRate 存储于 BaseAttributes JSON 中)
 func updateBaseAttributeDuJieRate(user *models.User, addValue float64) error {
-	baseAttrs := jsonToFloatMap(user.BaseAttributes)
+	// ✅ 使用 jsonToMap 保留所有字段类型（包括 unlockedRealms 数组等）
+	baseAttrs := jsonToMap(user.BaseAttributes)
 	if baseAttrs == nil {
-		baseAttrs = make(map[string]float64)
+		baseAttrs = make(map[string]interface{})
 	}
 	// 获取当前的 duJieRate，大与等于 1.0 时无法再增加
-	currentRate := baseAttrs["duJieRate"]
+	currentRate := 0.0
+	if v, ok := baseAttrs["duJieRate"].(float64); ok {
+		currentRate = v
+	}
 	if currentRate >= 1.0 {
 		return nil
 	}
-	// 增加效果值，但不详超过 1.0
+	// 增加效果值，但不超过 1.0
 	newRate := currentRate + addValue
 	if newRate > 1.0 {
 		newRate = 1.0

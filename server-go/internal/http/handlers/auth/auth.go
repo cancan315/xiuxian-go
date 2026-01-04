@@ -94,7 +94,7 @@ func Register(c *gin.Context) {
 		ReinforceStones:   0,
 		RefinementStones:  0,
 		PetEssence:        0,
-		BaseAttributes:    datatypes.JSON([]byte("{\"attack\":10,\"health\":100,\"defense\":5,\"speed\":10,\"spiritRate\":1.0,\"cultivationRate\":1.0,\"pillsConsumed\":0,\"duJieRate\":0.05}")),
+		BaseAttributes:    datatypes.JSON([]byte("{\"attack\":10,\"health\":100,\"defense\":5,\"speed\":10,\"spiritRate\":1.0,\"cultivationRate\":1.0,\"pillsConsumed\":0,\"duJieRate\":0.05,\"checkInDay\":0,\"lastCheckInDate\":\"\"}")),
 		CombatAttributes:  datatypes.JSON([]byte("{\"critRate\":0,\"comboRate\":0,\"counterRate\":0,\"stunRate\":0,\"dodgeRate\":0,\"vampireRate\":0}")),
 		CombatResistance:  datatypes.JSON([]byte("{\"critResist\":0,\"comboResist\":0,\"counterResist\":0,\"stunResist\":0,\"dodgeResist\":0,\"vampireResist\":0}")),
 		SpecialAttributes: datatypes.JSON([]byte("{\"healBoost\":0,\"critDamageBoost\":0,\"critDamageReduce\":0,\"finalDamageBoost\":0,\"finalDamageReduce\":0,\"combatBoost\":0,\"resistanceBoost\":0}")),

@@ -9,8 +9,11 @@ import (
 	"xiuxian/server-go/internal/db"
 	"xiuxian/server-go/internal/dungeon/battle/formula"
 	"xiuxian/server-go/internal/dungeon/battle/resolver"
+	"xiuxian/server-go/internal/gacha"
 	"xiuxian/server-go/internal/models"
 	"xiuxian/server-go/internal/redis"
+
+	"go.uber.org/zap"
 )
 
 // PvEBattleService PvE 妖兽战斗服务
@@ -287,6 +290,39 @@ func (s *PvEBattleService) ExecutePvERound() (*PvPRoundData, error) {
 								"count": 1,
 							})
 						}
+						// ✅ 装备奖励（百炼宗叛徒特殊奖励）
+						if demonRewards.ShouldGenerateEquipment {
+							logger := zap.NewNop() // 使用空日志
+							equipment, err := gacha.GenerateEquipment(uint(s.playerID), user.Level, logger)
+							if err != nil {
+								log.Printf("[PvE] 生成装备奖励失败: %v", err)
+							} else {
+								rewardItems = append(rewardItems, map[string]interface{}{
+									"type":    "equipment",
+									"id":      equipment.ID,
+									"name":    equipment.Name,
+									"quality": equipment.Quality,
+									"stats":   equipment.Stats,
+								})
+								log.Printf("[PvE] 百炼宗叛徒奖励装备: %s (品质: %s)", equipment.Name, equipment.Quality)
+							}
+						}
+						// ✅ 灵宠奖励（兽王宗叛徒特殊奖励）
+						if demonRewards.ShouldGeneratePet {
+							logger := zap.NewNop() // 使用空日志
+							pet, err := gacha.GeneratePet(uint(s.playerID), user.Level, logger)
+							if err != nil {
+								log.Printf("[PvE] 生成灵宠奖励失败: %v", err)
+							} else {
+								rewardItems = append(rewardItems, map[string]interface{}{
+									"type":   "pet",
+									"id":     pet.ID,
+									"name":   pet.Name,
+									"rarity": pet.Rarity,
+								})
+								log.Printf("[PvE] 兽王宗叛徒奖励灵宠: %s (稀有度: %s)", pet.Name, pet.Rarity)
+							}
+						}
 					}
 				}
 			} else {
@@ -486,6 +522,39 @@ func (s *PvEBattleService) ExecutePvERound() (*PvPRoundData, error) {
 									"name":  demonRewards.PillFragmentName,
 									"count": 1,
 								})
+							}
+							// ✅ 装备奖励（百炼宗叛徒特殊奖励）
+							if demonRewards.ShouldGenerateEquipment {
+								logger := zap.NewNop() // 使用空日志
+								equipment, err := gacha.GenerateEquipment(uint(s.playerID), user.Level, logger)
+								if err != nil {
+									log.Printf("[PvE] 生成装备奖励失败: %v", err)
+								} else {
+									rewardItems = append(rewardItems, map[string]interface{}{
+										"type":    "equipment",
+										"id":      equipment.ID,
+										"name":    equipment.Name,
+										"quality": equipment.Quality,
+										"stats":   equipment.Stats,
+									})
+									log.Printf("[PvE] 百炼宗叛徒奖励装备: %s (品质: %s)", equipment.Name, equipment.Quality)
+								}
+							}
+							// ✅ 灵宠奖励（兽王宗叛徒特殊奖励）
+							if demonRewards.ShouldGeneratePet {
+								logger := zap.NewNop() // 使用空日志
+								pet, err := gacha.GeneratePet(uint(s.playerID), user.Level, logger)
+								if err != nil {
+									log.Printf("[PvE] 生成灵宠奖励失败: %v", err)
+								} else {
+									rewardItems = append(rewardItems, map[string]interface{}{
+										"type":   "pet",
+										"id":     pet.ID,
+										"name":   pet.Name,
+										"rarity": pet.Rarity,
+									})
+									log.Printf("[PvE] 兽王宗叛徒奖励灵宠: %s (稀有度: %s)", pet.Name, pet.Rarity)
+								}
 							}
 						}
 					}

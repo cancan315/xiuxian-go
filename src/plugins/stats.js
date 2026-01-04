@@ -76,7 +76,8 @@ export const formatStatValue = (stat, value) => {
     'resistanceBoost',
     'cultivationRate',
     'spiritRate',
-    'luck'
+    'luck',
+    'duJieRate'  // 渡劫成功率
   ]
   if (percentageStats.includes(stat)) {
     return `${(value * 100).toFixed(1)}%`

@@ -38,6 +38,8 @@
                 {{ reward.type === 'cultivation' ? `修为 +${reward.amount}` : '' }}
                 {{ reward.type === 'herb' ? `${reward.name} +${reward.count}` : '' }}
                 {{ reward.type === 'pill_fragment' ? `${reward.name}残页 +${reward.count}` : '' }}
+                {{ reward.type === 'equipment' ? `装备: ${reward.name} (品质: ${getQualityName(reward.quality)})` : '' }}
+                {{ reward.type === 'pet' ? `灵宠: ${reward.name} (稀有度: ${getRarityName(reward.rarity)})` : '' }}
               </n-tag>
             </div>
           </n-space>
@@ -115,6 +117,32 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { NModal, NSpace, NTag, NDivider } from 'naive-ui'
+
+// 装备品质中文映射
+const qualityNames = {
+  mythic: '仙器',
+  legendary: '伪仙器',
+  epic: '灵器',
+  rare: '魔器',
+  uncommon: '法器',
+  common: '凡器'
+}
+
+// 灵宠稀有度中文映射
+const rarityNames = {
+  mythic: '仙兽',
+  legendary: '瑞兽',
+  epic: '上古异兽',
+  rare: '灵兽',
+  uncommon: '妖兽',
+  common: '凡兽'
+}
+
+// 获取品质中文名
+const getQualityName = (quality) => qualityNames[quality] || quality
+
+// 获取稀有度中文名
+const getRarityName = (rarity) => rarityNames[rarity] || rarity
 
 // 定义 props
 const props = defineProps({

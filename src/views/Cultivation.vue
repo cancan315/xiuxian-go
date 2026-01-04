@@ -70,7 +70,7 @@
                 <Sparkles />
               </n-icon>
             </template>
-            道友困于瓶颈百年，已将境界打磨圆满，理应借助雷劫，打碎桎梏。服用渡劫丹可增加渡劫成功率。
+            道友困于瓶颈百年，已将境界打磨圆满，理应借助雷劫，打碎桎梏。渡劫会消耗装备和灵宠。服用渡劫丹可增加渡劫成功率。
           </n-alert>
           <n-alert v-else type="info" show-icon>
             <template #icon>
@@ -279,6 +279,10 @@
         message.success(response.message)
         if (breakthroughLogRef.value) {
           breakthroughLogRef.value.addLog(response.message)
+          // 显示消耗提示消息
+          if (response.consumeMessage) {
+            breakthroughLogRef.value.addLog(response.consumeMessage)
+          }
         }
         return true
       } else {
@@ -289,6 +293,10 @@
         message.error(response.message)
         if (breakthroughLogRef.value) {
           breakthroughLogRef.value.addLog(response.message)
+          // 显示消耗提示消息
+          if (response.consumeMessage) {
+            breakthroughLogRef.value.addLog(response.consumeMessage)
+          }
         }
         return false
       }

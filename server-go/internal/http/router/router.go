@@ -74,6 +74,10 @@ func RegisterRoutes(r *gin.Engine) {
 		playerGroup.POST("/pets/:id/upgrade", player.UpgradePet)
 		playerGroup.POST("/pets/:id/evolve", player.EvolvePet)
 		playerGroup.POST("/pets/batch-release", player.BatchReleasePets)
+
+		// 签到系统
+		playerGroup.GET("/checkin/status", player.GetCheckInStatus)
+		playerGroup.POST("/checkin", player.DoCheckIn)
 	}
 
 	// /api/online 路由（无需鉴权）

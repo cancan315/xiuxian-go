@@ -17,9 +17,9 @@ export const getRealmTagType = (level) => {
  */
 export const getDifficultyTagType = (difficulty) => {
   const map = {
-    normal: 'info',
-    hard: 'warning',
-    nightmare: 'error'
+    lianqi: 'info',
+    zhuji: 'warning',
+    jindan: 'error'
   }
   return map[difficulty] || 'default'
 }
@@ -31,9 +31,9 @@ export const getDifficultyTagType = (difficulty) => {
  */
 export const getDifficultyName = (difficulty) => {
   const map = {
-    normal: '普通',
-    hard: '困难',
-    nightmare: '噩梦'
+    lianqi: '练气',
+    zhuji: '筑基',
+    jindan: '金丹'
   }
   return map[difficulty] || difficulty
 }
@@ -58,7 +58,7 @@ export const getLogTagType = (type) => {
  * 难度选项列表
  */
 export const difficulties = [
-  { label: '普通', value: 'normal' },
-  { label: '困难', value: 'hard' },
-  { label: '噩梦', value: 'nightmare' }
+  { label: '练气', value: 'lianqi' },
+  { label: '筑基', value: 'zhuji' },
+  { label: '金丹', value: 'jindan' }
 ]

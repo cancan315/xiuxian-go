@@ -140,7 +140,7 @@ const message = useMessage()
 const playerInfoStore = usePlayerInfoStore()
 
 // 状态管理
-const selectedDifficulty = ref('normal')
+const selectedDifficulty = ref('lianqi')
 const monsters = ref([])
 const currentPage = ref(1)
 const pageSize = ref(10)
@@ -173,9 +173,9 @@ const autoFightLogRef = ref(null)
 
 // 难度选项
 const difficulties = [
-  { label: '普通', value: 'normal' },
-  { label: '困难', value: 'hard' },
-  { label: '噩梦', value: 'boss' }
+  { label: '练气', value: 'lianqi' },
+  { label: '筑基', value: 'zhuji' },
+  { label: '金丹', value: 'jindan' }
 ]
  // 开始下一场自动战斗
 const startNextAutoBattle = async () => {

@@ -36,6 +36,8 @@ type User struct {
 	// 灵力自动增长相关字段
 	LastSpiritGainTime time.Time `gorm:"column:last_spirit_gain_time" json:"lastSpiritGainTime"`
 
+	// 签到相关字段已移至 BaseAttributes JSON 中（checkInDay, lastCheckInDate）
+
 	// 其他字段先不全部展开，后续需要再补充
 
 	CreatedAt time.Time `gorm:"column:created_at"`
